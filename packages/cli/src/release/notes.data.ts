@@ -5,44 +5,74 @@
  * it answers offline, it always describes the version actually running, and it
  * never depends on GitHub being reachable. The generated CHANGELOG.md stays
  * where it belongs — the commit-level history a developer reads — and the
- * dialog links out to the release page for that full list.
+ * What's New page links out to the releases page for that full list.
  *
  * One entry per published version, newest first. `releaseNotes.test.ts` holds
  * the top entry to the version in package.json, so a release PR goes red until
  * a human has written this. That failure is the feature.
  */
 
+import { compareSemver } from '../update/versionsDir.js';
+
+/** Where the pictures live, from the repo root. The studio bundles this folder. */
+export const PICTURE_DIR = 'apps/studio/src/assets/whatsnew';
+
+/**
+ * How far back What's New reaches inside the app: down to this many headline
+ * updates, with the small ones between them. Everything older is the releases
+ * page's, which is the archive.
+ */
+export const HEADLINES_KEPT = 5;
+
+/**
+ * A picture of the real app, shipped inside the studio bundle
+ * (`apps/studio/src/assets/whatsnew/`), so What's New shows it offline.
+ * Shot with `pnpm capture:whatsnew` and looked at by a person before it lands.
+ */
+export interface ReleaseImage {
+  /** `<version>-<words>.webp`: a file name in PICTURE_DIR, never a path. */
+  file: string;
+  /** What is on screen, in one plain sentence, for someone who cannot see it. */
+  alt: string;
+}
+
 export interface ReleaseSection {
   /** A product area, not a commit scope: "Create", "Scenes", "Fixes". */
   heading: string;
   /** One or two sentences. What it means for the work, not what the diff did. */
   body: string;
+  /**
+   * The change this section describes, as it looks in the app. Only a headline
+   * update carries pictures, at most three; the first one is the dialog's.
+   */
+  image?: ReleaseImage;
 }
 
 export interface ReleaseEntry {
   /** Exact semver, matching the published tag. */
   version: string;
-  /** ISO yyyy-mm-dd. Rendered in the reader's locale. */
+  /** ISO yyyy-mm-dd. */
   date: string;
-  /** Optional one-line headline above the sections. */
+  /**
+   * The headline, which is also the tier. A record with a title is a
+   * **headline update**: the one kind that may open What's New by itself, and
+   * the only kind that carries pictures. A record without one is a **small
+   * update**: it marks Help as unread and is a line on the What's New page,
+   * and it never interrupts.
+   */
   title?: string;
   /**
-   * Two to four. More than that is a changelog, and there is one of those
-   * already.
+   * One to three inside the in-app window (four is the old ceiling). More than
+   * that is a changelog, and there is one of those already.
    *
    * **Empty is legal and meaningful**: it says "this version changed nothing a
    * user would notice" — a maintenance release, a build fix, a dependency
    * bump. Every published version still gets a record, so a missing entry
    * always means someone forgot; an empty one always means there was nothing
-   * to say. What's New stays shut for these: no dialog, no unread dot, and
-   * opening it by hand names the version and links to the full changelog.
+   * to say. What's New says nothing about these: no dialog, no unread mark,
+   * no line on the page.
    */
   sections: ReleaseSection[];
-  /**
-   * Reserved. A release with a genuinely visual change may carry one supporting
-   * image; nothing renders it yet, and it is never a carousel.
-   */
-  image?: string;
 }
 
 // 0.1.0 and 0.1.1 were published to npm and unpublished on 2026-08-17; those
@@ -60,7 +90,7 @@ export const RELEASES: ReleaseEntry[] = [
       },
       {
         heading: 'Library',
-        body: 'The library download is checked against the exact archive this version was released with, and nothing is installed unless it matches.',
+        body: 'The library download is checked before anything is installed, and one that does not match what this version expects is never used.',
       },
       {
         heading: 'Fixes',
@@ -71,23 +101,27 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.19.0',
     date: '2026-09-26',
-    title: 'A new Scenri library.',
+    title: 'A new library of products, presenters and scenes',
     sections: [
       {
         heading: 'Library',
-        body: "Scenri's library is new: 30 products, 19 presenters and 42 scenes, with 110 examples on Home. Every view and example is 1536 by 1920, and cards read sharp at every size they are shown.",
+        body: 'The library now holds 30 products, 19 presenters and 42 scenes, with 110 examples on Home. Cards stay sharp at every size they are shown.',
+        image: {
+          file: '0.19.0-home-examples.webp',
+          alt: "Home's example wall: new product and people shots, with tabs for each kind of example above them.",
+        },
       },
       {
         heading: 'Scenes',
-        body: "A scene leads with its hero. Any of its pictures can be the frame a shot follows, from the scene's page or from its chip, whose picker now opens on the scene's own pictures. Five of the Home examples follow one this way.",
+        body: "Scene cards show each place in use, not empty. Any picture of a scene can be the frame a shot follows: press Use this view on the scene's page, or pick it from the scene's chip in your prompt.",
+        image: {
+          file: '0.19.0-use-this-view.webp',
+          alt: "A scene's page with its pictures side by side and Use this view on the empty place.",
+        },
       },
       {
         heading: 'Create',
-        body: 'A presenter is dressed for the place and holds a pose real physics allows, a product carries its written size into the brief, and a close-up follows the product wherever a set has one.',
-      },
-      {
-        heading: 'Fixes',
-        body: "Presenter and scene conversations recover from a failed press, a retry or a restart without losing their place. A brand kit rename made in a second window stays, Tab leaves a brief that holds a chip, a shot sent right after switching brands is filed in the brand on screen, and a deleted presenter's revisions stay out of a brand export.",
+        body: "Presenters are dressed for the place, and lean or sit only on things that could hold them. A scene's close-up moves in on the product, keeping the person only where they wear it.",
       },
     ],
   },
@@ -104,18 +138,19 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.18.1',
     date: '2026-09-26',
+    title: 'Pictures made with Codex use far less of your ChatGPT plan',
     sections: [
       {
         heading: 'Codex',
-        body: 'Pictures made with Codex use far less of your ChatGPT plan. Every run uses gpt-6-sol, draws each picture once and no longer pastes the finished picture into its own conversation. It needs Codex CLI 0.157.1 or newer, and Scenri says when to update.',
+        body: 'Codex now draws each picture once and no longer pastes the finished picture back into its own conversation. It needs Codex CLI 0.157.1 or newer, and Scenri says when yours is too old.',
       },
       {
-        heading: 'Phone access',
-        body: 'A phone with the access code can no longer delete the library, change provider keys or spend caps, install an update or shut Scenri down. Those stay on the computer running Scenri, and the phone no longer offers them.',
+        heading: 'Local access',
+        body: 'A phone or tablet signed in with the code can no longer delete the library, change provider keys or spend caps, install an update or shut Scenri down. Only the computer running Scenri can.',
       },
       {
         heading: 'Fixes',
-        body: 'A library download that stalls now gives up instead of waiting for the rest of the session, and store and brand scans no longer reach private network addresses.',
+        body: 'A library download that stalls now stops, and the library you already have keeps working.',
       },
     ],
   },
@@ -125,19 +160,15 @@ export const RELEASES: ReleaseEntry[] = [
     sections: [
       {
         heading: 'Create',
-        body: 'A new shot opens at portrait, one picture, standard quality. A choice already saved still wins.',
+        body: 'A new shot starts in portrait, with one picture at Standard quality. A setting you already saved still wins.',
       },
       {
         heading: 'Library',
-        body: 'A presenter, a product and a scene are kept from their own page. Filing and size show as chips, an empty Keepers tab offers the whole wall, and catalog cards stay a readable size as the window narrows.',
+        body: "Keep a product, presenter or scene with the star on its own page, yours or Scenri's. A product's size shows as a chip and changes in Details.",
       },
       {
         heading: 'Shots',
-        body: 'Download comes before archive or delete, and Keep stays last. The remove stays the same glass as the rest of the row until the pointer is on it.',
-      },
-      {
-        heading: 'Activity',
-        body: 'An empty Activity panel is the heading and one sentence.',
+        body: 'On a shot, Download comes first, then Archive or Delete, then the Keepers star.',
       },
     ],
   },
@@ -147,7 +178,7 @@ export const RELEASES: ReleaseEntry[] = [
     sections: [
       {
         heading: 'Presenters',
-        body: 'A brief left waiting in Create brings its presenters back as they are now, so a shot started after you edit someone uses their new pictures.',
+        body: 'A prompt left waiting in Create uses each presenter as they are now, so a shot started after you edit someone gets their new pictures.',
       },
     ],
   },
@@ -157,66 +188,72 @@ export const RELEASES: ReleaseEntry[] = [
     sections: [
       {
         heading: 'Presenters',
-        body: "A presenter keeps their own face, hair, build, glasses and tattoos when a scene or a reference picture shows someone else, with every mark on its own side. A picture used for a pose no longer dresses them in that person's clothes, and their descriptions are no longer cut off mid-word.",
+        body: "A presenter keeps their own face, hair, build, glasses and tattoos when a scene or reference picture shows someone else. A picture used for a pose no longer dresses them in that person's clothes.",
       },
     ],
   },
   {
     version: '0.17.0',
     date: '2026-09-24',
+    title: 'Select several of your own products, presenters or scenes',
     sections: [
       {
         heading: 'Library',
-        body: 'Products, presenters and scenes of your own can be selected and then kept or deleted together from a bar at the bottom of the page, and renamed from their menu. Bookmarks are now Keepers, on every page and in every menu.',
+        body: 'Select your own products, presenters or scenes from their cards, then keep or delete them together from the bar at the bottom of the page. Rename one from its menu. Bookmarks are now called Keepers.',
+        image: {
+          file: '0.17.0-select-scenes.webp',
+          alt: 'Your own scenes with three selected, and the bar at the bottom to keep or delete them together.',
+        },
       },
       {
-        heading: 'Create',
-        body: 'Home, Create and the libraries share one tab row, with search and size at its end. On a phone, Create keeps its tabs readable and puts the set and the sort in one button beside search. Choosing a tab while scrolled down starts the list from the top.',
+        heading: 'Tabs',
+        body: 'Home, Create, Products, Presenters and Scenes share one tab row, with search and size at its end. On a phone, Create keeps its tabs readable and puts the set and the sort in one button beside search.',
       },
       {
         heading: 'Fixes',
-        body: "Tab counts on Create no longer jump while the page loads. Closing and opening the assets panel keeps the shot you were looking at in place, and alerts no longer cover the composer's buttons.",
+        body: 'Tab counts on Create no longer jump while it loads, a tab chosen while scrolled down starts at the top, and closing and opening the Assets panel keeps the shot you were on in place.',
       },
     ],
   },
   {
     version: '0.16.0',
     date: '2026-09-24',
-    title: 'Open Scenri on your phone or tablet, and Settings with one page for each thing.',
+    title: 'Open Scenri on your phone or tablet',
     sections: [
       {
         heading: 'Local access',
-        body: "Scenri now opens on a phone, tablet or another computer on the same Wi-Fi. Scan the QR code in Settings > Local access, or type the address and enter the six-digit code. The first start may ask whether Node can accept incoming connections; allow it, and if the firewall still stands in the way, Local access says so and, where it can, Allow Scenri fixes it through your computer's own prompt.",
+        body: "Open Scenri on a phone, tablet or another computer on the same Wi-Fi: scan the QR code in Settings > Local access. If your computer's firewall stops it, Local access says so and offers Allow Scenri.",
+        image: {
+          file: '0.16.0-local-access.webp',
+          alt: 'Settings open on Local access, with a QR code to scan and the address and six-digit code to type.',
+        },
       },
       {
         heading: 'Security',
-        body: 'Only devices with the code get in, and wrong guesses are slowed to a crawl. New code, on the computer running Scenri, signs every device out.',
+        body: 'Only devices with the six-digit code get in, and wrong guesses have to wait. Press New code to sign every device out.',
       },
       {
         heading: 'Settings',
-        body: 'Providers, Appearance, Library, Local access, Updates and About each have their own page, and every delete sits under Danger zone. On a phone, a link to a Settings page opens that page.',
+        body: 'Settings has one page for each thing: Providers, Appearance, Library, Local access, Updates and About, with every delete under Danger zone.',
       },
     ],
   },
   {
     version: '0.15.1',
     date: '2026-09-23',
+    title: 'Make a scene by describing it, or by choosing from pictures',
     sections: [
       {
         heading: 'Scenes',
-        body: 'Scenes are now made in a conversation. Describe a place, start from your own pictures or from a shot you already made, or let Guide Me offer worlds, surfaces and light as pictures to choose from. The pictures you give a scene set its mood and are never copied into it. Each scene has its own page, and setups let one world be shot several ways.',
-      },
-      {
-        heading: 'Shots',
-        body: "A small product alone in a scene is drawn at its real size. Glossy products such as phones and laptops are lit and staged like a campaign shoot, with the screen dark unless you ask for something on it. An attached picture now means what the words beside it say, so a screenshot can go on a device's screen, redesigned for that screen when it was made for another shape, and a refine can swap it for a different one.",
+        body: 'Describe a place, start from your own pictures or a shot you already made, or press Guide me and choose a world, its surface and its light from pictures. Your pictures set the mood and are never copied.',
       },
       {
         heading: 'Activity',
-        body: 'Scene and presenter work carries on after you leave the page and shows in the bell and in Activity. A scene still being made stays on the Scenes wall.',
+        body: 'Scene and presenter work keeps going when you leave the page, and shows in the bell and in Activity. A scene still being made stays on the Scenes wall.',
       },
       {
-        heading: 'Create',
-        body: 'Searching your shots narrows from the first letter, in any alphabet, and matches the words you wrote.',
+        heading: 'Shots',
+        body: "A small product alone in a scene is drawn at its real size. Phones, laptops and other glossy products are lit like a campaign shoot, and an attached picture can go on a device's screen when your words say so.",
       },
     ],
   },
@@ -1157,12 +1194,53 @@ export function releaseFor(version: string): ReleaseEntry | null {
 }
 
 /**
- * Whether a release has anything to tell a user about. The one question that
- * decides if What's New may interrupt: a record with no sections is a release
- * that happened, not news.
+ * Whether a release has anything to tell a user about: a record with no
+ * sections is a release that happened, not news. Newsworthy records are the
+ * What's New history; of those, only a headline update (one with a title) may
+ * open the dialog by itself.
  */
 export function isNewsworthy(entry: ReleaseEntry | null): boolean {
   return (entry?.sections.length ?? 0) > 0;
+}
+
+export interface WhatsNewWindow {
+  /** What the app shows, newest first: newsworthy records down to the HEADLINES_KEPT-th headline. */
+  recent: ReleaseEntry[];
+  /** Versions in `recent` newer than `seen` and no newer than the running one, newest first. */
+  unseen: string[];
+  /** The newest unseen headline update: the one thing that may open by itself. */
+  lead: string | null;
+}
+
+/**
+ * The part of the record What's New shows, and what in it is new to this
+ * computer. One definition for the route, the validator and the picture test.
+ *
+ * `seen` is a version and compared as one: an update shows what is newer than
+ * the last one read, a rolled-back build shows nothing, and a string that is
+ * not a version counts as older than everything. A 0.0.0 build is the
+ * placeholder release-please has not bumped: it sees the newest records and
+ * has nothing unseen, because no release is at or below it.
+ */
+export function whatsNewWindow(releases: ReleaseEntry[], running: string, seen: string | null = null): WhatsNewWindow {
+  const released = running !== '0.0.0';
+  const recent: ReleaseEntry[] = [];
+  let headlines = 0;
+  for (const r of releases) {
+    if (headlines === HEADLINES_KEPT) break;
+    if (!isNewsworthy(r)) continue;
+    if (released && compareSemver(r.version, running) > 0) continue;
+    recent.push(r);
+    if (r.title) headlines++;
+  }
+  const unseen =
+    seen === null || !released
+      ? []
+      : recent
+          .filter((r) => compareSemver(seen, r.version) < 0 && compareSemver(r.version, running) <= 0)
+          .map((r) => r.version);
+  const lead = recent.find((r) => r.title && unseen.includes(r.version))?.version ?? null;
+  return { recent, unseen, lead };
 }
 
 /** Words that mean someone started selling rather than telling. */
@@ -1191,6 +1269,11 @@ export function validateReleases(releases: ReleaseEntry[], currentVersion: strin
     );
   }
 
+  // What the app shows is held to the app's copy rules; older records are the
+  // releases page's and keep the words they shipped with.
+  const inApp = new Set(whatsNewWindow(releases, currentVersion).recent.map((r) => r.version));
+  const pictures = new Set<string>();
+
   const seen = new Set<string>();
   let previous: number[] | null = null;
   for (const r of releases) {
@@ -1214,15 +1297,70 @@ export function validateReleases(releases: ReleaseEntry[], currentVersion: strin
     // An empty sections array is legal: it is how a maintenance release says
     // "no news". A section that exists and says nothing is not.
     if (r.sections.length > 4) problems.push(`${where}: ${r.sections.length} sections; four is the ceiling`);
+    if (r.title !== undefined && r.sections.length === 0) {
+      problems.push(`${where}: a title with no sections; a maintenance release has neither`);
+    }
+    const headings = new Set<string>();
     for (const s of r.sections) {
       if (s.heading.trim() === '') problems.push(`${where}: a section with no heading`);
       if (s.body.trim() === '') problems.push(`${where}: section "${s.heading}" says nothing`);
+      if (headings.has(s.heading)) problems.push(`${where}: two sections are called "${s.heading}"`);
+      headings.add(s.heading);
     }
 
-    const prose = [r.title ?? '', ...r.sections.flatMap((s) => [s.heading, s.body])].join(' ');
+    // Pictures: a headline's, few, named for their release, described in words.
+    const pictured = r.sections.filter((s) => s.image);
+    if (pictured.length > 0 && !r.title) {
+      problems.push(
+        `${where}: a picture on a small update; only a headline update (one with a title) carries pictures`,
+      );
+    }
+    if (pictured.length > 3) problems.push(`${where}: ${pictured.length} pictures; three is the ceiling`);
+    if (pictured.length > 0 && !inApp.has(r.version)) {
+      problems.push(
+        `${where}: outside the in-app window, so it carries no pictures; delete their image fields and files`,
+      );
+    }
+    const named = new RegExp(`^${r.version.replace(/\./g, '\\.')}-[a-z0-9]+(?:-[a-z0-9]+)*\\.webp$`);
+    for (const s of pictured) {
+      const { file, alt } = s.image as ReleaseImage;
+      if (!named.test(file)) {
+        problems.push(
+          `${where}: picture "${file}" must be named ${r.version}-<words>.webp, a file name and never a path`,
+        );
+      }
+      if (pictures.has(file)) problems.push(`${where}: picture "${file}" is used twice`);
+      pictures.add(file);
+      if (alt.trim() === '') problems.push(`${where}: picture "${file}" has no alt text`);
+      if (alt.length > 140) {
+        problems.push(
+          `${where}: alt text for "${file}" is ${alt.length} characters; say what is on screen in 140 or fewer`,
+        );
+      }
+    }
+
+    const prose = [r.title ?? '', ...r.sections.flatMap((s) => [s.heading, s.body, s.image?.alt ?? ''])].join(' ');
     if (HYPE.test(prose)) problems.push(`${where}: hype copy; say what changed, not how amazing it is`);
     if (EMOJI.test(prose)) problems.push(`${where}: emoji`);
     if (prose.includes('\u2014') || prose.includes('\u2013')) problems.push(`${where}: long dash`);
+
+    if (inApp.has(r.version)) {
+      if (r.sections.length > 3) {
+        problems.push(`${where}: ${r.sections.length} sections; What's New shows three at most`);
+      }
+      if (r.title && r.title.length > 64) {
+        problems.push(`${where}: title is ${r.title.length} characters; a headline fits in 64`);
+      }
+      for (const s of r.sections) {
+        if (s.body.length > 220) {
+          problems.push(
+            `${where}: section "${s.heading}" is ${s.body.length} characters; two short sentences fit in 220`,
+          );
+        }
+      }
+      if (/\bscenri\b/.test(prose)) problems.push(`${where}: "scenri" in a sentence is Scenri`);
+      if (/\bbriefs?\b/i.test(prose)) problems.push(`${where}: on screen it is the prompt, never the brief`);
+    }
   }
 
   return problems;

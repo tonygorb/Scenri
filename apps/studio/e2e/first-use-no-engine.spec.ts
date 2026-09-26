@@ -27,20 +27,45 @@ test("the first shot begins at the setup, and What's New waits and then counts a
   test.setTimeout(60_000);
   await noWelcomeWait(page);
   await page.addInitScript((ms) => localStorage.setItem('scenri:whatsnew-settle-ms', String(ms)), SETTLE_MS);
+  // A headline update this machine has not read: the one kind that may open
+  // by itself, so holding it back through the welcome and the tutor means
+  // something. The answer is the server's for this record running 9.9.9 with
+  // 9.9.8 read (unseen and lead agree with recent); the acknowledgement is
+  // recorded, never written into the home.
   const acked: string[] = [];
-  await page.route('**/api/release/notes', (route) =>
-    route.fulfill({
+  const HEADLINE = {
+    version: '9.9.9',
+    date: '2026-09-17',
+    title: 'Better picks in Create',
+    sections: [
+      {
+        heading: 'Create',
+        body: 'Better picks.',
+        image: { file: '0.19.0-home-examples.webp', alt: "Home's example wall." },
+      },
+      { heading: 'Fixes', body: 'Mobile layout stability.' },
+    ],
+  };
+  let seen = '9.9.8';
+  await page.route('**/api/release/notes', (route) => {
+    const unseen = seen === '9.9.9' ? [] : ['9.9.9'];
+    return route.fulfill({
       json: {
         version: '9.9.9',
-        entry: { version: '9.9.9', date: '2026-09-17', sections: [{ heading: 'Create', body: 'Better picks.' }] },
-        seen: '9.9.8',
+        entry: HEADLINE,
+        seen,
+        recent: [HEADLINE],
+        unseen,
+        lead: unseen.length > 0 ? '9.9.9' : null,
         changelogUrl: null,
         releasesUrl: null,
       },
-    }),
-  );
+    });
+  });
   await page.route('**/api/release/seen', async (route) => {
-    acked.push(String(route.request().postDataJSON()?.version));
+    const v = String(route.request().postDataJSON()?.version);
+    acked.push(v);
+    seen = v;
     await route.fulfill({ json: { ok: true } });
   });
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -71,5 +96,7 @@ test("the first shot begins at the setup, and What's New waits and then counts a
   await expect(coachCard(page)).toHaveCount(0);
   await page.waitForTimeout(SETTLE_MS * 5);
   await expect(dialog(page)).toHaveCount(0);
-  expect(acked).toContain('9.9.9');
+  expect(acked).toEqual(['9.9.9']);
+  // read, not merely postponed: nothing is left marked on Help either
+  await expect(page.locator('.sc-help-btn .sc-upd-dot')).toHaveCount(0);
 });

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMatch, useNavigate, useSearchParams } from 'react-router';
 import { useAppData, useDialogParam } from '../app/AppShell.js';
+import { ADDRESS_DIALOGS } from '../app/dialogs.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import type { GuideTaskId, GuideTaskNode } from '../api.js';
@@ -43,8 +44,6 @@ const WELCOME_SETTLE_MS = Number(window.localStorage.getItem('scenri:welcome-set
  * which is part of building the brief.
  */
 const MODAL = '[role="dialog"]:not(.sc-coach):not(.sc-attachpanel):not(.sc-swap), [role="alertdialog"], .sc-lightbox';
-/** Dialogs that live in the address. */
-const DIALOG_PARAMS = ['settings', 'setup', 'new', 'whatsnew', 'learn', 'welcome'];
 /** The picker: the one surface the first shot follows into, and the one that makes room on a phone. */
 const PICKER = '[data-guide="compose"] .sc-attachpanel';
 
@@ -141,7 +140,7 @@ export function GuideHost() {
   }, []);
 
   const watching = !!task || welcomePending;
-  const dialogParam = DIALOG_PARAMS.some((k) => params.has(k));
+  const dialogParam = ADDRESS_DIALOGS.some((k) => params.has(k));
   // A control's own popover or the phone's settings sheet is part of the moment, never something over it.
   const modal =
     watching &&

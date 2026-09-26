@@ -14,6 +14,13 @@ import { useDialogParam } from './AppShell.js';
  */
 
 /**
+ * Every dialog that lives in the address. Anything that must wait while one is
+ * open (the tutor, What's New opening by itself) reads this one list, so a new
+ * dialog param is added once and every waiter respects it.
+ */
+export const ADDRESS_DIALOGS = ['settings', 'setup', 'new', 'whatsnew', 'learn', 'welcome'] as const;
+
+/**
  * Where Settings opens. Every id names one page (views/settingsPages.ts),
  * and the older ids stay, so every link and remedy that ever named one still
  * lands: `general` on Appearance, `budget` on Providers.

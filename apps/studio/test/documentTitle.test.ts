@@ -9,6 +9,7 @@ describe('titleFor', () => {
     expect(titleFor('/acme/presenters')).toBe('Presenters - Scenri');
     expect(titleFor('/setup')).toBe('Set up - Scenri');
     expect(titleFor('/acme/kit')).toBe('Brand kit - Scenri');
+    expect(titleFor('/acme/whats-new')).toBe("What's new - Scenri");
   });
 
   it('names home, and keeps the bare word for a path it does not know', () => {

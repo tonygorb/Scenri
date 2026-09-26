@@ -6,8 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { createCore, type Core } from '@scenri/core';
 import { buildServer } from '../src/server.js';
 import { drainTracked, track } from './servers.js';
-import { RELEASES, isNewsworthy, releaseFor, validateReleases } from '../src/release/notes.data.js';
-import type { ReleaseEntry } from '../src/release/notes.data.js';
+import { RELEASES, isNewsworthy, releaseFor, validateReleases, whatsNewWindow } from '../src/release/notes.data.js';
+import type { ReleaseEntry, ReleaseSection } from '../src/release/notes.data.js';
 import type { FastifyInstance } from 'fastify';
 
 const pkg = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json'), 'utf8'));
@@ -132,6 +132,63 @@ describe('GET /api/release/notes', () => {
     await app.inject({ method: 'GET', url: '/api/release/notes' });
     expect(called).toBe(false);
   });
+
+  it('a fresh install gets the window with nothing unseen and nothing to lead', async () => {
+    app = build();
+    const body = (await app.inject({ method: 'GET', url: '/api/release/notes' })).json();
+    expect(body.recent).toEqual(whatsNewWindow(RELEASES, pkg.version, pkg.version).recent);
+    expect(body.unseen).toEqual([]);
+    expect(body.lead).toBeNull();
+  });
+
+  it('an older acknowledgement answers exactly what the window says is new since then', async () => {
+    app = build();
+    expect(core.store.getSetting('install.firstVersion')).not.toBeNull();
+    // The oldest record the app still shows: everything above it is unread.
+    const older = whatsNewWindow(RELEASES, pkg.version).recent.at(-1)?.version as string;
+    core.store.setSetting('whatsnew.seen', older);
+    const body = (await app.inject({ method: 'GET', url: '/api/release/notes' })).json();
+    const expected = whatsNewWindow(RELEASES, pkg.version, older);
+    expect(body.seen).toBe(older);
+    expect(body.recent).toEqual(expected.recent);
+    expect(body.unseen).toEqual(expected.unseen);
+    expect(body.lead).toBe(expected.lead);
+    expect(body.unseen.length).toBeGreaterThan(0);
+  });
+
+  it('a newer acknowledgement than this build is echoed as it is, with nothing unseen', async () => {
+    app = build();
+    core.store.setSetting('whatsnew.seen', '99.0.0');
+    const body = (await app.inject({ method: 'GET', url: '/api/release/notes' })).json();
+    expect(body.seen).toBe('99.0.0');
+    expect(body.unseen).toEqual([]);
+    expect(body.lead).toBeNull();
+    expect(body.recent).toEqual(whatsNewWindow(RELEASES, pkg.version).recent);
+    expect(core.store.getSetting('whatsnew.seen')).toBe('99.0.0');
+  });
+
+  it('heals a marked home that lost its acknowledgement to the running version', async () => {
+    // A brand keeps the boot stamp away, so the marker below is the only one.
+    core.store.createBrand({ specVersion: '0.1', meta: { name: 'Existing' } });
+    core.store.setSetting('install.firstVersion', '0.2.0');
+    app = build();
+    expect(core.store.getSetting('whatsnew.seen')).toBeNull();
+    const body = (await app.inject({ method: 'GET', url: '/api/release/notes' })).json();
+    expect(body.seen).toBe(pkg.version);
+    expect(body.unseen).toEqual([]);
+    expect(core.store.getSetting('whatsnew.seen')).toBe(pkg.version);
+    expect(core.store.getSetting('install.firstVersion')).toBe('0.2.0');
+  });
+
+  it('stamping a home from before the marker never lowers its acknowledgement', async () => {
+    core.store.createBrand({ specVersion: '0.1', meta: { name: 'Existing' } });
+    core.store.setSetting('whatsnew.seen', '99.0.0');
+    app = build();
+    const body = (await app.inject({ method: 'GET', url: '/api/release/notes' })).json();
+    expect(core.store.getSetting('install.firstVersion')).toBe(pkg.version);
+    expect(body.seen).toBe('99.0.0');
+    expect(core.store.getSetting('whatsnew.seen')).toBe('99.0.0');
+  });
 });
 
 describe('POST /api/release/seen', () => {
@@ -148,6 +205,23 @@ describe('POST /api/release/seen', () => {
     app = build();
     core.store.setSetting('whatsnew.seen', '0.0.1');
     const res = await app.inject({ method: 'POST', url: '/api/release/seen', payload: {} });
+    expect(res.statusCode).toBe(200);
+    expect(core.store.getSetting('whatsnew.seen')).toBe(pkg.version);
+  });
+
+  it('never lowers the acknowledgement: a stale tab reading an older version changes nothing', async () => {
+    app = build();
+    await app.inject({ method: 'GET', url: '/api/release/notes' });
+    core.store.setSetting('whatsnew.seen', '99.0.0');
+    const res = await app.inject({ method: 'POST', url: '/api/release/seen', payload: { version: '0.2.0' } });
+    expect(res.statusCode).toBe(200);
+    expect(core.store.getSetting('whatsnew.seen')).toBe('99.0.0');
+  });
+
+  it('reads a version that is not a plain triplet as the running one', async () => {
+    app = build();
+    core.store.setSetting('whatsnew.seen', '0.0.1');
+    const res = await app.inject({ method: 'POST', url: '/api/release/seen', payload: { version: 'latest' } });
     expect(res.statusCode).toBe(200);
     expect(core.store.getSetting('whatsnew.seen')).toBe(pkg.version);
   });
@@ -224,5 +298,190 @@ describe('validateReleases', () => {
   it('refuses a malformed version or date', () => {
     expect(validateReleases([ok({ version: 'v0.2' })], '0.2.0').join(' ')).toContain('not a plain semver');
     expect(validateReleases([ok({ date: '16/08/2026' })], '0.2.0').join(' ')).toContain('yyyy-mm-dd');
+  });
+
+  it('refuses two sections with one heading', () => {
+    const twice = [
+      { heading: 'Create', body: 'One thing.' },
+      { heading: 'Create', body: 'Another thing.' },
+    ];
+    expect(validateReleases([ok({ sections: twice })], '0.2.0')).toEqual([
+      'release 0.2.0: two sections are called "Create"',
+    ]);
+  });
+
+  it('refuses a headline with nothing under it', () => {
+    expect(validateReleases([ok({ title: 'A quiet one.', sections: [] })], '0.2.0')).toEqual([
+      'release 0.2.0: a title with no sections; a maintenance release has neither',
+    ]);
+  });
+
+  /** Pictures and the in-app copy rules, one rule per case: each fixture trips only the rule it names. */
+  describe('pictures and the in-app window', () => {
+    const alt = 'The Create page with the panel open beside the feed.';
+    const section = (heading: string, image?: ReleaseSection['image']): ReleaseSection => ({
+      heading,
+      body: `${heading} is steadier on mobile.`,
+      ...(image ? { image } : {}),
+    });
+    const pictured = (file: string, altText = alt) => section('Create', { file, alt: altText });
+    const headline = (over: Partial<ReleaseEntry> = {}): ReleaseEntry => ({
+      version: '0.2.0',
+      date: '2026-08-16',
+      title: 'A calmer Create page.',
+      sections: [pictured('0.2.0-create.webp')],
+      ...over,
+    });
+    /** Five newer headlines above a record, which pushes it out of the window. */
+    const outside = (r: ReleaseEntry): ReleaseEntry[] => [
+      ...['0.7.0', '0.6.0', '0.5.0', '0.4.0', '0.3.0'].map((version) => ({
+        version,
+        date: '2026-08-20',
+        title: `Headline ${version}.`,
+        sections: [section('Create')],
+      })),
+      r,
+    ];
+
+    it('passes a headline with three pictures', () => {
+      const three = [
+        pictured('0.2.0-create.webp'),
+        section('Scenes', { file: '0.2.0-scene-page.webp', alt }),
+        section('Presenters', { file: '0.2.0-p2.webp', alt }),
+      ];
+      expect(validateReleases([headline({ sections: three })], '0.2.0')).toEqual([]);
+    });
+
+    it('refuses a picture on a small update', () => {
+      expect(validateReleases([headline({ title: undefined })], '0.2.0')).toEqual([
+        'release 0.2.0: a picture on a small update; only a headline update (one with a title) carries pictures',
+      ]);
+    });
+
+    it('refuses a fourth picture', () => {
+      // Four pictures need four sections, and inside the window four sections
+      // are their own problem; the two arrive together by construction.
+      const four = ['Create', 'Scenes', 'Presenters', 'Products'].map((h) =>
+        section(h, { file: `0.2.0-${h.toLowerCase()}.webp`, alt }),
+      );
+      expect(validateReleases([headline({ sections: four })], '0.2.0')).toEqual([
+        'release 0.2.0: 4 pictures; three is the ceiling',
+        "release 0.2.0: 4 sections; What's New shows three at most",
+      ]);
+    });
+
+    it('refuses a picture named anything but <version>-<words>.webp, and any path', () => {
+      for (const file of [
+        '../x.webp',
+        '../0.2.0-create.webp',
+        'whatsnew/0.2.0-create.webp',
+        '0.1.0-create.webp',
+        '0.2.1-create.webp',
+        'create.webp',
+        '0.2.0-.webp',
+        '0.2.0-Create.webp',
+        '0.2.0-create.png',
+        '0.2.0-create.webp.png',
+        '0x2x0-create.webp',
+      ]) {
+        expect(validateReleases([headline({ sections: [pictured(file)] })], '0.2.0'), file).toEqual([
+          `release 0.2.0: picture "${file}" must be named 0.2.0-<words>.webp, a file name and never a path`,
+        ]);
+      }
+    });
+
+    it('refuses a picture with no words for someone who cannot see it', () => {
+      expect(validateReleases([headline({ sections: [pictured('0.2.0-create.webp', '  ')] })], '0.2.0')).toEqual([
+        'release 0.2.0: picture "0.2.0-create.webp" has no alt text',
+      ]);
+    });
+
+    it('refuses alt text past 140 characters, and allows exactly 140', () => {
+      const long = 'x'.repeat(141);
+      expect(validateReleases([headline({ sections: [pictured('0.2.0-create.webp', long)] })], '0.2.0')).toEqual([
+        'release 0.2.0: alt text for "0.2.0-create.webp" is 141 characters; say what is on screen in 140 or fewer',
+      ]);
+      const edge = 'x'.repeat(140);
+      expect(validateReleases([headline({ sections: [pictured('0.2.0-create.webp', edge)] })], '0.2.0')).toEqual([]);
+    });
+
+    it('holds alt text to the same copy rules as the words beside it', () => {
+      const withAlt = (text: string) =>
+        validateReleases([headline({ sections: [pictured('0.2.0-create.webp', text)] })], '0.2.0');
+      expect(withAlt('The panel, seamlessly open.')).toEqual([
+        'release 0.2.0: hype copy; say what changed, not how amazing it is',
+      ]);
+      expect(withAlt('The panel open \u{1F680}')).toEqual(['release 0.2.0: emoji']);
+      expect(withAlt('The panel — open.')).toEqual(['release 0.2.0: long dash']);
+    });
+
+    it('refuses one picture used twice', () => {
+      const twice = [pictured('0.2.0-create.webp'), section('Scenes', { file: '0.2.0-create.webp', alt })];
+      expect(validateReleases([headline({ sections: twice })], '0.2.0')).toEqual([
+        'release 0.2.0: picture "0.2.0-create.webp" is used twice',
+      ]);
+    });
+
+    it('refuses a picture on a record the app no longer shows', () => {
+      expect(validateReleases(outside(headline()), '0.7.0')).toEqual([
+        'release 0.2.0: outside the in-app window, so it carries no pictures; delete their image fields and files',
+      ]);
+      // The same record without its picture is fine where it is.
+      expect(validateReleases(outside(headline({ sections: [section('Create')] })), '0.7.0')).toEqual([]);
+    });
+
+    describe('inside the window, and only there', () => {
+      /** Each case: the record, and the one problem it has in the app. */
+      const cases: [string, ReleaseEntry, string][] = [
+        [
+          'four sections',
+          ok({ sections: ['Create', 'Scenes', 'Presenters', 'Products'].map((h) => section(h)) }),
+          "release 0.2.0: 4 sections; What's New shows three at most",
+        ],
+        [
+          'a title past 64 characters',
+          ok({ title: 'x'.repeat(65) }),
+          'release 0.2.0: title is 65 characters; a headline fits in 64',
+        ],
+        [
+          'a body past 220 characters',
+          ok({ sections: [{ heading: 'Create', body: 'x'.repeat(221) }] }),
+          'release 0.2.0: section "Create" is 221 characters; two short sentences fit in 220',
+        ],
+        [
+          'the name in lowercase',
+          // the lowercase name is spelled in two halves so the pre-commit name check lets the fixture through
+          ok({ sections: [{ heading: 'Create', body: `Open ${'scen'}ri on a phone.` }] }),
+          'release 0.2.0: "scenri" in a sentence is Scenri',
+        ],
+        [
+          'the word brief',
+          ok({ sections: [{ heading: 'Create', body: 'The brief keeps its chips.' }] }),
+          'release 0.2.0: on screen it is the prompt, never the brief',
+        ],
+        [
+          'the word briefs',
+          ok({ sections: [{ heading: 'Create', body: 'Briefs keep their chips.' }] }),
+          'release 0.2.0: on screen it is the prompt, never the brief',
+        ],
+      ];
+
+      for (const [name, record, problem] of cases) {
+        it(`refuses ${name} in the app, and leaves it alone in the archive`, () => {
+          expect(validateReleases([record], '0.2.0')).toEqual([problem]);
+          expect(validateReleases(outside(record), '0.7.0')).toEqual([]);
+        });
+      }
+
+      it('allows the limits themselves', () => {
+        expect(validateReleases([ok({ title: 'x'.repeat(64) })], '0.2.0')).toEqual([]);
+        expect(validateReleases([ok({ sections: [{ heading: 'Create', body: 'x'.repeat(220) }] })], '0.2.0')).toEqual(
+          [],
+        );
+        expect(
+          validateReleases([ok({ sections: ['Create', 'Scenes', 'Presenters'].map((h) => section(h)) })], '0.2.0'),
+        ).toEqual([]);
+      });
+    });
   });
 });

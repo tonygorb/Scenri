@@ -1,45 +1,92 @@
 /* ---------- what's new ----------
-   Title, one caption of version and date, the notes, then the way out.
-   Spacing does the hierarchy. No second heading, no rules around a
-   paragraph. The only gold in this feature is the unread dot. */
+   One update in a dialog (views/WhatsNewDialog.tsx), the recent ones on a page
+   (views/WhatsNewPage.tsx). The picture is the real app and the brightest thing
+   here; type and spacing do the rest of the hierarchy. No serif, no badges, no
+   rules around a paragraph. The only gold in this feature is the unread dot. */
 
-.sc-wn-sub {
+/* the picture: the real app, its shape held on the well until it decodes */
+.sc-wn-pic {
+  position: relative;
   flex: none;
-  margin: 2px 0 18px;
+  margin: 0;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-well);
+}
+.sc-wn-pic::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--sc-line);
+  pointer-events: none;
+}
+.sc-wn-pic img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity var(--sc-dur-slow) var(--sc-ease);
+}
+.sc-wn-pic[data-ready] img {
+  opacity: 1;
+}
+
+/* when and which version: after what it says, in the quieter inks */
+.sc-wn-when {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--sc-space-4);
+  margin: 0;
   font-size: var(--sc-text-body);
+  font-weight: 500;
   line-height: 1.4;
-  color: var(--sc-fg3);
+  color: var(--sc-fg2);
 }
 .sc-wn-ver {
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
-  color: var(--sc-fg);
+  color: var(--sc-fg3);
 }
-.sc-wn .sc-newdlg-body {
+
+/* the dialog: picture, when, headline, the areas as lines */
+.sc-wn .sc-wn-pic {
+  margin-bottom: var(--sc-space-6);
+}
+.sc-wn-hed {
+  margin: var(--sc-space-3) 0 0;
+  max-width: 30ch;
+  font-size: var(--sc-text-title);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  color: var(--sc-fg);
+  text-wrap: balance;
+}
+.sc-wn-hls {
   display: flex;
   flex-direction: column;
-  gap: var(--sc-space-6);
+  gap: var(--sc-space-4);
+  margin: var(--sc-space-5) 0 0;
+  padding: 0;
+  list-style: none;
 }
-.sc-wn-lede {
+.sc-wn-hl,
+.sc-wn-txt,
+.sc-wn-line {
   margin: 0;
-  font-size: 15.5px;
-  line-height: 1.35;
-  color: var(--sc-fg);
-  text-wrap: pretty;
-}
-.sc-wn-head {
-  margin: 0 0 4px;
-  font-size: var(--sc-text-body);
-  font-weight: 600;
-  line-height: 1.3;
-  color: var(--sc-fg);
-}
-.sc-wn-txt {
-  margin: 0;
-  max-width: var(--sc-measure-lede);
-  font-size: 13.5px;
-  line-height: 1.6;
+  font-size: var(--sc-text-control);
+  line-height: 1.55;
   color: var(--sc-fg2);
   text-wrap: pretty;
+}
+.sc-wn-hl-h,
+.sc-wn-line b {
+  font-weight: 600;
+  color: var(--sc-fg);
 }
 
 .sc-wn-foot {
@@ -47,7 +94,6 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 8px;
 }
 .sc-wn-foot > .sc-btn:only-child {
   margin-left: auto;
@@ -57,12 +103,154 @@
   align-items: center;
   gap: 5px;
   font-size: var(--sc-text-body);
-  color: var(--sc-fg3);
+  font-weight: 500;
+  color: var(--sc-fg2);
   text-decoration: none;
   transition: color var(--sc-dur-fast) var(--sc-ease);
 }
-.sc-wn-link:hover {
+.sc-wn-link:hover:not(:active) {
   color: var(--sc-fg);
+}
+
+/* the page: its own name, then the releases down a date column */
+.sc-wn-page {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 40px max(32px, env(safe-area-inset-right)) 120px max(32px, env(safe-area-inset-left));
+}
+.sc-wn-page-head {
+  margin: 0 0 40px;
+}
+.sc-wn-page-head h1 {
+  margin: 0;
+  font-size: var(--sc-text-title);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  color: var(--sc-fg);
+}
+.sc-wn-page-head p {
+  margin: var(--sc-space-2) 0 0;
+  font-size: var(--sc-text-body);
+  line-height: 1.45;
+  color: var(--sc-fg2);
+}
+.sc-wn-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sc-wn-row {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  column-gap: 40px;
+  align-items: first baseline;
+}
+.sc-wn-row + .sc-wn-row {
+  margin-top: 32px;
+  padding-top: 32px;
+  border-top: 1px solid var(--sc-line);
+}
+/* small updates in a run read as one list, not as separate releases walled off */
+.sc-wn-row[data-kind="small"] + .sc-wn-row[data-kind="small"] {
+  margin-top: var(--sc-space-7);
+  padding-top: 0;
+  border-top: 0;
+}
+.sc-wn-row > .sc-wn-when {
+  flex-direction: column;
+  gap: var(--sc-space-1);
+}
+/* a date is one line in its column at every width */
+.sc-wn-when time {
+  white-space: nowrap;
+}
+.sc-wn-what {
+  min-width: 0;
+  max-width: 656px;
+}
+.sc-wn-row-hed {
+  margin: 0 0 var(--sc-space-5);
+  font-size: var(--sc-text-title-s);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--sc-fg);
+  text-wrap: balance;
+}
+.sc-wn-row[data-lead] .sc-wn-row-hed {
+  margin-bottom: var(--sc-space-6);
+  font-size: 24px;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+.sc-wn-area + .sc-wn-area {
+  margin-top: var(--sc-space-5);
+}
+.sc-wn-row .sc-wn-line {
+  max-width: var(--sc-measure-prose);
+}
+.sc-wn-row[data-lead] .sc-wn-line {
+  font-size: var(--sc-text-input);
+  line-height: 1.55;
+}
+.sc-wn-row .sc-wn-pic {
+  max-width: 400px;
+  margin-top: var(--sc-space-5);
+}
+.sc-wn-row[data-lead] .sc-wn-pic {
+  max-width: none;
+  margin: var(--sc-space-6) 0 var(--sc-space-7);
+}
+.sc-wn-page-foot {
+  margin-top: 32px;
+  padding-top: 32px;
+  border-top: 1px solid var(--sc-line);
+}
+.sc-wn-page > .sc-wn-txt {
+  max-width: var(--sc-measure-prose);
+}
+
+@media (max-width: 900px) {
+  .sc-wn-page {
+    padding: 32px 28px 104px;
+  }
+  .sc-wn-row {
+    grid-template-columns: 136px minmax(0, 1fr);
+    column-gap: var(--sc-space-8);
+  }
+}
+@media (max-width: 767px) {
+  .sc-wn-hed {
+    font-size: 19px;
+  }
+  .sc-wn-hl {
+    font-size: 14px;
+  }
+  .sc-wn-page {
+    padding: var(--sc-space-8) var(--sc-gutter) 96px;
+  }
+  .sc-wn-page-head {
+    margin-bottom: 32px;
+  }
+  .sc-wn-row {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--sc-space-3);
+  }
+  .sc-wn-row > .sc-wn-when {
+    flex-direction: row;
+    gap: var(--sc-space-4);
+  }
+  .sc-wn-row[data-lead] .sc-wn-row-hed {
+    font-size: 21px;
+  }
+  .sc-wn-row .sc-wn-pic {
+    max-width: none;
+  }
+  .sc-wn-row .sc-wn-line,
+  .sc-wn-row[data-lead] .sc-wn-line {
+    font-size: 14px;
+  }
 }
 
 .sc-menu-new {
@@ -74,7 +262,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sc-wn .sc-wn-link {
+  .sc-wn-link,
+  .sc-wn-pic img {
     transition: none;
   }
 }

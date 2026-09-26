@@ -37,6 +37,7 @@ const TITLES: ReadonlyArray<readonly [string, string, boolean]> = [
   [P.hub, 'Create', false],
   [P.set, 'Create', true],
   [P.kit, 'Brand kit', false],
+  [P.whatsNew, "What's new", false],
   [P.product, 'Products', true],
   [P.products, 'Products', false],
   [P.scene, 'Scenes', true],

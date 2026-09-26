@@ -98,6 +98,13 @@
   outline: none;
 }
 
+/* A page heading that takes focus on arrival (the What's New page, reached
+   from a menu, a dialog or Settings) is where the keyboard starts, not a
+   control anyone aimed at: announced, never ringed. */
+.sc-wn-page-head h1:focus {
+  outline: none;
+}
+
 .sc-icon-btn,
 .sc-chip,
 .sc-btn,

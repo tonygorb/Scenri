@@ -15,14 +15,19 @@ in between, because the release pull request below already plays that part.
 3. **The What's New record** in `packages/cli/src/release/notes.data.ts` must
    carry an entry for the proposed version, written by a person. A test
    (`releaseNotes.test.ts`) keeps the release PR red until it exists, on
-   purpose: a release with no human sentence attached does not ship.
+   purpose: a release with no human sentence attached does not ship. A headline
+   update (a record with a title) may also carry pictures of the real app, shot
+   with `pnpm capture:whatsnew`, looked at by a person, and committed with the
+   record in the release PR so they exist at the tag.
 4. **Merging the release PR** creates the tag and the GitHub release. Like
    every runtime PR it runs the full pipeline, browser suite included, and
    cannot merge until the required "CI gate" check is green.
 5. **Publishing** runs on the release event: the workflow rebuilds everything,
    stages the exact npm package, runs the test suite against that staged
    surface, prints the tarball's file list, and publishes to npm via trusted
-   publishing (OIDC, no tokens). Provenance is attached automatically.
+   publishing (OIDC, no tokens). Provenance is attached automatically. The
+   written record, with its pictures linked at the tag, then goes on the
+   GitHub release page above the generated notes.
 
 A contributor never needs to do any of this. Land a conventionally-named
 commit through a PR and the pipeline does the rest. If your PR is part of a

@@ -8,6 +8,7 @@
     "build": "vite build",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "capture": "playwright test -c playwright.capture.config.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "brand:icons": "node scripts/brand-icons.mjs"
   },
