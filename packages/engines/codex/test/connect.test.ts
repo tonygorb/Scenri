@@ -1,8 +1,20 @@
 import { EventEmitter } from 'node:events';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { spawn } from 'node:child_process';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRunner } from '../src/run.js';
 import { CONNECT_PROMPT } from '../src/connect.js';
+
+// The runner reads the MCP server names in $CODEX_HOME/config.toml; a
+// developer's own servers must never change the argv these tests pin.
+beforeEach(() => {
+  vi.stubEnv('CODEX_HOME', mkdtempSync(join(tmpdir(), 'sc-codex-empty-')));
+});
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 /**
  * The fifth rung. A probe made of exit codes cannot see the failure that
@@ -87,6 +99,8 @@ describe('the connection check', () => {
       'workspace-write',
       '--color',
       'never',
+      '-m',
+      'gpt-6-sol',
       '-c',
       'model_reasoning_effort="low"',
       '-C',
