@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.18.1](https://github.com/tonygorb/Scenri/compare/v0.18.0...v0.18.1) (2026-09-26)
+
+
+### Bug Fixes
+
+* **codex:** call the image tool once and copy the file its result names ([4244a20](https://github.com/tonygorb/Scenri/commit/4244a200d1b2637dab386c18741549910dbb7c0e))
+* **codex:** leave the machine's own MCP servers out of every exec ([c59e31c](https://github.com/tonygorb/Scenri/commit/c59e31cdccd9b8a3feb3d5e31f9839dfa77cc85f))
+* **codex:** run every exec on gpt-6-sol and never print the picture ([0aade5e](https://github.com/tonygorb/Scenri/commit/0aade5e40cd8ab35079be07e5834f4978a27e34a))
+* keep host actions on the computer running Scenri, and cut Codex cost ([6f3f262](https://github.com/tonygorb/Scenri/commit/6f3f2622f71eb81b57cecf7e016c2c64d5b94fa0))
+* keep host actions on the computer running Scenri, and cut Codex cost ([#255](https://github.com/tonygorb/Scenri/issues/255)) ([6f3f262](https://github.com/tonygorb/Scenri/commit/6f3f2622f71eb81b57cecf7e016c2c64d5b94fa0))
+* **security:** forbid framing and type sniffing on every answer ([9bccee7](https://github.com/tonygorb/Scenri/commit/9bccee7617902303c0ebf965ba5e5a43881e9543))
+* **security:** keep backups and desktop logs to their owner ([bf5a54b](https://github.com/tonygorb/Scenri/commit/bf5a54b312e76acdd1590520d74c269dd1b277cd))
+* **security:** keep host actions, paths and secrets on this computer ([349e82f](https://github.com/tonygorb/Scenri/commit/349e82f38b38da96cdcc8f99acba49d3383e106c))
+* **security:** look up store names when the crawl is handed the real fetch ([ab62872](https://github.com/tonygorb/Scenri/commit/ab62872e549591df73a1d3aeaee67d3e925e93f4))
+* **security:** never tell a phone where the desktop icon lives ([328df67](https://github.com/tonygorb/Scenri/commit/328df676234643e3ef6d6aaeebdd860330c4e511))
+* **security:** only the computer running Scenri can change a spend cap ([e248269](https://github.com/tonygorb/Scenri/commit/e24826920040ae4a238fc884da72b34654ab3350))
+* **security:** only the computer running Scenri can install an update or restart into one ([f9bdf02](https://github.com/tonygorb/Scenri/commit/f9bdf02243f122ac6f794cb3c79b16a96f594565))
+* **security:** only the computer running Scenri can shut it down ([e22085f](https://github.com/tonygorb/Scenri/commit/e22085f5b15347d8614376054dfa5807017b9b02))
+* **security:** only the studio can make Codex status spend a turn ([ba3be74](https://github.com/tonygorb/Scenri/commit/ba3be7402602f58f3d7b6797db5e5edb62030758))
+* **security:** read an IPv6 address whole before deciding it is public ([305ce11](https://github.com/tonygorb/Scenri/commit/305ce116ba889c3fb7fa3344d9965c47a4f48dd6))
+* **security:** take provider keys only from the computer running Scenri ([883545d](https://github.com/tonygorb/Scenri/commit/883545dbfc25e1dc97c2ab3e85daa6df343409c5))
+* **server:** bound the library download to its last byte, not its headers ([707c3ae](https://github.com/tonygorb/Scenri/commit/707c3aecaacba0c8c0071e1d742a9af0894ba265))
+* **studio:** a phone is not offered Shut down, Update or a cap to change ([82b4bb1](https://github.com/tonygorb/Scenri/commit/82b4bb1040d22504c357726a7de209691bcee3bf))
+
 ## [0.18.0](https://github.com/tonygorb/Scenri/compare/v0.17.2...v0.18.0) (2026-09-25)
 
 

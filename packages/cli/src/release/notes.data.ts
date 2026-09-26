@@ -51,6 +51,24 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.18.1',
+    date: '2026-09-26',
+    sections: [
+      {
+        heading: 'Codex',
+        body: 'Pictures made with Codex use far less of your ChatGPT plan. Every run uses gpt-6-sol, draws each picture once and no longer pastes the finished picture into its own conversation. It needs Codex CLI 0.157.1 or newer, and Scenri says when to update.',
+      },
+      {
+        heading: 'Phone access',
+        body: 'A phone with the access code can no longer delete the library, change provider keys or spend caps, install an update or shut Scenri down. Those stay on the computer running Scenri, and the phone no longer offers them.',
+      },
+      {
+        heading: 'Fixes',
+        body: 'A library download that stalls now gives up instead of waiting for the rest of the session, and store and brand scans no longer reach private network addresses.',
+      },
+    ],
+  },
+  {
     version: '0.18.0',
     date: '2026-09-25',
     sections: [
