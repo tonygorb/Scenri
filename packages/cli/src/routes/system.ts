@@ -37,11 +37,24 @@ export function registerSystemRoutes(app: FastifyInstance, deps: { core: Core; t
     // it opens a window on the computer running Scenri: never at a phone's request
     if (!fromThisComputer(req)) return reply.status(403).send({ error: 'Only on the computer running Scenri.' });
     const cmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'explorer' : 'xdg-open';
-    try {
-      spawn(cmd, [core.home], { detached: true, stdio: 'ignore' }).unref();
-    } catch {
-      /* headless box */
-    }
+    // A missing opener (no xdg-open under WSL or in a container) is not a
+    // throw: it arrives as an 'error' event after spawn has returned, and an
+    // 'error' event nobody listens for takes the whole server down with it,
+    // along with every shot still rendering. So the answer waits for the
+    // child to start or fail, and says which.
+    const opened = await new Promise<boolean>((resolve) => {
+      try {
+        const child = spawn(cmd, [core.home], { detached: true, stdio: 'ignore' });
+        child.on('error', () => resolve(false));
+        child.once('spawn', () => {
+          child.unref();
+          resolve(true);
+        });
+      } catch {
+        resolve(false);
+      }
+    });
+    if (!opened) return reply.status(501).send({ error: 'No file manager could be opened on this computer.' });
     return reply.send({ ok: true });
   });
 
