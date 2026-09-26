@@ -1,4 +1,7 @@
+import { LandingThumb, RenderingMark } from '../rendering/LandingThumb.js';
+import { runSince } from '../../tasks.js';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { Rendering } from '../Rendering.js';
 import { WarningCircle } from '@phosphor-icons/react';
 import { thumbUrl } from '../../api.js';
 import { briefProse, type ProseNames } from '../../briefDiff.js';
@@ -188,19 +191,11 @@ export function LineageStrip({
               onFocus={(e) => keyboardFocus(e.currentTarget) && s.state === 'ready' && peekAt(s, i, e.currentTarget)}
             >
               {s.state === 'ready' ? (
-                <img
-                  src={thumbUrl(n.images[0], 'micro')}
-                  alt=""
-                  className="sc-thumb"
-                  loading="lazy"
-                  decoding="async"
-                  data-active={active}
-                  width={52}
-                  height={52}
-                />
+                <LandingThumb id={n.id} src={thumbUrl(n.images[0], 'micro')} active={active} />
               ) : pending ? (
                 <span className="sc-thumb sc-thumb-wait" data-active={active}>
-                  <span className="sc-rendering" />
+                  <Rendering since={runSince(n)} />
+                  <RenderingMark id={n.id} />
                 </span>
               ) : (
                 <span className="sc-thumb sc-thumb-failed" data-active={active}>

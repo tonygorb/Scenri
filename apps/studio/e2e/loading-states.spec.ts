@@ -3,7 +3,7 @@ import { isolate } from './harness.js';
 
 /**
  * Waiting, in one language (DESIGN.md, Waiting): a picture being made carries
- * the moving band inside its own box and nowhere else; a picture or a page
+ * the swirl inside its own box and nowhere else; a picture or a page
  * that exists and has not painted holds its place still; nothing that was on
  * screen blanks or moves while something newer arrives.
  *
@@ -71,7 +71,7 @@ async function refineFromOverlay(p: Page, said: string): Promise<string> {
   return (await (await answered).json()).id as string;
 }
 
-test('each of four outputs holds its own shape and carries its own band, from the first frame', async ({ page }) => {
+test('each of four outputs holds its own shape and carries its own swirl, from the first frame', async ({ page }) => {
   const slug = await brandSlug(page);
   await openFeed(page, slug, 4, 'landscape');
   // The stand-ins and then the running tiles, sampled from the moment Generate
@@ -96,7 +96,7 @@ test('each of four outputs holds its own shape and carries its own band, from th
 
   for (const id of ids) {
     await expect(tile(page, id)).toHaveAttribute('data-running', 'true');
-    // the band is this tile's, inside this tile, and nowhere wider
+    // the swirl is this tile's, inside this tile, and nowhere wider
     const [t, b] = await Promise.all([
       box(page, `.sc-cell[data-fb-node="${id}"]`),
       box(page, `.sc-cell[data-fb-node="${id}"] .sc-rendering`),
@@ -113,38 +113,49 @@ test('each of four outputs holds its own shape and carries its own band, from th
       ).length,
   );
   expect(gold).toBe(0);
+  // and it is drawn: dots on the tile's canvas
+  expect(await dotsOn(page, `.sc-cell[data-fb-node="${ids[0]}"] .sc-rendering canvas`)).toBeGreaterThan(100);
   // siblings land on their own: the first to finish is a picture while others still render
   await expect(tile(page, ids[0]).locator('.sc-cellimg')).toBeVisible({ timeout: 30_000 });
   expect(await page.locator('.sc-cell[data-running]').count()).toBeGreaterThanOrEqual(1);
   for (const id of ids) await expect(tile(page, id).locator('.sc-cellimg')).toBeVisible({ timeout: 30_000 });
 });
 
-test('refining keeps the shot on the stage, and only the new step carries the band', async ({ page }) => {
+test('refining moves the stage onto the new step, which renders in its own box and lands in place', async ({
+  page,
+}) => {
   const slug = await brandSlug(page);
   const parent = await doneShot(page);
   await page.goto(`/${slug}/create/shots/${parent.id}`);
   await expect(page.locator('.sc-ovl-stage .sc-stage-img')).toBeVisible();
+  // every picture a refinement's swirl is started from, as it appears
+  await page.evaluate(() => {
+    const w = window as { __startedFrom?: string[] };
+    w.__startedFrom = [];
+    new MutationObserver(() => {
+      for (const img of document.querySelectorAll<HTMLImageElement>('.sc-stage-wait .sc-rendering-from'))
+        if (!w.__startedFrom?.includes(img.src)) w.__startedFrom?.push(img.src);
+    }).observe(document.body, { subtree: true, childList: true });
+  });
   const child = await refineFromOverlay(page, 'warmer light');
 
-  // the stage still shows the shot being refined, whole
-  await expect(page).toHaveURL(new RegExp(`/shots/${parent.id}`));
-  await expect(page.locator('.sc-ovl-stage .sc-stage-img')).toHaveAttribute('src', new RegExp(parent.image));
-  await expect(page.locator('.sc-ovl-stage .sc-stage-wait')).toHaveCount(0);
-  // the band is the new step's, in the strip, and not on the stage
-  const bands = page.locator('.sc-ovl-stage .sc-rendering');
-  await expect(page.locator('.sc-trail .sc-thumb-wait .sc-rendering')).toHaveCount(1);
-  expect(await bands.count()).toBe(await page.locator('.sc-trail .sc-rendering').count());
-  const [stage, band] = await Promise.all([
-    box(page, '.sc-ovl-stage'),
-    box(page, '.sc-trail .sc-thumb-wait .sc-rendering'),
-  ]);
-  expect(band?.[2]).toBeLessThan((stage?.[2] ?? 0) / 4);
-  // one refinement at a time from here: the field waits for this one
-  await expect(page.locator('.sc-ovl-edit .sc-send')).toHaveAttribute('title', /Wait for this refinement to finish/);
+  // the stage follows the new step at once, and it renders there, in the box its picture will take
+  await expect(page).toHaveURL(new RegExp(child));
+  await expect(page.locator('.sc-ovl-stage .sc-stage-wait')).toHaveCount(1);
+  await expect(page.locator('.sc-ovl-stage .sc-stage-wait .sc-rendering')).toHaveCount(1);
+  const [stage, wait] = await Promise.all([box(page, '.sc-ovl-stage'), box(page, '.sc-ovl-stage .sc-stage-wait')]);
+  // the swirl stays inside the step's own box, never across the whole stage
+  expect(wait?.[2]).toBeLessThanOrEqual((stage?.[2] ?? 0) + 1);
+  // it started from the picture that was on the stage, which it replaced
+  const startedFrom = await page.evaluate(() => (window as { __startedFrom?: string[] }).__startedFrom ?? []);
+  expect(startedFrom.some((src) => src.includes(parent.image))).toBe(true);
+  // one refinement at a time: the field waits while it runs
+  await expect(page.locator('.sc-ovl-edit .sc-send')).toHaveAttribute('title', /Wait for this/);
 
-  // when it lands, the stage moves onto it
-  await expect(page).toHaveURL(new RegExp(`/shots/${child}`), { timeout: 30_000 });
+  // it lands where it rendered
+  await expect(page.locator('.sc-ovl-stage .sc-stage-img')).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('.sc-ovl-stage .sc-stage-img')).not.toHaveAttribute('src', new RegExp(parent.image));
+  await expect(page.locator('.sc-ovl-stage .sc-stage-wait')).toHaveCount(0);
   await expect(page.locator('.sc-trail .sc-rendering')).toHaveCount(0);
 });
 
@@ -163,7 +174,8 @@ test('refining a keeper from the Keepers lens never drops the open shot for a sp
   });
   const child = await refineFromOverlay(page, 'cooler light');
   await expect(page).toHaveURL(new RegExp(`/shots/${child}`), { timeout: 30_000 });
-  await expect(page.locator('.sc-ovl-stage .sc-stage-img')).toBeVisible();
+  // the stage follows the step, which lands there: a render, however long it takes, never a spinner
+  await expect(page.locator('.sc-ovl-stage .sc-stage-img')).toBeVisible({ timeout: 30_000 });
   expect(await page.evaluate(() => (window as { __spun?: boolean }).__spun)).toBe(false);
 });
 
@@ -266,21 +278,32 @@ test('library pictures on their way hold their place, then appear without a relo
   expect(await page.evaluate(() => (window as { __skeleton?: boolean }).__skeleton)).toBe(false);
 });
 
-test('under reduced motion the band rests and the placeholder is still', async ({ page }) => {
+test('under reduced motion the swirl holds one frame and the picture simply appears', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const slug = await brandSlug(page);
   await openFeed(page, slug, 1, 'square');
   const [id] = await send(page, 'one still shot');
   await expect(tile(page, id)).toHaveAttribute('data-running', 'true');
-  const band = await tile(page, id)
-    .locator('.sc-rendering')
-    .evaluate((el) => {
-      const s = getComputedStyle(el, '::after');
-      return { name: s.animationName, transform: s.transform };
-    });
-  expect(band.name).toBe('none');
-  expect(band.transform).toBe('none');
+  // drawn, and held: the same frame a moment later
+  const swirl = `.sc-cell[data-fb-node="${id}"] .sc-rendering canvas`;
+  await expect.poll(() => dotsOn(page, swirl)).toBeGreaterThan(100);
+  const frame = () => page.locator(swirl).evaluate((c: HTMLCanvasElement) => c.toDataURL());
+  const first = await frame();
+  await page.waitForTimeout(400);
+  expect(await frame()).toBe(first);
   // the clock still counts: proof of life that is not motion
   await expect(tile(page, id).locator('[role="timer"]')).toBeVisible();
   await expect(tile(page, id).locator('.sc-cellimg')).toBeVisible({ timeout: 30_000 });
+  // and nothing plays over the picture when it lands
+  await expect(tile(page, id).locator('.sc-arrival')).toHaveCount(0);
 });
+
+/** The dots drawn on a canvas: its pixels that are not clear. */
+function dotsOn(page: Page, selector: string): Promise<number> {
+  return page.locator(selector).evaluate((c: HTMLCanvasElement) => {
+    const d = c.getContext('2d')?.getImageData(0, 0, c.width, c.height).data ?? new Uint8ClampedArray();
+    let n = 0;
+    for (let i = 3; i < d.length; i += 4) if (d[i]) n++;
+    return n;
+  });
+}

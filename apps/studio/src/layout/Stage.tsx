@@ -1,4 +1,12 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MutableRefObject,
+  type ReactNode,
+} from 'react';
 import { Box, ContextMenu, Flex, Text } from '@radix-ui/themes';
 import { imgUrl, thumbUrl, type FeedNode } from '../api.js';
 import { describeCancelled, describeFailure } from '../failure.js';
@@ -7,6 +15,10 @@ import { FailureNote } from './Failure.js';
 import { elapsedLabel, elapsedSec, runSince, runningPhrase } from '../tasks.js';
 // the feed's running tiles hold the same shape, from the same source
 import { aspectOfFormat } from '../composer/formats.js';
+import { Rendering } from './Rendering.js';
+import { Arrival } from './rendering/Arrival.js';
+import { refinedJustNow } from './rendering/refineStart.js';
+import { prefersStill } from './rendering/tones.js';
 
 function aspectOf(node: FeedNode): number {
   return aspectOfFormat(node.brief?.format);
@@ -47,6 +59,30 @@ export function StageFrame({
     return () => clearInterval(t);
   }, [node.status]);
 
+  // A shot that was running on this stage and has just landed lands here, from
+  // the swirl it waited in. Remembered outside the component, so a stage that
+  // remounts as the shot lands still knows, and read during render, so the
+  // frame that first shows the landed shot already carries the landing and
+  // never flashes the picture first. Adding is idempotent (StrictMode renders
+  // twice in development); the record is cleared when the landing ends.
+  if (node.status === 'running') ranOnStage.add(node.id);
+  const [, settle] = useState(0);
+  const stageImg = useRef<HTMLImageElement | null>(null);
+  const [paintedHash, setPaintedHash] = useState<string | null>(null);
+  const endLanding = useCallback(() => {
+    ranOnStage.delete(node.id);
+    settle((x) => x + 1);
+  }, [node.id]);
+  useEffect(() => {
+    if (node.status !== 'done') stageShows = null;
+  }, [node.status]);
+  useEffect(
+    () => () => {
+      stageShows = null;
+    },
+    [],
+  );
+
   if (node.kind === 'root') {
     return (
       <Box className="sc-frame" p="8">
@@ -79,19 +115,20 @@ export function StageFrame({
        * jumped to a different size and shape the moment the picture landed.
        * It now takes the box the picture will take — the stage's own cap
        * for height, the shot's recorded shape for aspect — and carries the
-       * same moving band the feed uses while a tile is rendering, so there
-       * is one language for "this is coming" in both places and nothing
-       * moves when it arrives. The box is detail-overlay.css's
-       * `.sc-stage-wait`: without it the band, which is absolutely placed,
-       * spread over the whole stage.
+       * same swirl the feed uses while a tile is rendering, so there is one
+       * language for "this is coming" in both places and nothing moves when
+       * it arrives. The box is detail-overlay.css's `.sc-stage-wait`, in the
+       * finished picture's own frame: without it the swirl, which is
+       * absolutely placed, spread over the whole stage. A refinement asked
+       * for here starts from the picture that was on the stage.
        *
        * The prompt is not repeated here. It is already the BRIEF beside
        * this, in full, and it was truncated to a single line here anyway.
        */
       <div className="sc-stage-wait" style={{ '--sc-wait-ar': aspectOf(node) } as CSSProperties}>
-        <span className="sc-rendering" />
+        <Rendering since={runSince(node)} from={startOf(node.id)} />
         <div className="sc-stage-wait-say">
-          {/* The counter alone: the band says "generating", and the words
+          {/* The counter alone: the swirl says "generating", and the words
               beside the number read as noise on a phone. The escalating
               phrase still reaches assistive tech. */}
           <span
@@ -147,16 +184,25 @@ export function StageFrame({
    * overlay, with nothing painted before it, is its own box.
    */
   const size = hash ? (recordedSize(node) ?? natural?.size ?? null) : null;
+  const arriving = !!hash && !!size && node.status === 'done' && ranOnStage.has(node.id) && !prefersStill();
   const frame = hash ? (
     <Box
       className={size ? 'sc-frame sc-stage-pic' : 'sc-frame sc-stage-free'}
       style={size ? pictureVars(size) : undefined}
+      data-arriving={arriving || undefined}
     >
       <StagePicture
         hash={hash}
         alt={node.promptHead}
-        onPainted={(painted, w, h) => setNatural({ hash: painted, size: [w, h] })}
+        imgRef={stageImg}
+        bare={arriving}
+        onPainted={(painted, w, h) => {
+          setNatural({ hash: painted, size: [w, h] });
+          setPaintedHash(painted);
+          stageShows = painted;
+        }}
       />
+      {arriving && <Arrival img={stageImg} ready={paintedHash === hash} onDone={endLanding} />}
     </Box>
   ) : (
     <Flex justify="center">
@@ -175,13 +221,41 @@ export function StageFrame({
   );
 }
 
+/** Shots seen running on a stage, so the one that lands there lands in place. */
+const ranOnStage = new Set<string>();
+
+/**
+ * The picture painted on the stage now, if one is. Written when a picture
+ * paints and cleared when the stage shows anything else, never while
+ * rendering; the waiting box a refinement opens reads it on its first
+ * render, before the switch clears it.
+ */
+let stageShows: string | null = null;
+
+/**
+ * A refinement just asked for on this stage starts from the picture the
+ * stage shows. That is not always the one it was asked from: a refinement
+ * held for the one before it is sent when that one lands, and by then the
+ * stage shows the landed step.
+ */
+function startOf(id: string): { src: string; at: number } | undefined {
+  const at = refinedJustNow(id);
+  return at !== undefined && stageShows ? { src: imgUrl(stageShows), at } : undefined;
+}
+
 function StagePicture({
   hash,
   alt,
   onPainted,
+  imgRef,
+  bare,
 }: {
   hash: string;
   alt: string;
+  /** The picture's element, for a landing drawn over it. */
+  imgRef?: MutableRefObject<HTMLImageElement | null>;
+  /** No picture under it while it decodes: a landing covers the frame and must not be seen through. */
+  bare?: boolean;
   /** The picture has pixels on screen: its hash and its natural size, once per picture. */
   onPainted?: (hash: string, width: number, height: number) => void;
 }) {
@@ -200,9 +274,12 @@ function StagePicture({
   const underSrc = last.current && last.current !== hash ? imgUrl(last.current) : thumbUrl(hash, 'tile');
   return (
     <Box position="relative" style={{ lineHeight: 0 }}>
-      {!ready && <img className="sc-stage-under" src={underSrc} alt="" aria-hidden decoding="async" />}
+      {!ready && !bare && <img className="sc-stage-under" src={underSrc} alt="" aria-hidden decoding="async" />}
       <img
-        ref={paint}
+        ref={(el) => {
+          if (imgRef) imgRef.current = el;
+          paint(el);
+        }}
         src={imgUrl(hash)}
         alt={alt}
         className="sc-stage-img"

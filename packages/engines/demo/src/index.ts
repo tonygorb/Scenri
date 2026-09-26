@@ -1,3 +1,5 @@
+import { readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import sharp from 'sharp';
 import {
   BUDGET_EXHAUSTED,
@@ -42,6 +44,12 @@ export interface DemoOptions {
    * cannot hold a face. The pictures stay placeholders either way.
    */
   maxReferenceImages?: number;
+  /**
+   * A folder of real photographs to answer with instead of drawn placeholders
+   * (SCENRI_DEMO_PHOTOS), so how a finished picture lands can be judged on a
+   * dev lane without spending anything. Nothing sets it but a developer.
+   */
+  photosDir?: string;
 }
 
 /** The knobs as the end-to-end harness sets them, from the environment; none by default. */
@@ -57,6 +65,7 @@ export function demoOptionsFromEnv(env: Record<string, string | undefined>): Dem
   if (env.SCENRI_DEMO_FAIL_EDIT === '1') out.failEdit = true;
   const refs = Number(env.SCENRI_DEMO_REFS);
   if (env.SCENRI_DEMO_REFS && Number.isInteger(refs) && refs > 0) out.maxReferenceImages = refs;
+  if (env.SCENRI_DEMO_PHOTOS) out.photosDir = env.SCENRI_DEMO_PHOTOS;
   return out;
 }
 
@@ -91,7 +100,23 @@ export function createDemoEngine(saveImage: (buf: Buffer) => string, opts: DemoO
 
   const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').slice(0, 90);
 
+  let calls = 0;
+  const photos = (() => {
+    if (!opts.photosDir) return [] as string[];
+    try {
+      return readdirSync(opts.photosDir)
+        .filter((f) => /\.(jpe?g|png|webp)$/i.test(f))
+        .map((f) => join(opts.photosDir as string, f));
+    } catch {
+      return [] as string[];
+    }
+  })();
   async function render(colors: string[], label: string, w: number, h: number, seed: number): Promise<Buffer> {
+    if (photos.length) {
+      calls += 1;
+      const file = photos[(seed * 7919 + calls * 104729) % photos.length];
+      return sharp(file).resize(w, h, { fit: 'cover' }).png().toBuffer();
+    }
     const c0 = colors[seed % colors.length];
     const c1 = colors[(seed + 1) % colors.length] ?? '#111111';
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">

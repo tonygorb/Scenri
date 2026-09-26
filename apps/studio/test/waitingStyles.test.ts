@@ -19,8 +19,9 @@ const rules = css.flatMap(({ p, text }) =>
 
 /**
  * Waiting has one language (DESIGN.md, Waiting): a still placeholder for what
- * exists and has not painted, a moving band for what is being made, and
- * neither in gold. These hold the parts of it a refactor could quietly undo.
+ * exists and has not painted, the swirl for what is being made (drawn by
+ * script, layout/rendering/), and neither in gold. These hold the parts of it
+ * a refactor could quietly undo.
  */
 describe('the waiting language', () => {
   it('has no gold shimmer left anywhere in the studio', () => {
@@ -34,31 +35,34 @@ describe('the waiting language', () => {
     expect(gold.map((r) => `${r.file}: ${r.selector}`)).toEqual([]);
   });
 
-  it('moves the band by transform alone and breathes the placeholder by opacity alone', () => {
+  it('breathes the placeholder by opacity alone, and paints nothing over the swirl', () => {
     const keyframes = css.map((c) => c.text).join('\n');
-    const band = keyframes.match(/@keyframes sc-rendering \{([\s\S]*?)\n\}/)?.[1] ?? '';
     const breath = keyframes.match(/@keyframes sc-wait-breathe \{([\s\S]*?)\n\}/)?.[1] ?? '';
-    expect(band).toContain('transform');
-    expect(band).not.toMatch(/background|width|left|opacity/);
     expect(breath).toContain('opacity');
     expect(breath).not.toMatch(/background|transform|width/);
+    // the band the swirl replaced is gone, whole: nothing of its own drawn over the canvas
+    expect(keyframes).not.toMatch(/@keyframes sc-rendering\b/);
+    expect(rules.filter((r) => /\.sc-rendering::(after|before)/.test(r.selector))).toEqual([]);
   });
 
-  it('stills both under reduced motion', () => {
+  it('stills the placeholder under reduced motion', () => {
     const primitives = css.find((c) => c.p.endsWith('primitives.css'))?.text ?? '';
     const reduced = [...primitives.matchAll(/@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?)\n\}/g)]
       .map((m) => m[1])
       .join('\n');
     expect(reduced).toMatch(/\.sc-placeholder::after \{\s*animation: none;/);
-    expect(reduced).toMatch(/\.sc-rendering::after \{\s*animation: none;/);
   });
 
-  // Lost once (4ab3beee): without its own box, the band of a shot still being
-  // made spread over the whole open-shot stage.
-  it("gives the stage's waiting place a box of its own, from the shot's shape", () => {
+  // Lost once (4ab3beee): without its own box, the swirl of a shot still being
+  // made spread over the whole open-shot stage. It wears the finished
+  // picture's frame, so a refinement's start and a landing change only what
+  // is inside it.
+  it("gives the stage's waiting place a box of its own, from the shot's shape, in the picture's frame", () => {
     const box = rules.find((r) => r.selector === '.sc-stage-wait');
     expect(box?.body).toMatch(/position: relative/);
     expect(box?.body).toMatch(/aspect-ratio: var\(--sc-wait-ar/);
     expect(box?.body).toMatch(/overflow: hidden/);
+    expect(box?.body).toMatch(/box-shadow: var\(--sc-shadow-3\)/);
+    expect(box?.body).not.toMatch(/border-radius/);
   });
 });

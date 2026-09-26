@@ -7,6 +7,7 @@ import { useHoverNone } from '../useMediaQuery.js';
 import { catalogMenuItems } from './catalogMenu.js';
 import { catalogBatchItems } from './catalogPick.js';
 import { MenuGlyph } from './menuGlyph.js';
+import { Rendering } from './Rendering.js';
 
 /**
  * Unfinished work, offered back: a presenter half cast, a scene still drawing
@@ -106,7 +107,7 @@ export function DraftCard({
         }}
       >
         {hash ? <img src={thumbUrl(hash, 'tile')} alt="" /> : <span className="sc-lookcard-blank">{blank}</span>}
-        {drawing && <span className="sc-rendering" aria-hidden />}
+        {drawing && <Rendering />}
         {/* Said on the picture, because the picture is what makes one of these
             look finished: a face or a place on a card reads as done until
             something on it says otherwise. */}

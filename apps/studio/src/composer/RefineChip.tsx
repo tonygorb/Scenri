@@ -3,6 +3,7 @@ import { X } from '@phosphor-icons/react';
 import { nodeLabel, type FeedNode, thumbUrl } from '../api.js';
 import { ChipPreview } from './ChipPreview.js';
 import { useHoverPreview } from './useHoverPreview.js';
+import { Rendering } from '../layout/Rendering.js';
 
 /**
  * The version being refined, worn as the one chip pattern the app has: the
@@ -71,13 +72,13 @@ export function RefineChip({
         }}
       >
         {/* a version that has just been asked for has no picture yet, and
-            the same band the feed uses says so without a second word, inside
+            the same swirl the feed uses says so without a second word, inside
             a box of its own so it never crosses the whole chip */}
         {image ? (
           <img src={thumbUrl(image, 'micro')} alt="" />
         ) : (
           <span className="sc-target-thumb">
-            <span className="sc-rendering" />
+            <Rendering />
           </span>
         )}
         Refining

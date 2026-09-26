@@ -48,6 +48,7 @@ import { ChipPreview } from '../composer/ChipPreview.js';
 import { useHoverPreview } from '../composer/useHoverPreview.js';
 import { BriefLine } from './detail/Ingredients.js';
 import { rememberStep, useLineageOf } from './detail/useLineageOf.js';
+import { markRefine } from './rendering/refineStart.js';
 import { useFullNode } from './detail/useFullNode.js';
 import { PREF, useLocalPref } from '../prefs.js';
 import { useDockHeight } from '../useDockHeight.js';
@@ -999,7 +1000,7 @@ export function DetailOverlay({
                 target={node}
                 // one refinement at a time from the open shot: the field waits
                 // for the one still being made, which renders beside this shot
-                holdFor={pendingChild}
+                holdFor={node.status === 'running' ? node : pendingChild}
                 // the variant on the stage is the one a refine works from
                 sourceImage={hash}
                 // The dock's composer is still mounted behind this one and there
@@ -1016,8 +1017,12 @@ export function DetailOverlay({
                   onLanded(records ?? []);
                   const refined = kind === 'edit' ? records?.find((r) => r.id === id) : undefined;
                   if (refined) {
+                    // its swirl starts from the picture on the stage
+                    markRefine(refined.id);
                     rememberStep(refined);
                     setMade((cur) => [...cur.filter((m) => m.id !== refined.id), refined]);
+                    // the stage follows the new step at once: it forms there, and lands there
+                    onSelect(refined.id);
                   } else if (id) onSelect(id);
                   // One thread, wherever it was pulled. Refining in here used to
                   // leave the workspace behind still pointed at nothing, so

@@ -1,5 +1,7 @@
 import { useCallback, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { ImageSquare } from '@phosphor-icons/react';
+import { Arrival } from '../rendering/Arrival.js';
+import { prefersStill } from '../rendering/tones.js';
 import { markPictureReady, pictureIsReady } from '../pictureReady.js';
 
 /**
@@ -23,7 +25,7 @@ export const markFeedImageReady = markPictureReady;
  * says the pixels are ready, the box keeps the brief's own shape while it
  * waits, and the image fades in rather than appearing mid-scroll. Loading a
  * picture that exists is not making one, so this is the still placeholder,
- * never the generation band. A picture that cannot load at all keeps its box
+ * never the generation swirl. A picture that cannot load at all keeps its box
  * and says so with the blank glyph, rather than being called loaded and
  * leaving an invisible hole.
  *
@@ -39,6 +41,8 @@ export function FeedImage({
   alt = '',
   aspect,
   guess = true,
+  arrival,
+  index = 0,
 }: {
   src: string;
   /**
@@ -55,16 +59,24 @@ export function FeedImage({
    * needs to, and holding it is what keeps the column from reflowing.
    */
   guess?: boolean;
+  /** A picture just made: it lands from the swirl it was waited for in, rather than fading in. */
+  arrival?: boolean;
+  /** The tile's slot in its batch, so it lands from the swirl it waited in. */
+  index?: number;
 }) {
   const [failed, setFailed] = useState(false);
   const shown = failed && fallback ? fallback : src;
   const [loaded, setLoaded] = useState(false);
   const [broken, setBroken] = useState(false);
+  // Decoded before this mount, not since: read on every render it turned true
+  // in the same commit as `loaded`, and its no-transition rule cut the fade.
+  const [cached, setCached] = useState(() => feedImageIsReady(shown));
   const [current, setCurrent] = useState(shown);
   if (shown !== current) {
     setCurrent(shown);
     setLoaded(false);
     setBroken(false);
+    setCached(feedImageIsReady(shown));
   }
   const imgRef = useRef<HTMLImageElement | null>(null);
   const becomeReady = useCallback(() => {
@@ -82,7 +94,22 @@ export function FeedImage({
     const el = imgRef.current;
     if (el?.complete && el.naturalWidth) becomeReady();
   }, [becomeReady]);
-  const cached = feedImageIsReady(shown);
+  // A just-made picture lands from its swirl once it can be seen: held on the
+  // swirl while it decodes, then run.
+  const [play, setPlay] = useState<'hold' | 'run' | null>(() =>
+    !arrival || prefersStill()
+      ? null
+      : !feedImageIsReady(shown)
+        ? 'hold'
+        : underwaySince(shown) !== undefined
+          ? 'run'
+          : null,
+  );
+  if (play === 'hold' && loaded) {
+    underway.set(shown, performance.now());
+    setPlay('run');
+  }
+  const endPlay = useCallback(() => setPlay(null), []);
   return (
     <span
       className="sc-cellimg"
@@ -96,7 +123,7 @@ export function FeedImage({
         <ImageSquare className="sc-cellimg-broken" size={24} weight="regular" aria-hidden />
       ) : (
         <>
-          {!loaded && !cached && <span className="sc-placeholder" />}
+          {!loaded && !cached && play !== 'hold' && <span className="sc-placeholder" />}
           <img
             ref={measure}
             src={shown}
@@ -109,8 +136,23 @@ export function FeedImage({
               else setBroken(true);
             }}
           />
+          {play && (
+            <Arrival img={imgRef} ready={play === 'run'} index={index} since={underwaySince(shown)} onDone={endPlay} />
+          )}
         </>
       )}
     </span>
   );
 }
+
+/**
+ * Landings under way, by picture, and when each began. A tile re-laid out
+ * mid-landing (another send prepends and every column is dealt again)
+ * remounts; it picks its landing up where it was rather than cutting to the
+ * photograph or starting over.
+ */
+const underway = new Map<string, number>();
+const underwaySince = (src: string) => {
+  const at = underway.get(src);
+  return at !== undefined && performance.now() - at < 2000 ? at : undefined;
+};

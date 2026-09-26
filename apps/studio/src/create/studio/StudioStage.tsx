@@ -3,6 +3,7 @@ import { type CSSProperties, type ReactNode, useEffect, useLayoutEffect, useRef,
 import { imgUrl, thumbUrl } from '../../api.js';
 import { elapsedLabel } from '../../tasks.js';
 import { StageEmpty } from './StageEmpty.js';
+import { Rendering } from '../../layout/Rendering.js';
 
 /** One picture a subject has worn, numbered in the order it landed. */
 export interface StageTake {
@@ -132,7 +133,7 @@ export function StudioStage<V extends string = string>({
     if (painted && el?.naturalHeight) setAr(el.naturalWidth / el.naturalHeight);
   }, [shown]);
   // A picture just made is known before it can be painted: the well keeps the
-  // moving band until it can, rather than showing the empty sign in between.
+  // swirl until it can, rather than showing the empty sign in between.
   const landing = !!hash && !shown;
 
   return (
@@ -166,11 +167,11 @@ export function StudioStage<V extends string = string>({
               {!drawing && !hash && <StageEmpty glyph={glyph} lead={empty?.lead} hint={empty?.hint} />}
             </span>
           )}
-          {/* A picture that does not exist yet carries the moving band the feed
-              uses while a shot renders. A picture being drawn again stays as
-              it is: it is the one in use until the new one lands, and the
-              strip's slot for that view carries the band instead. */}
-          {((drawing && !hash) || landing) && <span className="sc-rendering" aria-hidden />}
+          {/* A picture that does not exist yet carries the swirl the feed uses
+              while a shot renders. A picture being drawn again stays as it
+              is: it is the one in use until the new one lands, and the
+              strip's slot for that view carries the swirl instead. */}
+          {((drawing && !hash) || landing) && <Rendering />}
           {drawing && (
             // Not a live region: the conversation's log already says what is
             // being drawn, and a clock inside a status was read out every second.
@@ -243,7 +244,7 @@ export function StudioStage<V extends string = string>({
                 >
                   <span className="sc-pstudio-slot-inner">
                     {it.hash ? <img src={thumbUrl(it.hash, 'micro')} alt="" /> : null}
-                    {it.drawing ? <span className="sc-rendering" aria-hidden /> : null}
+                    {it.drawing ? <Rendering /> : null}
                     {it.approved && !it.drawing ? (
                       <span className="sc-pstudio-slot-mark" aria-hidden>
                         <Check size={11} weight="bold" />

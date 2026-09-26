@@ -23,7 +23,7 @@ async function brandSlug(p: Page): Promise<string> {
   return brands[0].slug as string;
 }
 
-test('a refinement that fails leaves the shot on the stage and a way to try again beside it', async ({ page }) => {
+test('a refinement that fails says so where it rendered, with Try again, and stays in the trail', async ({ page }) => {
   const slug = await brandSlug(page);
   const brand = (await (await page.request.get('/api/brands')).json())[0];
   const feed = await (await page.request.get(`/api/brands/${brand.id}/feed?limit=60`)).json();
@@ -40,22 +40,18 @@ test('a refinement that fails leaves the shot on the stage and a way to try agai
   await page.locator('.sc-ovl-edit .sc-send').click();
   const child = (await (await answered).json()).id as string;
 
-  // the failure arrives as a tile beside the shot, and the shot never leaves
-  const failed = page.locator('.sc-trail .sc-thumb-failed');
-  await expect(failed).toBeVisible({ timeout: 20_000 });
-  await expect(page).toHaveURL(new RegExp(`/shots/${parent.id}`));
-  await expect(page.locator('.sc-ovl-stage .sc-stage-img')).toHaveAttribute('src', new RegExp(parent.images[0]));
+  // the stage follows the step; when it fails, it says so there, with Try again
+  await expect(page).toHaveURL(new RegExp(child));
+  await expect(page.locator('.sc-ovl-stage .sc-fail')).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('.sc-ovl-stage').getByRole('button', { name: /Try again/ })).toBeVisible();
+  // nothing still pretends to be rendering
+  await expect(page.locator('.sc-ovl-stage .sc-rendering')).toHaveCount(0);
+  // the failed step keeps its place in the trail beside the shot it came from
   const failedTile = page.locator('.sc-trail-tile:has(.sc-thumb-failed)');
   await expect(failedTile).toHaveAttribute('aria-label', /Did not finish/);
-  // nothing still pretends to be rendering, and the field is free again
-  await expect(page.locator('.sc-ovl-stage .sc-rendering')).toHaveCount(0);
-  await expect(page.locator('.sc-ovl-edit .sc-send')).not.toHaveAttribute('title', /Wait for this refinement/);
-
-  // opening the failed step shows why, with Try again
-  await failedTile.click();
-  await expect(page).toHaveURL(new RegExp(`/shots/${child}`));
-  await expect(page.locator('.sc-ovl-stage .sc-fail')).toBeVisible();
-  await expect(page.locator('.sc-ovl-stage').getByRole('button', { name: /Try again/ })).toBeVisible();
+  // and the shot it came from is one click away, whole
+  await page.locator(`.sc-trail-tile:not(:has(.sc-thumb-failed))`).first().click();
+  await expect(page.locator('.sc-ovl-stage .sc-stage-img')).toHaveAttribute('src', new RegExp(parent.images[0]));
 });
 
 test('a sibling that fails keeps the place it rendered in, and the batch does not move', async ({ page }) => {

@@ -320,11 +320,14 @@
     );
   }
 }
-/* The picture's place while it is being made: the box it will occupy, on the
-   same raised ground as a tile, with the moving band inside it and what is
-   happening said over it. Without this box the band, which is absolutely
-   placed, spread over the whole stage and its trail (lost with the rail's
-   swell rewrite, 4ab3beee; restored as it was). */
+/* The picture's place while it is being made: the box it will occupy, in the
+   finished picture's own frame (square, with the frame's shadow), on the same
+   raised ground as a tile, with the swirl inside it and what is happening
+   said over it. The frame is the picture's so that a refinement starting from
+   the picture on the stage, and a shot landing there, change what is inside
+   and nothing else. Without this box the swirl, which is absolutely placed,
+   spread over the whole stage and its trail (lost with the rail's swell
+   rewrite, 4ab3beee; restored). */
 .sc-stage-wait {
   position: relative;
   /* Sized from the cap, not from the parent: the frame around this is an
@@ -337,7 +340,7 @@
   height: auto;
   margin-inline: auto;
   background: var(--sc-raised);
-  border-radius: 14px;
+  box-shadow: var(--sc-shadow-3);
   overflow: hidden;
 }
 .sc-stage-wait-say {
@@ -458,6 +461,12 @@
   display: block;
   width: auto;
   max-width: 100%;
+}
+/* A shot landing in the frame it was waited for in wears the waiting box's
+   ground until the landing is over, so the swirl carries straight on. */
+.sc-ovl-stage .sc-stage-pic[data-arriving] {
+  background: var(--sc-raised);
+  overflow: hidden;
 }
 .sc-stage-pic .sc-stage-under {
   position: absolute;

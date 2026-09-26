@@ -158,13 +158,10 @@
   overflow: hidden;
   pointer-events: none;
 }
-.sc-placeholder::after,
-.sc-rendering::after {
+.sc-placeholder::after {
   content: "";
   position: absolute;
   inset: 0;
-}
-.sc-placeholder::after {
   background: color-mix(in srgb, var(--sc-fg) 5%, transparent);
   opacity: 0;
   animation: sc-wait-breathe 2.8s ease-in-out 800ms infinite;
@@ -180,44 +177,30 @@
 }
 
 /* .sc-rendering is the place of a picture that does not exist yet and is
-   being made: a generation, a refinement, a view being drawn. It moves from
-   the first frame, because a generation is long by nature, and it moves in
-   one direction, which is what tells it apart from a picture that is only
-   loading. The band is moved by transform alone, so the compositor draws it
-   and no tile repaints per frame. A small host crosses in half the time so
-   the band travels at about one speed everywhere. Over a picture that is
-   being redrawn it passes over the picture and leaves it whole. */
-.sc-rendering {
-  --sc-rendering-dur: 3.2s;
+   being made: a generation, a refinement, a view being drawn. It carries the
+   swirl (layout/rendering/swirl.ts), a canvas drawn at 2px cells and scaled
+   up without smoothing, so every dot stays a crisp square. It moves from the
+   first frame, which is what tells it apart from a picture that is only
+   loading. After Generate the swirl forms in it; a picture made in it lands
+   out of it (.sc-arrival, the same canvas's successor over the picture); and
+   a refinement asked for on the stage starts from the picture that was there
+   (.sc-rendering-from, under the canvas until the swirl takes over). */
+.sc-swirl,
+.sc-arrival,
+.sc-rendering-from,
+.sc-thumb-landing {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
-.sc-rendering::after {
-  background: linear-gradient(
-    90deg,
-    transparent 30%,
-    color-mix(in srgb, var(--sc-fg) 7%, transparent) 50%,
-    transparent 70%
-  );
-  transform: translateX(-70%);
-  animation: sc-rendering var(--sc-rendering-dur) cubic-bezier(0.4, 0, 0.6, 1) infinite;
+.sc-swirl,
+.sc-arrival {
+  image-rendering: pixelated;
 }
-.sc-notif-thumb .sc-rendering,
-.sc-thumb-wait .sc-rendering,
-.sc-target-thumb .sc-rendering,
-.sc-pstudio-slot-inner > .sc-rendering {
-  --sc-rendering-dur: 1.6s;
-}
-/* The band enters at one edge and leaves at the other (its soft half-width is
-   a fifth of the box, so -70% and 70% are just outside), crossing at an even
-   pace for three quarters of the cycle and resting out of sight for the last
-   quarter: a pass and a pause, not a highlight that races and then hides. */
-@keyframes sc-rendering {
-  0% {
-    transform: translateX(-70%);
-  }
-  75%,
-  100% {
-    transform: translateX(70%);
-  }
+.sc-rendering-from,
+.sc-thumb-landing {
+  object-fit: cover;
 }
 
 /* A placeholder that stands in for whole cards or cells (a first page, a
@@ -250,16 +233,13 @@ img[data-reveal]:not([data-ready]) {
   opacity: 0;
 }
 
-/* Reduced motion: the placeholder is flat, and the band rests at the centre
-   of the box, still, so a picture being made still reads apart from one that
-   is loading. The elapsed clock keeps counting beside it. */
+/* Reduced motion: the placeholder is flat and a picture appears without a
+   fade. The swirl draws one frame and holds it (Rendering.tsx), so a picture
+   being made still reads apart from one that is loading, and a picture made
+   in it simply appears; the elapsed clock keeps counting beside it. */
 @media (prefers-reduced-motion: reduce) {
   .sc-placeholder::after {
     animation: none;
-  }
-  .sc-rendering::after {
-    animation: none;
-    transform: none;
   }
   img[data-reveal] {
     transition: none;

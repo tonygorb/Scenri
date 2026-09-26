@@ -4,6 +4,7 @@ import { FilmSlate, IdentificationBadge, ImageSquare, Storefront, WarningCircle,
 import { api, thumbUrl } from '../../api.js';
 import { useBrand } from '../../app/BrandLayout.js';
 import { useTaskCenter } from '../../app/TaskCenter.js';
+import { Rendering } from '../Rendering.js';
 import { agoLabel, elapsedLabel, type NotificationItem, type Task } from '../../tasks.js';
 import { useToasts } from '../../toasts.js';
 import { failureToast } from '../../failure.js';
@@ -175,9 +176,9 @@ export function ActivityPanel({
 
 function Thumb({ task }: { task: Pick<Task, 'kind' | 'state' | 'thumb' | 'title'> }) {
   if (task.thumb) return <img src={thumbUrl(task.thumb, 'micro')} alt="" loading="lazy" decoding="async" />;
-  // A picture being made carries the moving band; an import or the library
-  // download is a load, and holds its place still (primitives.css, Waiting).
-  if (task.state === 'running') return <span className={task.kind === 'catalog' ? 'sc-placeholder' : 'sc-rendering'} />;
+  // A picture being made carries the swirl; an import or the library
+  // download is a load, and holds its place still (DESIGN.md, Waiting).
+  if (task.state === 'running') return task.kind === 'catalog' ? <span className="sc-placeholder" /> : <Rendering />;
   if (task.state === 'error') return <WarningCircle size={17} weight="fill" />;
   if (task.state === 'cancelled') return <XCircle size={17} color="var(--sc-fg3)" />;
   if (task.kind === 'catalog') return <Storefront size={17} />;

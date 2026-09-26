@@ -4,6 +4,7 @@ import { hasNoShots, type FeedNode, type ShotSet } from '../api.js';
 import { feedColumnCount, masonryLayout, PHONE, useElementWidth, useViewportWidth } from './masonry.js';
 import { aspectOfImage, Tile, type TileHandlers } from './canvas/Tile.js';
 import { RunningTile } from './canvas/RunningTile.js';
+import { Rendering } from './Rendering.js';
 import { FailedTile } from './canvas/FailedTile.js';
 import {
   columnStarts,
@@ -280,12 +281,13 @@ export function Canvas({
    * is the ordinal `dealColumns` deals on: the newest tile is ordinal 0 and
    * always the top-left cell, the feed reads left to right and then down.
    */
-  type Item = { key: string; node: FeedNode | null; said?: string };
+  // a stand-in's slot is its place in the batch, as a running tile's batchIndex is
+  type Item = { key: string; node: FeedNode | null; said?: string; slot?: number };
   const items: Item[] = [
     ...(sending
       ? Array.from(
           { length: Math.max(1, sending.count) },
-          (_, i): Item => ({ key: `sending-${i}`, node: null, said: sending.said }),
+          (_, i): Item => ({ key: `sending-${i}`, node: null, said: sending.said, slot: i }),
         )
       : []),
     ...shots.map((n): Item => ({ key: n.id, node: n })),
@@ -302,7 +304,7 @@ export function Canvas({
           data-sending="true"
           style={sending?.format ? ({ '--sc-cell-ar': aspectOfFormat(sending.format) } as CSSProperties) : undefined}
         >
-          <span className="sc-rendering" />
+          <Rendering index={it.slot} appear />
           <span className="sc-cell-tag">sending</span>
           <span className="sc-cell-said" dir="auto">
             {it.said}
@@ -429,8 +431,8 @@ export function Canvas({
 
   // Nothing loaded yet: the grid keeps its shape with placeholders in the
   // brief's default shape, so the feed never flashes an empty state on the
-  // way to its first page. They are a load, not a generation: no running
-  // band, no `data-running`, and they come up only if the page has not
+  // way to its first page. They are a load, not a generation: no swirl, no
+  // `data-running`, and they come up only if the page has not
   // landed within a quarter second, so a quick answer shows no stand-ins.
   if (pending && hasNoShots(shots) && !sending) {
     const cols = Math.max(1, Math.min(fitting, 8));
