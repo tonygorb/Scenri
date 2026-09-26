@@ -1,4 +1,5 @@
 import type { NothingKind } from '../../conversation/question.js';
+import { type FailureRemedy, describeFailure } from '../../failure.js';
 
 /**
  * Every line Scenri says in the creation conversation, once, so the record
@@ -21,9 +22,10 @@ export const PROMPT = {
   // that out after the wait is worse than being asked before it.
   weakPhotos:
     'I cannot read a face in any of those photos, so anything I draw now would be a stranger rather than them.',
+  // One question in one set of words, from the first wait until it is
+  // answered: "While it draws" stopped being true the moment the face landed,
+  // and the question it began stayed on screen after that.
   name: 'What should we call them?',
-  nameWhileDrawing: 'While it draws: what should we call them?',
-  nameWhileReading: 'While I read them: what should we call them?',
   // The one question that opens more: what is always true of this person, over
   // and above the rows. It says "always" so nothing under it has to.
   traits: 'Anything else that is always true of them?',
@@ -32,12 +34,14 @@ export const PROMPT = {
   // The last word before a picture is drawn: the whole person is set out above
   // it, so the ask itself is one short question and nothing more.
   agree: 'Here is the presenter, in full. Ready to draw?',
-  identity: (who: string) => `Here is ${who === 'them' ? 'the face' : who}. Use this person, or change something.`,
+  // Use draws the rest from this face, and says so: a press that spends should never be a surprise.
+  identity: (who: string) =>
+    `Here is ${who === 'them' ? 'the face' : who}. Use this person to draw the rest from this face, or change something.`,
   change: 'What should change?',
   // A view standing for the first time is not a revision of anything, so it
   // is not offered a previous one to go back to.
   landed: (view: string) => `Here is the ${view}. Use it, or try again.`,
-  extras: 'Add back and profile views? They help shots from behind or in profile.',
+  extras: 'Add back and profile views? Three more pictures, for shots from behind or in profile.',
 };
 
 /**
@@ -89,7 +93,26 @@ export const STARTERS = [
   },
 ];
 
-export const ATTEST_TEXT = "I have permission to use this person's likeness.";
+/**
+ * The likeness confirmation, and where the photographs go.
+ *
+ * It used to speak of permission only, while the photographs left the machine
+ * for whichever engine draws: OpenRouter when Codex is absent and a key is
+ * set, and OpenAI through Codex, whose image model does not run locally. The
+ * one line a person ticks before a real face leaves says where it goes.
+ */
+export function attestText(engine?: string | null): string {
+  // the display name without the billing suffix, which is noise mid-sentence
+  const name = (engine ?? '').replace(/\s*\(BYOK\)\s*$/i, '').trim();
+  const where = !name
+    ? 'to the engine that draws them'
+    : /^codex/i.test(name)
+      ? 'to OpenAI, through Codex, to draw them'
+      : `to ${name} to draw them`;
+  return `I have permission to use this person's likeness, and to send these photos ${where}.`;
+}
+
+export const ATTEST_TEXT = attestText(null);
 
 /**
  * What happened to the photographs that did not arrive.
@@ -118,8 +141,15 @@ export function photoTrouble(r: { over: number; same: number; failed: string[]; 
 export const photoTooBig = (name: string, max: number): string =>
   `${name} is larger than ${Math.round(max / 1024 / 1024)}MB. Choose a smaller copy of it.`;
 
+/**
+ * A file the store could not read. HEIC is named on its own because it is
+ * what an iPhone takes, and the store cannot decode it: this line used to
+ * promise that HEIC works, directly under a HEIC file it had just refused.
+ */
 export const photoUnreadable = (name: string): string =>
-  `${name} could not be read as a photograph. JPEG, PNG, WebP and HEIC all work.`;
+  /\.hei[cf]$/i.test(name)
+    ? `${name} is a HEIC photo, which Scenri cannot read yet. Export it as JPEG and add that.`
+    : `${name} could not be read as a photograph. JPEG, PNG and WebP all work.`;
 
 /**
  * What the stage says while it is waiting for the first portrait.
@@ -131,10 +161,11 @@ export const photoUnreadable = (name: string): string =>
  * of it.
  *
  * The second line follows what is actually being asked, because "keep
- * describing" is a small lie at the two moments when describing is not what is
- * wanted: when photographs are, and when there is nothing left to say and the
- * offer to draw is standing. It stays one line either way, so the sign does
- * not change height under the reader.
+ * describing" is a small lie whenever describing is not what is wanted: before
+ * anything has been said, when photographs are (and once they are in), while a
+ * failure stands, and when there is nothing left to say and the offer to draw
+ * is standing. It stays one line either way, so the sign does not change
+ * height under the reader.
  */
 export const STAGE_LEAD = 'First portrait appears here';
 
@@ -149,9 +180,13 @@ export const STAGE_LEAD = 'First portrait appears here';
 export const stageLead = (view: string | undefined, name: string | undefined): string =>
   !view || view === 'portrait' || !name ? STAGE_LEAD : `The ${name} appears here`;
 
-export function stageHint(asking: string | null): string {
+export function stageHint(asking: string | null, photos = 0): string {
   if (asking === 'agree') return 'Ready when you are';
-  if (asking === 'photos') return 'Add their photos';
+  // nothing has been said yet, so there is nothing to keep describing
+  if (asking === 'source') return 'Describe them, or add photos';
+  if (asking === 'photos') return photos ? 'Continue when the photos are in' : 'Add their photos';
+  if (asking === 'retry') return 'Try again from the conversation';
+  if (asking === 'noengine') return 'Set up image generation, or add photos';
   return 'Keep describing your presenter';
 }
 
@@ -351,3 +386,39 @@ export function asideReply(
  * finished was touched."
  */
 export const reason = (text: string): string => text.trim().replace(/[.\s]+$/, '');
+
+/**
+ * What a failure leaves standing, said after an error nothing recognises.
+ * "Nothing finished was touched" was true and hard to read; this names it: a
+ * view that did not draw leaves everything else, the face included when it
+ * was not the face.
+ */
+export const keptAfter = (view: string | null): string =>
+  !view
+    ? 'Everything you had is kept.'
+    : view === 'portrait'
+      ? 'Everything else you had is kept.'
+      : 'The face and everything else you had are kept.';
+
+/**
+ * A failure in words, read the way the composer reads one: what happened,
+ * what to do, and the one control that fixes it.
+ *
+ * The conversation used to quote the engine inside its own sentence ("The face
+ * could not be drawn: codex exited with code 1: ERROR: unexpected status 401
+ * Unauthorized") and offer only Retry, which fails the same way forever on a
+ * signed-out Codex or a missing key. An error nothing recognises keeps its own
+ * words, which are then the most honest thing to say. One that cannot succeed
+ * twice and names no control of its own is offered Providers, where whatever
+ * draws is set up: Retry alone would be the one way on, and a certain failure.
+ */
+export function failureWords(
+  lead: string,
+  error: string,
+  kept = keptAfter(null),
+): { text: string; remedy?: FailureRemedy } {
+  const f = describeFailure(error);
+  if (f.kind === 'unknown') return { text: `${lead}: ${reason(error)}. ${kept}` };
+  const remedy = f.remedy ?? (f.retryable ? undefined : { label: 'Providers', opens: 'engines' as const });
+  return { text: `${lead}. ${f.fix ? `${f.title} ${f.fix}` : f.title}`, remedy };
+}

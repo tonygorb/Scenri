@@ -80,6 +80,26 @@ describe('buildBrandBundle', () => {
     expect(validateBrand(json).valid).toBe(true);
   });
 
+  // A deleted presenter's superseded revisions stay in the brand document for
+  // the shots made from them, and must not travel in a bundle (SEC-H1i).
+  it("leaves out the revisions of a presenter that was deleted, and keeps a living chain's", async () => {
+    const gone = core.images.save(Buffer.from('a person deleted here'));
+    const kept = core.images.save(Buffer.from('a person still here'));
+    const brand = core.store.createBrand({
+      specVersion: '0.1',
+      meta: { name: 'Acme' },
+      characters: [
+        { id: 'up-old', name: 'Ria', supersededBy: 'up-deleted', shots: [{ file: `asset:${gone}` }] },
+        { id: 'up-was', name: 'Ines', supersededBy: 'up-now', shots: [{ file: `asset:${kept}` }] },
+        { id: 'up-now', name: 'Ines', revisionOf: 'up-was', shots: [{ file: `asset:${kept}` }] },
+      ],
+    } as any);
+    const zip = await open((await buildBrandBundle(core, brand.id)).zip);
+    const json = await doc(zip);
+    expect(json.characters.map((c: any) => c.id)).toEqual(['up-was', 'up-now']);
+    expect(names(zip).some((n) => n.includes('up-old'))).toBe(false);
+  });
+
   it('writes a shared image once and points both refs at it', async () => {
     const shared = core.images.save(Buffer.from('one-and-the-same'));
     const brand = core.store.createBrand({

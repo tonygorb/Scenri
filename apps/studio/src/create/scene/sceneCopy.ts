@@ -96,7 +96,8 @@ export const COPY = {
    * any row: eight worlds is a starting point, not the whole of what a place can
    * be.
    */
-  rowPlaceholder: (row: string) => `Tap one above, or describe the ${row} in your own words`,
+  // short enough for a 375px line: the longer form was cut off at "in your"
+  rowPlaceholder: (row: string) => `Pick one above, or describe the ${row}`,
   photosOff: 'Add the pictures above, then read them.',
   addPlaceholder: 'Anything to add or leave out?',
   keepPlaceholder: 'Anything to keep or ignore in them?',
@@ -126,6 +127,12 @@ export const COPY = {
   agreePhotos: 'Here is the place I read in your pictures. Ready to draw?',
   agreeShot: 'Here is the place I read in your shot. Ready to draw?',
   agreeChanged: 'Here it is with that. Ready to draw?',
+  /**
+   * What a draw spends, said after "Ready to draw?": the place, then its hero
+   * drawn from it (`drawHero` on the server). Every later offer counts its
+   * pictures, so this one does too.
+   */
+  drawsTwo: 'It draws two pictures: the place, and the place in use.',
   agreeBlind: 'Here is the place, in full. Nothing here can draw yet, so it is saved as words.',
   readAgain: 'I read the place again.',
   draw: 'Draw the scene',
@@ -135,6 +142,8 @@ export const COPY = {
   changed: 'Here it is, changed.',
   decide: (name: string) => `Here is ${name}. Use it, or change something.`,
   decideEdit: (name: string) => `Here is ${name}. Save it, or change something.`,
+  /** A saved scene opened to change it, before anything has: why there is no Save yet. */
+  decideSaved: 'Nothing has changed yet.',
   use: 'Use this scene',
   saveChanges: 'Save changes',
   tryAgain: 'Try again',
@@ -143,8 +152,18 @@ export const COPY = {
   editOpen: (name: string) => `Here is ${name}, as it is saved. Change something, or draw it again.`,
   failed: 'That did not work. Nothing standing was touched.',
   failedFirst: (why: string) => `That did not go through: ${why}. Nothing was drawn.`,
+  /** A failure Scenri can say in words (failure.ts): what happened, what to do. */
+  failedSaid: (words: string) => `${words} Nothing was drawn.`,
+  /** A failure with no plain words of its own, while a picture stands. */
+  failedKept: (why: string) => `That did not go through: ${why}. The picture you had is kept.`,
+  /** The way on from a brief a provider declined, where trying the same again only fails again. */
+  sayDifferently: 'Say it differently',
   lost: 'That work is gone: the server restarted while it ran. Try it again.',
   offline: 'Lost touch with Scenri. Still trying.',
+  /** A Stop that never reached the server: the pill is Stop again. */
+  stopLost: 'Stop did not reach Scenri. Press it again.',
+  /** The conversation is open in another window, where different work is already running. */
+  busyElsewhere: 'This scene is already being worked on in another window. Try again once that is done.',
   retry: 'Try again',
   version: (n: number) => `Version ${n}`,
 
@@ -152,6 +171,8 @@ export const COPY = {
   // for, so every one of these is a press (sceneExamples.ts on the server).
   saved: 'Saved.',
   savedQuiet: 'Saved. Nothing is drawn until you ask.',
+  /** The line after Use: the place is decided, and the way on is the question above. */
+  usedOff: 'The scene is saved. Choose above.',
   /** The offer, with what it draws named, so the cost is read before it is pressed. */
   showInUse: (who: 'product' | 'presenter', labels: string[]) =>
     `Show it in use? ${count(labels.length)} with a Scenri demo ${who} in the place: ${joinAnd(
@@ -160,10 +181,16 @@ export const COPY = {
   /** The same offer for a set the place moved under. */
   staleSet: (n: number) =>
     `${count(n)} here show${n === 1 ? 's' : ''} the place as it was before. Draw ${n === 1 ? 'it' : 'them'} again?`,
+  /**
+   * The offer once the hero came with the place: the rest of the place in use,
+   * counted and named. Said plainly, since neither "the hero" nor a set was
+   * ever introduced by name.
+   */
+  moreViews: (labels: string[]) => `Add ${count(labels.length).toLowerCase()} of it in use? ${joinAnd(labels)}.`,
+  drawIt: 'Draw it',
   drawThem: 'Draw them',
   drawThemAgain: 'Draw them again',
-  inUse: (who: 'product' | 'presenter') =>
-    `Saved. Now it is shown in use, with a Scenri demo ${who}. Shots are told the words, never handed these pictures.`,
+  inUse: (who: 'product' | 'presenter') => `Saved. Now it is shown in use, with a Scenri demo ${who}.`,
   noLibrary: "Saved. Scenri's library has not downloaded yet, so it cannot be shown in use for now.",
   exampleHere: {
     hero: 'Here is the hero.',
@@ -174,6 +201,7 @@ export const COPY = {
   },
   exampleFailed: (label: string, why: string) =>
     `The ${label.toLowerCase()} did not draw: ${why.replace(/[.\s]+$/, '')}.`,
+  exampleFailedSaid: (label: string, words: string) => `The ${label.toLowerCase()} did not draw. ${words}`,
   /** The three more, or two for a place already staged in hands or built around a person. */
   more: (labels: string[]) =>
     `Add ${['no', 'one', 'two', 'three'][labels.length] ?? labels.length} more? ${joinAnd(labels)}.`,
@@ -189,7 +217,7 @@ export const COPY = {
   // one line back to a sentence that answers nothing
   notAPlace: "That did not read as a place. Try a few words about it, like 'a quiet concrete gallery at dusk'.",
   greet: 'Hello. Describe the place, or choose above.',
-  greetRow: 'Tap one above, or say it in a few words.',
+  greetRow: 'Pick one above, or say it in a few words.',
   askHelp: 'Describe the place in a few words, or tap one above. Everything can be changed later.',
   goFirst: 'Choose above, or describe the place first.',
   startOverIsUp: 'Start over is at the top of this panel.',
@@ -203,6 +231,7 @@ export const COPY = {
     'The picture was drawn from the answers as they are. Changing one asks again from there, and the pictures so far go. To keep the picture and change one thing, say it in the line instead.',
   onlyPictures: 'Only pictures can show a place.',
   fourPictures: 'Four pictures is the most a scene is read from.',
+  heicNotYet: 'HEIC pictures cannot be read yet. Export them as JPEG, then add them.',
 
   // leaving
   leaveTitle: 'Leave this scene?',

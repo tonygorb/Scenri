@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 import { createCore, type Core, type EngineCapabilities } from '@scenri/core';
 import { compileBrief, brandRuleDirectives, validateBrief, PRODUCT_REF_MAX, type Brief } from '../src/brief.js';
@@ -46,7 +47,13 @@ afterEach(async () => {
   rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
-const allScenes = loadScenes(defaultScenesDir()).scenes;
+/**
+ * These contracts were written against scenes that have since left the catalog (the
+ * 2026-09-24 refresh). They stay as fixtures, so each contract keeps the scene it was
+ * written for instead of being bent to whatever the catalog ships today.
+ */
+const RETIRED_SCENES = fileURLToPath(new URL('./fixtures/scenes/', import.meta.url));
+const allScenes = [...loadScenes(defaultScenesDir()).scenes, ...loadScenes(RETIRED_SCENES).scenes];
 const resolveScene = sceneResolver(allScenes);
 const byId = { get: resolveScene };
 /** Context with the real scene library wired for inline scene tokens. */
@@ -435,7 +442,7 @@ describe('compileBrief', () => {
   });
 
   it('a template writes the brief and free text becomes art direction', () => {
-    const { scenes: templates } = loadScenes(defaultScenesDir());
+    const templates = allScenes;
     const template = templates.find((t) => t.id === 'studio-polished-pedestal')!;
     const r = compileBrief(
       {
@@ -456,7 +463,7 @@ describe('compileBrief', () => {
   });
 
   it('warns when a product-hungry template has no product, and when assets vanish', () => {
-    const { scenes: templates } = loadScenes(defaultScenesDir());
+    const templates = allScenes;
     const template = templates.find((t) => t.id === 'studio-polished-pedestal')!;
     const noProduct = compileBrief({ tokens: [], templateId: template.id }, ctx({ template }));
     expect(noProduct.warnings.join(' ')).toContain('is built around a product');
@@ -807,6 +814,13 @@ describe('validateBrief', () => {
   });
   it('rejects a mark with no image', () => {
     expect(validateBrief({ tokens: [{ t: 'mark' }] })).toEqual(['tokens[0].imageHash must be a non-empty string']);
+  });
+  it('accepts a scene carrying a picked view, and only a picture hash as that view', () => {
+    const view = 'a'.repeat(32);
+    expect(validateBrief({ tokens: [{ t: 'template', id: 's1', view, viewName: 'Hero' }] })).toEqual([]);
+    expect(validateBrief({ tokens: [{ t: 'template', id: 's1', view: '../x' }] })).toEqual([
+      'tokens[0].view must be an image hash when present',
+    ]);
   });
 });
 
@@ -1594,6 +1608,246 @@ describe('compileBrief: a world built around a figure', () => {
       refd({ figure: undefined, figureTreatment: undefined }),
     );
     expect(r.attachments.map((a) => a.role)).not.toContain('scene');
+  });
+
+  /*
+   * The anchor (CustomScene.anchor): drawn beside the scene's own pictures and
+   * made nobody's, it is the world's picture a shot is given. A preview without
+   * the flag keeps the rule the tests above pin.
+   */
+  describe('an anchor', () => {
+    const place = { figure: undefined, figureTreatment: undefined, anchor: true as const };
+    const sceneOf = (r: ReturnType<typeof compileBrief>) => r.attachments.filter((a) => a.role === 'scene');
+
+    it("rides as the world's picture when nobody is in it, whoever is attached", () => {
+      for (const tokens of [
+        [{ t: 'template' as const, id: base.id }],
+        [
+          { t: 'product' as const, id: 'p1' },
+          { t: 'template' as const, id: base.id },
+        ],
+        [
+          { t: 'character' as const, id: 'c1' },
+          { t: 'template' as const, id: base.id },
+        ],
+      ]) {
+        const r = compileBrief({ tokens }, refd(place));
+        const scene = sceneOf(r);
+        expect(scene).toHaveLength(1);
+        expect(scene[0].essential).toBeFalsy();
+        // the shot finds its own frame in it
+        expect(r.prompt).toContain('It is not the shot to copy');
+      }
+    });
+
+    it('sends its drawn picture and never the pictures it was read from', () => {
+      const r = compileBrief({ tokens: [{ t: 'template', id: base.id }] }, refd(place));
+      expect(sceneOf(r).map((a) => a.hash)).not.toContain(productHash);
+    });
+
+    it('with a person in it rides only beside a presenter, who takes their place', () => {
+      const figureAnchor = { figureTreatment: undefined, anchor: true as const };
+      const alone = compileBrief(
+        {
+          tokens: [
+            { t: 'product', id: 'p1' },
+            { t: 'template', id: base.id },
+          ],
+        },
+        refd(figureAnchor),
+      );
+      expect(sceneOf(alone)).toHaveLength(0);
+      expect(alone.prompt).toContain('role stays empty');
+      const beside = compileBrief(
+        {
+          tokens: [
+            { t: 'character', id: 'c1' },
+            { t: 'template', id: base.id },
+          ],
+        },
+        refd(figureAnchor),
+      );
+      expect(sceneOf(beside)).toHaveLength(1);
+      expect(beside.prompt).toContain('The person in the scene photograph is a stand-in for the attached presenter');
+    });
+
+    it('hands its hero object over to an attached product, never its size', () => {
+      const r = compileBrief(
+        {
+          tokens: [
+            { t: 'product', id: 'p1' },
+            { t: 'template', id: base.id },
+          ],
+        },
+        refd(place),
+      );
+      expect(r.prompt).toContain('only its hero object stands in for anything attached to this shot');
+      expect(r.prompt).toContain('only marks where the attached product goes');
+      expect(r.prompt).toContain('at its own size, and that object does not appear');
+      // an older picture is never told that: nothing in it stands in
+      const older = compileBrief(
+        {
+          tokens: [
+            { t: 'product', id: 'p1' },
+            { t: 'character', id: 'c1' },
+            { t: 'template', id: base.id },
+          ],
+        },
+        refd(),
+      );
+      expect(older.prompt).toContain('none of them stands in for anything attached to this shot');
+      expect(older.prompt).not.toContain('only marks where the attached product goes');
+    });
+
+    it('never rides on a refinement', () => {
+      const r = compileBrief({ tokens: [{ t: 'template', id: base.id }] }, refd(place, { mode: 'edit' as const }));
+      expect(sceneOf(r)).toHaveLength(0);
+    });
+
+    it('gives way to every identity picture, and is never essential', () => {
+      const r = compileBrief(
+        {
+          tokens: [
+            { t: 'product', id: 'p1' },
+            { t: 'character', id: 'c1' },
+            { t: 'template', id: base.id },
+          ],
+        },
+        refd(place, { engineCaps: caps(2) }),
+      );
+      const kept = r.attachments.map((a) => a.role);
+      expect(kept).toEqual(['product', 'character']);
+      expect(r.dropped.some((d) => d.role === 'scene')).toBe(true);
+      expect(r.dropped.every((d) => !d.essential)).toBe(true);
+    });
+
+    // One picture of a scene per shot: a picked one is the scene's picture.
+    it('stays home when a picture of the same scene is picked for the shot', () => {
+      const preview = core.images.save(Buffer.from('anchor-picked'));
+      const hero = core.images.save(Buffer.from('anchor-example-hero'));
+      const scene = {
+        ...place,
+        preview: `asset:${preview}`,
+        examples: [{ role: 'hero', file: `asset:${hero}`, from: `asset:${preview}` }],
+      };
+      for (const picked of [preview, hero]) {
+        const r = compileBrief(
+          {
+            tokens: [
+              { t: 'template', id: base.id },
+              { t: 'ref', imageHash: picked },
+            ],
+          },
+          refd(scene),
+        );
+        expect(sceneOf(r)).toHaveLength(0);
+        expect(r.attachments.filter((a) => a.role === 'reference').map((a) => a.hash)).toEqual([picked]);
+        expect(r.prompt).toContain('Match the composition, lighting and treatment of the attached reference');
+      }
+    });
+
+    it('never sends its hero, and a cover changes nothing a shot is given', () => {
+      const hero = core.images.save(Buffer.from('scene-hero'));
+      const tokens = [
+        { t: 'product' as const, id: 'p1' },
+        { t: 'template' as const, id: base.id },
+      ];
+      const plain = compileBrief({ tokens }, refd(place));
+      for (const cover of ['hero', 'close', 'place']) {
+        const covered = compileBrief(
+          { tokens },
+          refd({ ...place, cover, examples: [{ role: 'hero', file: `asset:${hero}`, from: 'asset:x' }] }),
+        );
+        expect(covered.prompt).toBe(plain.prompt);
+        expect(covered.attachments.map((a) => [a.role, a.hash])).toEqual(
+          plain.attachments.map((a) => [a.role, a.hash]),
+        );
+        expect(covered.attachments.map((a) => a.hash)).not.toContain(hero);
+      }
+    });
+
+    it('a frame picked to follow sets the camera for a product alone, and the product keeps its own size in it', () => {
+      const view = core.images.save(Buffer.from('picked-view'));
+      const tokens = (withRef: boolean) => [
+        { t: 'product' as const, id: 'p1' },
+        { t: 'template' as const, id: base.id },
+        ...(withRef ? [{ t: 'ref' as const, imageHash: view }] : []),
+      ];
+      const alone = compileBrief({ tokens: tokens(false) }, refd(place));
+      expect(alone.prompt).toContain("This shot is framed at the product's own scale");
+      const picked = compileBrief({ tokens: tokens(true) }, refd(place));
+      expect(picked.attachments.some((a) => a.role === 'reference' && a.hash === view)).toBe(true);
+      expect(picked.prompt).toContain("The attached reference sets this shot's camera");
+      expect(picked.prompt).toContain('never enlarged to fill it');
+      expect(picked.prompt).not.toContain("This shot is framed at the product's own scale");
+      expect(picked.prompt).not.toContain('the camera comes low and close');
+    });
+
+    // Use this view: one chip, the scene carrying the picture it follows.
+    it('a scene chip carrying a picked view compiles exactly as the scene and that picture did', () => {
+      const preview = core.images.save(Buffer.from('anchor-view-chip'));
+      const hero = core.images.save(Buffer.from('anchor-view-chip-hero'));
+      const scene = {
+        ...place,
+        preview: `asset:${preview}`,
+        examples: [{ role: 'hero', file: `asset:${hero}`, from: `asset:${preview}` }],
+      };
+      const one = compileBrief(
+        {
+          tokens: [
+            { t: 'character', id: 'c1' },
+            { t: 'template', id: base.id, view: hero, viewName: 'Hero' },
+          ],
+        },
+        refd(scene),
+      );
+      const two = compileBrief(
+        {
+          tokens: [
+            { t: 'character', id: 'c1' },
+            { t: 'template', id: base.id },
+            { t: 'ref', imageHash: hero },
+          ],
+        },
+        refd(scene),
+      );
+      expect(one.prompt).toBe(two.prompt);
+      expect(one.attachments.map((a) => [a.role, a.hash])).toEqual(two.attachments.map((a) => [a.role, a.hash]));
+      // one picture of the scene, never two: its anchor stays home
+      expect(sceneOf(one)).toHaveLength(0);
+      expect(one.attachments.filter((a) => a.role === 'reference').map((a) => a.hash)).toEqual([hero]);
+    });
+
+    it('words beside a scene-view chip are about the scene, and the picture stays the frame', () => {
+      const view = core.images.save(Buffer.from('view-chip-with-words'));
+      const r = compileBrief(
+        {
+          tokens: [
+            { t: 'template', id: base.id, view, viewName: 'Close-up' },
+            { t: 'text', v: 'with a red umbrella' },
+          ],
+        },
+        refd(place),
+      );
+      expect(r.prompt).toContain('Match the composition, lighting and treatment of the attached reference');
+      expect(r.prompt).not.toContain('the attached image with a red umbrella');
+    });
+  });
+
+  // A reference's own product never becomes the shot's: the doctrine said it,
+  // and nothing in the prompt did.
+  it('tells a shot with a product that a reference lends everything but its product', () => {
+    const ref = core.images.save(Buffer.from('a-picked-reference'));
+    const tokens = [
+      { t: 'product' as const, id: 'p1' },
+      { t: 'ref' as const, imageHash: ref },
+    ];
+    const fresh = compileBrief({ tokens }, ctx());
+    expect(fresh.prompt).toContain('A reference shot lends its composition, lighting and treatment, never its product');
+    const noProduct = compileBrief({ tokens: [{ t: 'ref', imageHash: ref }] }, ctx());
+    expect(noProduct.prompt).not.toContain('never its product');
+    const edit = compileBrief({ tokens }, ctx({ mode: 'edit' as const }));
+    expect(edit.prompt).not.toContain('never its product');
   });
 
   /**

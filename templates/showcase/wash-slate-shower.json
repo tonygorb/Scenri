@@ -1,0 +1,29 @@
+{
+  "id": "wash-slate-shower",
+  "title": "Fig and vetiver wash under running water",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "harlow-made-fig-vetiver-wash"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. The olive pump bottle stands on a slate shower ledge under a falling curtain of water, droplets frozen as they bounce off the pump and the shoulders of the bottle. Dark slate, one cool backlight making the water sparkle. 85mm at ledge height, the label crisp through the droplets."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 27,
+  "family": "fluid"
+}

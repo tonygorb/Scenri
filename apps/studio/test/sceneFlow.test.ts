@@ -601,6 +601,20 @@ describe('the conversation', () => {
     expect(composerFor(args({ setup: setupOf(guided), studio }), q).target).toEqual({ kind: 'add' });
   });
 
+  it('says what a draw spends: the place and the place in use, or the place alone when that is its hero', () => {
+    const two = lastQ(turnsFor(args({ setup: setupOf(guided), studio: read(EMPTY) })));
+    expect(two?.prompt).toBe(
+      'Here is the place, in full. Ready to draw? It draws two pictures: the place, and the place in use.',
+    );
+    const alone = lastQ(
+      turnsFor(args({ setup: setupOf(guided), studio: read(EMPTY, { reading: R({ hero: 'place' }) }) })),
+    );
+    expect(alone?.prompt).toBe('Here is the place, in full. Ready to draw?');
+    // nothing can draw, so nothing is counted
+    const blind = lastQ(turnsFor(args({ setup: setupOf(guided), studio: read(EMPTY), canDraw: false })));
+    expect(blind?.prompt).toBe('Here is the place, in full. Nothing here can draw yet, so it is saved as words.');
+  });
+
   it('says the pictures were read, on the picture door, and asks what to keep or ignore', () => {
     const a: Answers = { source: { door: 'photos' }, photos: { hashes: [H('a')], done: true } };
     const studio = read(EMPTY);
@@ -630,6 +644,24 @@ describe('the conversation', () => {
     expect(composerFor(args({ setup: setupOf(guided), studio }), q).target).toEqual({ kind: 'change' });
   });
 
+  it('folds the words a picture was drawn from, and stands new words from a change whole', () => {
+    let studio = read(EMPTY);
+    studio = reduce(studio, { type: 'started', id: 'j2', kind: 'again', since: 't' });
+    studio = reduce(studio, { type: 'finished', job: job({ id: 'j2', kind: 'again', hash: H('b') }) });
+    const drawn = lastQ(turnsFor(args({ setup: setupOf(guided), studio })));
+    expect(drawn?.kind === 'confirm' && [!!drawn.quote, drawn.quoteFolded]).toEqual([true, true]);
+    studio = reduce(studio, { type: 'started', id: 'j3', kind: 'change', ask: 'warmer', since: 't' });
+    studio = reduce(studio, {
+      type: 'finished',
+      job: job({ id: 'j3', kind: 'change', hash: H('c'), reading: R({ prompt: 'A warmer shelf.' }) }),
+    });
+    const changed = lastQ(turnsFor(args({ setup: setupOf(guided), studio })));
+    expect(changed?.kind === 'confirm' && [changed.quote, !!changed.quoteFolded]).toEqual([
+      expect.stringContaining('A warmer shelf.'),
+      false,
+    ]);
+  });
+
   it('shows every picture with a way to put it back, and the one standing as the one standing', () => {
     let studio = read(EMPTY, { hash: H('a') });
     studio = reduce(studio, { type: 'started', id: 'j2', kind: 'change', ask: 'warmer', since: 't' });
@@ -643,6 +675,28 @@ describe('the conversation', () => {
     expect(keys(T)).toContain('you:ask-1');
   });
 
+  it('says a Stop plainly, and an error it cannot name in a sentence that keeps the picture', () => {
+    let studio = read(EMPTY, { hash: H('a') });
+    studio = reduce(studio, { type: 'error', text: 'Stopped. Nothing was drawn.' });
+    const stopped = turnsFor(args({ setup: setupOf(guided), studio })).find(
+      (t) => t.kind === 'scenri' && t.id.startsWith('error-'),
+    );
+    // a person's own Stop is not a fault: no alarm colour, as the presenter says it
+    expect(stopped?.kind === 'scenri' && [stopped.text, stopped.tone]).toEqual([
+      'Stopped. Nothing was drawn.',
+      undefined,
+    ]);
+    studio = reduce(studio, { type: 'error', text: 'unexpected error' });
+    const failed = turnsFor(args({ setup: setupOf(guided), studio })).find(
+      (t) => t.kind === 'scenri' && t.id.startsWith('error-'),
+    );
+    // the server's own words are not a sentence on their own
+    expect(failed?.kind === 'scenri' && [failed.text, failed.tone]).toEqual([
+      'That did not go through: unexpected error. The picture you had is kept.',
+      'alert',
+    ]);
+  });
+
   it('asks to read again when a changed place could not be read', () => {
     let studio = read(EMPTY, { hash: H('a') });
     studio = reduce(studio, { type: 'inputs', place: 'y', pictures: [] });
@@ -653,16 +707,25 @@ describe('the conversation', () => {
 
   it('opens a saved scene at its record, spending nothing and asking nothing of the setup', () => {
     const seed = seeded({ place: 'a shore', pictures: [], reading: R(), hash: H('a'), name: 'Shore' });
-    const T = turnsFor(args({ studio: seed, edit: { name: 'Shore' } }));
+    const T = turnsFor(args({ studio: seed, edit: { name: 'Shore', changed: false } }));
     expect(keys(T)[0]).toBe('scenri:edit-open');
     expect(lastQ(T)?.id).toBe('decide-0');
-    expect(lastQ(T)?.kind === 'confirm' && lastQ(T)?.kind === 'confirm' ? (lastQ(T) as any).options[0].label : '').toBe(
-      'Save changes',
-    );
-    // it was named when it was made: nothing asks for a name "while it draws", and the words match the button
+    // nothing changed yet, so nothing is offered to save: no main action, and Enter draws nothing
+    const q = lastQ(T);
+    expect(q?.kind === 'confirm' && q.options.map((o) => o.label)).toEqual(['Try again']);
+    expect(q?.kind === 'confirm' && q.quiet).toBe(true);
+    // it was named when it was made: nothing asks for a name "while it draws", and the words match the buttons
     expect(keys(T)).not.toContain('scenri:asked-name');
     expect(keys(T)).not.toContain('you:name');
-    expect(lastQ(T)?.prompt).toBe('Here is Shore. Save it, or change something.');
+    expect(q?.prompt).toBe('Nothing has changed yet.');
+  });
+
+  it('offers Save changes once something in a saved scene changed', () => {
+    const seed = seeded({ place: 'a shore', pictures: [], reading: R(), hash: H('a'), name: 'Shore' });
+    const q = lastQ(turnsFor(args({ studio: seed, edit: { name: 'Shore', changed: true } })));
+    expect(q?.kind === 'confirm' && q.options.map((o) => o.label)).toEqual(['Save changes', 'Try again']);
+    expect(q?.kind === 'confirm' && q.quiet).toBeFalsy();
+    expect(q?.prompt).toBe('Here is Shore. Save it, or change something.');
   });
 
   it('keeps what was said at a question under it, and says the rest before the one on the floor', () => {
@@ -899,7 +962,9 @@ describe('a place started from a shot', () => {
     expect(shot?.kind === 'you' && shot.photos).toEqual([H('e')]);
     const agree = lastQ(T);
     expect(agree?.kind === 'confirm' && agree.options.map((o) => o.id)).toEqual(['draw', 'another-shot']);
-    expect(agree?.prompt).toBe('Here is the place I read in your shot. Ready to draw?');
+    expect(agree?.prompt).toBe(
+      'Here is the place I read in your shot. Ready to draw? It draws two pictures: the place, and the place in use.',
+    );
     // the pictures door never offers it
     const photos = setupOf({ source: { door: 'photos' }, photos: { hashes: [H('a')], done: true } });
     const other = lastQ(turnsFor(args({ setup: photos, studio: read(EMPTY) })));
@@ -1087,7 +1152,25 @@ describe('after Use: nothing is drawn until it is asked for', () => {
     // the place is decided: no Put back on it, no pencil on the answers, nothing to type
     expect(T.some((t) => t.kind === 'scenri' && !!t.restore)).toBe(false);
     expect(T.some((t) => t.kind === 'you' && t.editable)).toBe(false);
-    expect(composerFor(flow({ studio: drew(), set: drawing }), null).target.kind).toBe('off');
+    // the stage says what is drawing, so the line says nothing more
+    expect(composerFor(flow({ studio: drew(), set: drawing }), null).target).toEqual({ kind: 'off', why: '' });
+  });
+
+  it('says in the line that the scene is saved and the way on is above', () => {
+    const f = flow({ set: offered() });
+    expect(composerFor(f, lastQ(turnsFor(f))).target).toEqual({
+      kind: 'off',
+      why: 'The scene is saved. Choose above.',
+    });
+  });
+
+  it('names what is offered after the hero plainly, with its count', () => {
+    const s = reduce(read(EMPTY, { hash: H('a'), hero: H('h') }), { type: 'saved', id: 'us-1' });
+    const came = set({ tiles: [tile('hero', 'shown', 'h')] as any, first: ['close'] });
+    const q = lastQ(turnsFor(flow({ studio: s, set: came })));
+    expect(q?.id).toBe('set-start');
+    expect(q?.prompt).toBe('Add one picture of it in use? Close-up.');
+    expect(q?.kind === 'confirm' && q.options.map((o) => o.label)).toEqual(['Draw it', 'Not now']);
   });
 
   it('lands each picture with Try again, then offers three more or Not now', () => {

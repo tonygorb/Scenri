@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Plus, TrashSimple } from '@phosphor-icons/react';
 import { flattenPalette, isInShots, nextHex, normalizeHex, rebuildPalette, type Swatch } from '../../brand/palette.js';
 import { ColorPicker } from '../../layout/ColorPicker.js';
+import { useCommitOnLeave } from './useBrandDoc.js';
 
 interface BrandDocLike {
   json: any;
@@ -150,6 +151,9 @@ function SwatchRow({
     if (hex) onHex(hex);
     setHexDraft(hex ?? swatch.hex);
   };
+  useCommitOnLeave(() => {
+    if (hexDraft !== swatch.hex) commitHex();
+  });
 
   return (
     <div className="sc-pal-row">

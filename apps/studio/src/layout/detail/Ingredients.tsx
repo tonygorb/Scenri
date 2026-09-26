@@ -92,7 +92,13 @@ export function BriefLine({
   // product is not in the brand's own products[] — it is resolved at
   // generation time — so without the fallback every Scenri Library product
   // credited itself as the bare word "product".
-  const sources = { products, demoProducts, cast, presenters, scenes: [...ownScenes, ...scenes] };
+  const sources = {
+    products,
+    demoProducts,
+    cast,
+    presenters,
+    scenes: [...ownScenes, ...scenes],
+  };
   const chipOf = (t: any): Chip | null => {
     const found = findIngredient(t, sources);
     if (found?.kind === 'product') {

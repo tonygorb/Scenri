@@ -105,19 +105,33 @@ function exampleWork(j: ExampleJob): StudioWork {
     thumb: j.from.startsWith('asset:') ? j.from.slice(6) : null,
     startedAt: j.startedAt,
     finishedAt: j.finishedAt,
-    error: j.error,
+    // A set that finished with some pictures missing says so: the bell is where
+    // a person who left learns how it went, and "ready" alone would be untrue.
+    error: j.error ?? (j.status === 'done' && j.failed.length ? didNotDraw(j.failed.length) : null),
     sceneId: j.sceneId,
     done: j.done.length,
     total: j.roles.length,
   };
 }
 
-/** Everything the studios have running or lately finished for a brand, newest first. */
+const didNotDraw = (n: number) => (n === 1 ? 'One example did not draw' : `${n} examples did not draw`);
+
+/**
+ * How many finished rows the bell is handed. It keeps its own record of what
+ * finished; the answer only has to carry what is running and what just ended,
+ * so a finish can be told. Uncapped, a long session's answer grew by about
+ * twenty rows every ten minutes and was polled every few seconds.
+ */
+export const STUDIO_WORK_FINISHED = 40;
+
+/** Everything the studios have running, and the newest of what finished, for a brand, newest first. */
 export function listStudioWork(core: Core, brandId: string, examples: readonly ExampleJob[] = []): StudioWork[] {
   const scenes = listSceneStudioJobs(brandId)
     .map(sceneWork)
     .filter((w): w is StudioWork => !!w);
-  return [...scenes, ...examples.map(exampleWork), ...presenterWork(core, brandId)].sort((a, b) =>
+  const all = [...scenes, ...examples.map(exampleWork), ...presenterWork(core, brandId)].sort((a, b) =>
     b.startedAt.localeCompare(a.startedAt),
   );
+  let finished = 0;
+  return all.filter((w) => w.status === 'running' || ++finished <= STUDIO_WORK_FINISHED);
 }

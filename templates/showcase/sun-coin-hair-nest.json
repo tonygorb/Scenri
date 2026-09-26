@@ -1,0 +1,33 @@
+{
+  "id": "sun-coin-hair-nest",
+  "title": "Sun Coin resting in chestnut waves",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "maud-ferrers-sun-coin"
+      },
+      {
+        "t": "template",
+        "id": "hair-nest"
+      },
+      {
+        "t": "text",
+        "v": " The pendant rests in the hollow where the chestnut waves part, the coin turned up to the light, its fine curb chain threaded over and under a few real strands so it lies with its true weight in the hair. 100mm, low and close across the waves, the coin sharp and the waves falling soft behind it."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 107,
+  "family": "material"
+}

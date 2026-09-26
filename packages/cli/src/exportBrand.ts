@@ -103,6 +103,22 @@ export async function buildBrandBundle(core: Core, brandId: string): Promise<{ z
       return kept.length ? { ...r, shots: kept } : omit(r, 'shots');
     });
   };
+  // Deleting a presenter keeps the revisions it had superseded, on purpose:
+  // shots made from them still refine against them, and they are hidden from
+  // every list. A bundle is a copy to hand to someone else, though, and a
+  // person deleted here has no place in it: a revision whose chain no longer
+  // ends at a presenter is left out, photographs and all.
+  if (Array.isArray(json.characters)) {
+    const byId = new Map<string, any>(json.characters.map((c: any) => [c?.id, c]));
+    const living = (c: any, seen = new Set<string>()): boolean => {
+      if (!c?.supersededBy) return true;
+      if (seen.has(c.id)) return false;
+      seen.add(c.id);
+      const next = byId.get(c.supersededBy);
+      return !!next && living(next, seen);
+    };
+    json.characters = json.characters.filter((c: any) => living(c));
+  }
   withShots('products', 'products');
   withShots('characters', 'characters');
 

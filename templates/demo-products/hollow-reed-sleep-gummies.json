@@ -1,0 +1,19 @@
+{
+  "id": "hollow-reed-sleep-gummies",
+  "name": "Sleep Gummies",
+  "promptName": "Cherry-Red Bottle of Magnesium Sleep Gummies",
+  "brand": "Hollow Reed",
+  "format": "60 gummies",
+  "legacyNames": ["Cherry-Red Bottle of Magnesium Sleep Gummies"],
+  "keywords": ["gummies", "supplement", "sleep", "magnesium", "wellness", "vitamins", "bottle"],
+  "category": "food",
+  "description": "A round gloss cherry-red plastic supplement bottle with a white screw cap and a wraparound pale pink label printed in cherry red: HOLLOW REED small at the top, a huge rounded SLEEP across the middle, Magnesium + L-Theanine Gummies and 60 gummies below.",
+  "dimensions": "about 12 cm tall and 6.5 cm across",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "sleep supplement gummies in a round bottle",
+  "materials": "gloss cherry-red plastic bottle, white screw cap, pale pink paper label with cherry-red print",
+  "primaryColors": "cherry red, pale pink, white",
+  "negativeConstraints": "Never invent any text, logo, wordmark or mark beyond the ones this record names, never misspell or rearrange those, and never add a second label.",
+  "preservationNotes": "Keep the label exactly: HOLLOW REED small at the top, a huge rounded SLEEP across the middle, Magnesium + L-Theanine Gummies and 60 gummies below, cherry red on pale pink. Keep the gloss cherry-red bottle and the white cap in every shot."
+}

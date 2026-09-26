@@ -1,0 +1,37 @@
+{
+  "id": "spf-salt-flat",
+  "title": "SPF 50 on the mirror salt flat",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "halden-bay-spf-50"
+      },
+      {
+        "t": "character",
+        "id": "yuna"
+      },
+      {
+        "t": "template",
+        "id": "studio-soft-horizon"
+      },
+      {
+        "t": "text",
+        "v": " She kneels on the wet salt in the bright morning, smoothing a line of the sunscreen fluid across her cheekbone with two fingers, the tube held loosely in her other hand with its label to camera, eyes half closed against the glare, her reflection beneath her in the thin water. She wears a loose sage linen shirt over a white swimsuit and flat tan leather sandals. 70mm from low, framed from the knees up, the doubled sky soft behind her."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 105,
+  "family": "human"
+}

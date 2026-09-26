@@ -1,0 +1,29 @@
+{
+  "id": "fig-leaf-still-life",
+  "title": "Fig Leaf candle in a Dutch still life",
+  "category": "editorial",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "birch-hollow-fig-leaf-candle"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. A Dutch still life on a dark oak table: the candle lit among split ripe figs, a fig branch with broad leaves, a pewter plate and a crumpled linen napkin, the background falling to deep brown-black. One soft window light from the left in the old-master manner. 70mm at table height, the candle label facing camera."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 71,
+  "family": "material"
+}

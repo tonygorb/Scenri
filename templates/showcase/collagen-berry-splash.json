@@ -1,0 +1,29 @@
+{
+  "id": "collagen-berry-splash",
+  "title": "Collagen pouch in a berry splash",
+  "category": "food-drink",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "tanner-fielding-collagen"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. The lilac pouch stands in a splash of purple berry smoothie with blueberries and blackberries bouncing around it, frozen by flash. A clean lilac backdrop. 85mm, the label crisp."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 103,
+  "family": "fluid"
+}

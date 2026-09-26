@@ -17,19 +17,20 @@ import {
   listAssetBuilds,
   presenterCrops,
   presenterRecordFrom,
+  drawSceneAnchor,
   duplicatePresenter,
   sceneBuildRunning,
   sceneRecordFrom,
-  scenePreviewPrompt,
   startAssetBuild,
   trimEdgeBars,
   type Analyzer,
   type AssetBuildDeps,
   type CustomScene,
 } from '../customAssets.js';
-import type { SceneExample } from '../assetRecords.js';
+import { headOf, type SceneExample } from '../assetRecords.js';
 import { presenterCropMode } from '../presenterRepair.js';
-import { releasePresenter } from '../presenterDrafts.js';
+import { releasePresenter, removeUnreferenced } from '../presenterDrafts.js';
+import { cancelSceneStudioFor, heldBySceneStudio } from '../sceneStudio.js';
 import { brandContext, COST_PROBE, pickBuildEngine } from './shared.js';
 
 export interface BuildRouteDeps {
@@ -44,6 +45,8 @@ export interface BuildRouteDeps {
   onPlaceChanged?: (brandId: string, sceneId: string) => void;
   /** A scene was deleted: its examples stop and their pictures go. */
   onSceneGone?: (brandId: string, sceneId: string, examples: SceneExample[]) => void;
+  /** The studio's hero, drawn with its place (sceneExamples.ts `drawHero`). */
+  hero?: AssetBuildDeps['hero'];
 }
 
 /**
@@ -63,12 +66,22 @@ export function makeBuildDeps(deps: BuildRouteDeps): {
   // placeholder the picker would otherwise refuse. Set only by that harness.
   const allowPlaceholder = process.env.SCENRI_DEMO_BUILDS === '1';
   const buildEngine = (): Promise<EngineAdapter | null> => pickBuildEngine(engines, { allowPlaceholder });
+  const hooks = { evict: (hash: string) => deps.thumbs?.evict(hash) };
   const buildDeps = async (): Promise<AssetBuildDeps> => ({
     core,
     engine: await buildEngine(),
     analyzer: (await analyzer?.isAvailable())?.ok ? analyzer : null,
     brandContext: (brandId: string) => brandContext(core, brandId),
     ...(deps.onPlaceChanged ? { onPlaceChanged: deps.onPlaceChanged } : {}),
+    ...(deps.hero ? { hero: deps.hero } : {}),
+    // A draw's leftovers go, but never a picture a studio conversation is still
+    // showing: the demo engine draws the same bytes twice, and a real one could.
+    release: (hashes: string[]) =>
+      removeUnreferenced(
+        core,
+        hashes.filter((h) => !heldBySceneStudio(h)),
+        hooks,
+      ),
     // The filters that already exist, so a new asset lands under a tab a
     // person can actually click rather than inventing a category of one.
     vocabulary: { ...facetsOf(scenes), categories: presenterFacetsOf(presenters).categories },
@@ -183,7 +196,7 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
   app.post('/api/brands/:id/presenters', async (req, reply) => {
     const brand = brandOr404(req, reply);
     if (!brand) return;
-    const built = presenterRecordFrom(await withDerivedCrops(core, (req.body ?? {}) as any));
+    const built = presenterRecordFrom(await withDerivedCrops(core, storedOnly(core, req.body)));
     if (!built.ok) return reply.status(400).send({ error: built.error });
     try {
       commit(core, brand.id, (json) => {
@@ -201,7 +214,7 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     const base = brandCharacters(brand.json).find((c: any) => c.id === id);
     if (!base) return reply.status(404).send({ error: 'presenter not found' });
     if (!isCustomPresenter(base)) return reply.status(400).send({ error: 'this presenter is not editable' });
-    const built = presenterRecordFrom(await withDerivedCrops(core, (req.body ?? {}) as any, base), base);
+    const built = presenterRecordFrom(await withDerivedCrops(core, storedOnly(core, req.body), base), base);
     if (!built.ok) return reply.status(400).send({ error: built.error });
     try {
       commit(core, brand.id, (json) => {
@@ -265,21 +278,25 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     const brand = brandOr404(req, reply);
     if (!brand) return;
     const id = String((req.params as any).presenterId);
-    const base = brandCharacters(brand.json).find((c: any) => c.id === id);
+    const rows = brandCharacters(brand.json);
+    const base = rows.find((c: any) => c.id === id);
     if (!base) return reply.status(404).send({ error: 'presenter not found' });
     if (!isCustomPresenter(base)) return reply.status(400).send({ error: 'this presenter is not editable' });
     // Shots already made keep their prompt and their pixels. A brief that names
     // this person again will say so; see compileBrief's roster warning.
-    // Deleting the head of a revision chain removes only that record: the
-    // records it superseded stay, still marked superseded, and still what
-    // their own shots refine against.
+    // The person goes whole: the head and every record it superseded, in one
+    // commit. Each revision holds the same person's photographs, and kept
+    // behind a deleted head they stayed on disk where nothing lists them.
+    const gone = rows.filter((c: any) => c.id === id || headOf(brand.json, c.id) === id);
+    const goneIds = new Set(gone.map((c: any) => c.id));
     commit(core, brand.id, (json) => {
-      json.characters = brandCharacters(json).filter((c: any) => c.id !== id);
+      json.characters = brandCharacters(json).filter((c: any) => !goneIds.has(c.id));
     });
-    // After the record has left the document, never before: an open editing
+    // After the records have left the document, never before: an open editing
     // session ends here rather than drawing on into an orphan, and the pictures
     // nothing else holds are let go. See releasePresenter.
-    await releasePresenter(await buildDeps(), brand.id, base, hooks);
+    const assetDeps = await buildDeps();
+    for (const record of gone) await releasePresenter(assetDeps, brand.id, record, hooks);
     // The brand comes back, the way every other presenter mutation answers, so
     // the wall, the page, the pickers and the chips all stop showing them in
     // the same commit. Returning `{ok:true}` left every one of them stale until
@@ -287,10 +304,26 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     return { ok: true, brand: core.store.getBrand(brand.id) };
   });
 
+  /**
+   * The scene each studio conversation saved. Use is one press, but its answer
+   * can be lost on the way back (a phone on the LAN, a laptop asleep, a reload
+   * while it saved) and the conversation then offers Use again: that second
+   * press is answered with the scene the first one made, not a copy of it. In
+   * memory, like the jobs: a restart forgets it.
+   */
+  const savedFrom = new Map<string, string>();
+
   app.post('/api/brands/:id/scenes', async (req, reply) => {
     const brand = brandOr404(req, reply);
     if (!brand) return;
-    const built = sceneRecordFrom((req.body ?? {}) as any);
+    const raw = (req.body ?? {}) as any;
+    const conversation = typeof raw.conversation === 'string' ? raw.conversation.trim().slice(0, 80) : '';
+    const saved = conversation ? `${brand.id}:${conversation}` : null;
+    const already = saved ? brandScenes(brand.json).find((s) => s.id === savedFrom.get(saved)) : undefined;
+    if (already) return { scene: already, warnings: lintSceneProse(brand.json, already), brand };
+    const body = sceneBody(core, raw);
+    if ('error' in body) return reply.status(400).send({ error: body.error });
+    const built = sceneRecordFrom(body);
     if (!built.ok) return reply.status(400).send({ error: built.error });
     try {
       commit(core, brand.id, (json) => {
@@ -299,6 +332,7 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     } catch (err: any) {
       return reply.status(err.statusCode ?? 500).send({ error: err.message });
     }
+    if (saved) savedFrom.set(saved, built.scene.id);
     return {
       scene: built.scene,
       warnings: lintSceneProse(brand.json, built.scene),
@@ -311,7 +345,9 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     const id = String((req.params as any).sceneId);
     const base = brandScenes(brand.json).find((s) => s.id === id);
     if (!base) return reply.status(404).send({ error: 'scene not found' });
-    const built = sceneRecordFrom((req.body ?? {}) as any, base);
+    const body = sceneBody(core, req.body);
+    if ('error' in body) return reply.status(400).send({ error: body.error });
+    const built = sceneRecordFrom(body, base);
     if (!built.ok) return reply.status(400).send({ error: built.error });
     try {
       commit(core, brand.id, (json) => {
@@ -320,6 +356,11 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     } catch (err: any) {
       return reply.status(err.statusCode ?? 500).send({ error: err.message });
     }
+    // What the record held and no longer does (a picture used over, a hero
+    // replaced, a reference taken off) is let go of, if nothing else holds it.
+    const kept = new Set(picturesOf(built.scene));
+    const dropped = picturesOf(base).filter((h) => !kept.has(h));
+    if (dropped.length) removeUnreferenced(core, dropped, hooks);
     if (built.scene.preview !== base.preview) deps.onPlaceChanged?.(brand.id, id);
     return {
       scene: built.scene,
@@ -334,8 +375,10 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     const gone = brandScenes(brand.json).find((s) => s.id === id);
     if (!gone) return reply.status(404).send({ error: 'scene not found' });
     // A read still running over this scene would otherwise finish into a record
-    // that is gone. Stopped first, so no analyzer call is spent on it.
+    // that is gone, and a studio draw would land on it or redraw it. Stopped
+    // first, so no analyzer or engine call is spent on it.
     cancelSceneBuilds(brand.id, id);
+    cancelSceneStudioFor(brand.id, id);
     let row: unknown;
     try {
       row = commit(core, brand.id, (json) => {
@@ -344,8 +387,11 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     } catch (err: any) {
       return reply.status(err.statusCode ?? 500).send({ error: err.message });
     }
-    // Its examples stop drawing, and their pictures, the scene's alone, go.
+    // Its examples stop drawing, and their pictures, the scene's alone, go; so
+    // do the pictures it was made from and the one it wore, unless another
+    // record holds them.
     deps.onSceneGone?.(brand.id, id, gone.examples ?? []);
+    removeUnreferenced(core, picturesOf(gone), hooks);
     // The brand comes back, the way every scene and presenter mutation answers,
     // so the wall, the page, the caret menu and the chips all stop showing it in
     // the same commit. Answering `{ok:true}` alone left the card on the wall
@@ -401,26 +447,28 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     if (!scene) return reply.status(404).send({ error: 'scene not found' });
     const engine = await buildEngine();
     if (!engine) return reply.status(400).send({ error: 'no engine here can draw a preview' });
-    // Drawn from its words alone, like every scene preview (scenePreviewPrompt).
-    const request = {
-      prompt: scenePreviewPrompt(scene as CustomScene),
-      brand: brandContext(core, brand.id),
-      width: scene.width,
-      height: scene.height,
-      count: 1,
-    };
-    const engineId = engine.capabilities().id;
-    core.ledger.assertUnderCap(engineId, await engine.costEstimate(request).catch(() => 0));
-    const result = await engine.generate(request);
-    core.ledger.recordCost(engineId, null, result.costUsd);
-    const hash = result.images[0];
-    if (!hash) return reply.status(500).send({ error: 'the engine returned no image' });
-    // Same trim the build path applies. The plate is a conditioning image
-    // now, and a redrawn card with baked-in letterbox bars would be
-    // faithfully reproduced into customer shots.
+    // The same anchor the studio draws: beside the scene's own pictures, then
+    // made nobody's (drawSceneAnchor), or from its words when it has none.
+    const own = scene as CustomScene;
+    const hashes = (own.refs ?? [])
+      .map((r) => /^asset:([a-f0-9]{32})$/.exec(String(r?.file ?? ''))?.[1])
+      .filter((h): h is string => !!h);
+    let hash: string;
+    try {
+      hash = await drawSceneAnchor(
+        { ...(await buildDeps()), engine },
+        { scene: own, hashes, brandId: brand.id, signal: new AbortController().signal },
+      );
+    } catch (err: any) {
+      return reply.status(err.statusCode ?? 500).send({ error: err.message ?? 'the engine returned no image' });
+    }
+    // Same trim the build path applies. The picture is sent with shots, and a
+    // redrawn card with baked-in letterbox bars would be reproduced into them.
     const trimmed = await trimEdgeBars(core, hash);
     commit(core, brand.id, (json) => {
-      json.scenes = brandScenes(json).map((s) => (s.id === id ? { ...s, preview: `asset:${trimmed}` } : s));
+      json.scenes = brandScenes(json).map((s) =>
+        s.id === id ? { ...s, preview: `asset:${trimmed}`, anchor: true as const } : s,
+      );
     });
     return { preview: `asset:${trimmed}`, brand: core.store.getBrand(brand.id) };
   });
@@ -457,4 +505,54 @@ async function withDerivedCrops(
     ...(body.previewHash === undefined && derived.previewHash ? { previewHash: derived.previewHash } : {}),
     ...(body.avatarHash === undefined && derived.avatarHash ? { avatarHash: derived.avatarHash } : {}),
   };
+}
+
+const HASH = /^[a-f0-9]{32}$/;
+const stored = (core: Core, v: unknown): boolean => HASH.test(String(v)) && core.images.has(String(v));
+
+/**
+ * A presenter's body with its pictures checked against the library. The
+ * record's own check is the format only, so a well-formed hash of a picture
+ * that was let go of, or never uploaded, was saved as a record pointing at
+ * nothing: a broken card, and a failed shot. A list keeps what is stored; a
+ * single picture that is not is left out, and derived from the shots instead.
+ */
+function storedOnly(core: Core, raw: unknown): Record<string, unknown> {
+  const body = { ...((raw ?? {}) as Record<string, unknown>) };
+  for (const k of ['shotHashes', 'sourceHashes']) {
+    if (Array.isArray(body[k])) body[k] = (body[k] as unknown[]).filter((h) => stored(core, h));
+  }
+  for (const k of ['previewHash', 'avatarHash']) {
+    if (HASH.test(String(body[k])) && !stored(core, body[k])) delete body[k];
+  }
+  return body;
+}
+
+/**
+ * A scene's body with its pictures checked against the library, as a
+ * presenter's is. The place it wears is refused when it is gone: a Use of a
+ * studio version whose picture was since let go of says so rather than saving
+ * a scene that shows nothing. A hero that is gone is left off, and offered
+ * again by the scene's page; references keep what is stored.
+ */
+function sceneBody(core: Core, raw: unknown): Record<string, unknown> | { error: string } {
+  const body = { ...((raw ?? {}) as Record<string, unknown>) };
+  if (HASH.test(String(body.previewHash)) && !stored(core, body.previewHash))
+    return { error: 'That picture of the place is no longer in the library. Draw it again to use it.' };
+  if (HASH.test(String(body.heroHash)) && !stored(core, body.heroHash)) {
+    delete body.heroHash;
+    delete body.heroWith;
+  }
+  if (Array.isArray(body.refHashes)) body.refHashes = body.refHashes.filter((h) => stored(core, h));
+  return body;
+}
+
+/** Every stored picture a scene record holds: its references, the place it wears, its examples. */
+function picturesOf(scene: CustomScene): string[] {
+  const files = [
+    ...(scene.refs ?? []).map((r) => r?.file),
+    scene.preview,
+    ...(scene.examples ?? []).map((e) => e.file),
+  ];
+  return files.map((f) => /^asset:([a-f0-9]{32})$/.exec(String(f ?? ''))?.[1]).filter((h): h is string => !!h);
 }

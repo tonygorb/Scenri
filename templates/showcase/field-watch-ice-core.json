@@ -1,0 +1,33 @@
+{
+  "id": "field-watch-ice-core",
+  "title": "Field watch on glacial ice",
+  "category": "catalog",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "aldergate-field-38"
+      },
+      {
+        "t": "template",
+        "id": "studio-glacier-ice-core"
+      },
+      {
+        "t": "text",
+        "v": " The watch lies on a shelf of clear glacial ice inside the carved pocket, its suede strap curved on the ice, a fine frost on the steel case and the sand dial tilted up into the blue daylight, crisp and legible, cold mist drifting behind. 100mm from ice level, the dial large and sharp."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 26,
+  "family": "geological"
+}

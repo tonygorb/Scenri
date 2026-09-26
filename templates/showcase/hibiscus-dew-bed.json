@@ -1,0 +1,33 @@
+{
+  "id": "hibiscus-dew-bed",
+  "title": "Hibiscus soda among dewy succulents",
+  "category": "launch",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "pellow-hibiscus-soda"
+      },
+      {
+        "t": "template",
+        "id": "succulent-dew-bed"
+      },
+      {
+        "t": "text",
+        "v": " The long-neck bottle lies among the dewy succulent rosettes, cradled between the leaves and beaded with the same cold condensation as the dew, its label turned up to the light, the pink soda glowing against the cool green. 85mm from just above the leaves, the bottle on a diagonal across the frame."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 100,
+  "family": "optical"
+}

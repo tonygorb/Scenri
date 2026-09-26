@@ -1,0 +1,15 @@
+{
+  "id": "ruby-syrup-pour",
+  "name": "Ruby Pour",
+  "promptName": "Ruby Pour",
+  "keywords": ["syrup", "pour", "drip", "ruby", "blush", "liquid", "glossy", "backlit"],
+  "description": "A slow ribbon of glowing ruby syrup pouring over a blush plaster ledge.",
+  "lighting": "Backlight glowing through syrup, crisp specular highlights, frozen drips",
+  "subject": "either",
+  "collections": ["Colored backgrounds", "Detail"],
+  "verticals": ["Food & drink", "Beauty", "Fragrance"],
+  "prompt": "A seamless sweep in soft blush pink fills the frame, with one low ledge of pale blush plaster in the middle ground. From above the frame a thick, glossy stream of ruby-red syrup falls in a slow twisting ribbon and pools across the ledge, spilling over its front edge in heavy, glassy drips. Backlight shines through the syrup so it glows like stained glass, with bright specular highlights along every drip. A few drops hang in mid-air, frozen by a fast flash. The palette is blush, ruby and glossy crimson, sweet and saturated.",
+  "width": 1024,
+  "height": 1280,
+  "cover": "hero"
+}

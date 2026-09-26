@@ -7,6 +7,7 @@ import '@fontsource/playfair-display/500-italic.css';
 import './styles/tokens.css';
 import './styles/app.css';
 import { RouterProvider } from 'react-router';
+import { IconContext } from '@phosphor-icons/react';
 import { ThemeProvider } from './theme.js';
 import { ToastProvider } from './toasts.js';
 import { router } from './router.js';
@@ -25,12 +26,20 @@ document.documentElement.dataset.theme =
 // Before anything renders, so the first click already reads as a click.
 installInputModality();
 
+// Every Phosphor glyph here is decoration: a control that is only an icon
+// names itself with its own aria-label, and an unhidden svg is an unnamed
+// image to a screen reader. The rest is Phosphor's own default, which a
+// provider replaces rather than merges.
+const ICONS = { color: 'currentColor', size: '1em', weight: 'regular', mirrored: false, 'aria-hidden': true } as const;
+
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <ThemeProvider>
-      <ToastProvider>
-        <RouterProvider router={router} />
-      </ToastProvider>
-    </ThemeProvider>
+    <IconContext.Provider value={ICONS}>
+      <ThemeProvider>
+        <ToastProvider>
+          <RouterProvider router={router} />
+        </ToastProvider>
+      </ThemeProvider>
+    </IconContext.Provider>
   </React.StrictMode>,
 );

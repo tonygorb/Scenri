@@ -1,0 +1,15 @@
+{
+  "id": "laundry-line",
+  "name": "Laundry Line",
+  "promptName": "Laundry Line",
+  "keywords": ["laundry", "sheets", "wind", "field", "summer", "cotton", "fresh", "clothesline"],
+  "description": "White sheets billowing on a line across a wind-bent summer field.",
+  "lighting": "Hard sun behind billowing fabric",
+  "subject": "either",
+  "collections": ["Editorial", "Social"],
+  "verticals": ["Apparel", "Home", "Beauty", "Fragrance", "Footwear"],
+  "prompt": "A long line of white cotton sheets hangs pegged across a wind-bent field of tall summer grass, the sheets billowing and lifting in one strong breeze and glowing translucent with hard sun behind them. Wooden pegs pinch each sheet over the line, and the grass leans the same way as the fabric. Above is a big clear blue sky with a few thin clouds. The line runs diagonally through the frame from a weathered post. The palette is white, sky blue and sun-bleached green, fresh, free and cinematic.",
+  "width": 1024,
+  "height": 1280,
+  "cover": "hero"
+}

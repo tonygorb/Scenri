@@ -1,4 +1,12 @@
-import { assetUrl, type Brand, type Presenter, type Scene, type SceneExampleRole, type SceneSetup } from './api.js';
+import {
+  assetUrl,
+  type Brand,
+  type Presenter,
+  type Scene,
+  type SceneExampleRole,
+  type SceneSetup,
+  type SceneView,
+} from './api.js';
 
 /**
  * The presenters and scenes a brand built for itself, read out of its own
@@ -31,8 +39,17 @@ export interface CustomPresenter extends Presenter {
 
 export interface CustomScene extends Scene {
   custom: true;
-  /** The user's own inspiration images. Read into words, and drawn from for the preview. */
+  /** The user's own inspiration images. Read into words, and drawn beside for the scene's picture. Never sent with a shot. */
   refs: string[];
+  /** The scene's own picture as its store hash; null when none was drawn (`placeUrl` may then fall back to an upload). */
+  previewHash: string | null;
+  /**
+   * The place: the picture a shot is given, the one its examples are drawn
+   * from. Not necessarily the cover (`previewUrl`), which may be its hero.
+   */
+  placeUrl: string | null;
+  /** That picture is an anchor, so a shot is given it as the world's picture. */
+  anchor?: boolean;
   /** What they asked for in their own words when it was built. */
   instruction?: string;
   /** The camera tendency of this world, when it has one. Told to a shot that names no camera. */
@@ -43,7 +60,7 @@ export interface CustomScene extends Scene {
   figureTreatment?: string;
   /** Ways to shoot this same world: a label and a camera line each, never a picture. */
   setups?: SceneSetup[];
-  /** The place in use, with a Scenri demo product or presenter. Shown here only, never handed to a shot. */
+  /** The place in use, with a Scenri demo product or presenter. Sent with a shot only when picked for one. */
   examples?: SceneExampleView[];
 }
 
@@ -183,8 +200,29 @@ export function customSceneById(brand: Brand | null | undefined, id: string): Cu
   return customScenesOf(brand).find((s) => s.id === id);
 }
 
+const SCENE_VIEWS: readonly SceneView[] = ['place', ...EXAMPLE_ROLES];
+
 function toScene(s: any): CustomScene {
   const refs = urls(s.refs);
+  // No preview yet is normal: the scene works, it just has nothing to show
+  // but the references it was built from.
+  const place = assetUrl(s.preview) ?? refs[0] ?? null;
+  const examples: SceneExampleView[] | undefined = Array.isArray(s.examples)
+    ? s.examples
+        .filter((e: any) => EXAMPLE_ROLES.includes(e?.role) && assetUrl(e?.file))
+        .map((e: any) => ({
+          role: e.role as SceneExampleRole,
+          url: assetUrl(e.file) as string,
+          hash: String(e.file).slice('asset:'.length),
+          earlier: e.from !== s.preview,
+          with: e.presenter ? ('presenter' as const) : ('product' as const),
+          ...(e.setup ? { setup: String(e.setup) } : {}),
+        }))
+    : undefined;
+  // The cover names a view; a view the scene no longer has shows the place, and
+  // so does one drawn from an earlier picture of it (the place moved on).
+  const cover: SceneView | undefined = SCENE_VIEWS.includes(s.cover) ? s.cover : undefined;
+  const covered = cover && cover !== 'place' ? examples?.find((e) => e.role === cover && !e.earlier)?.url : undefined;
   return {
     id: String(s.id),
     name: String(s.name ?? ''),
@@ -198,12 +236,14 @@ function toScene(s: any): CustomScene {
     prompt: String(s.prompt ?? ''),
     width: Number(s.width) || 1024,
     height: Number(s.height) || 1280,
-    // No preview yet is normal: the scene works, it just has nothing to show
-    // but the references it was built from.
-    previewUrl: assetUrl(s.preview) ?? refs[0] ?? null,
+    previewUrl: covered ?? place,
+    placeUrl: place,
+    ...(cover ? { cover } : {}),
     previewColor: null,
     custom: true,
     refs,
+    previewHash: /^asset:[a-f0-9]{32}$/.test(String(s.preview ?? '')) ? String(s.preview).slice('asset:'.length) : null,
+    ...(s.anchor === true ? { anchor: true } : {}),
     instruction: s.instruction ? String(s.instruction) : undefined,
     camera: s.camera ? String(s.camera) : undefined,
     figure: s.figure ? String(s.figure) : undefined,
@@ -213,19 +253,18 @@ function toScene(s: any): CustomScene {
           .filter((v: any) => v?.id && v?.label && v?.camera)
           .map((v: any) => ({ id: String(v.id), label: String(v.label), camera: String(v.camera) }))
       : undefined,
-    examples: Array.isArray(s.examples)
-      ? s.examples
-          .filter((e: any) => EXAMPLE_ROLES.includes(e?.role) && assetUrl(e?.file))
-          .map((e: any) => ({
-            role: e.role as SceneExampleRole,
-            url: assetUrl(e.file) as string,
-            hash: String(e.file).slice('asset:'.length),
-            earlier: e.from !== s.preview,
-            with: e.presenter ? ('presenter' as const) : ('product' as const),
-            ...(e.setup ? { setup: String(e.setup) } : {}),
-          }))
-      : undefined,
+    examples,
   };
+}
+
+/**
+ * Which view stands for a scene now: the one it shows as its cover, else the
+ * place, which is also what a cover drawn from an earlier picture of it gives.
+ */
+export function coverViewOf(scene: Scene & { examples?: SceneExampleView[] }): SceneView {
+  const v = scene.cover;
+  if (!v || v === 'place') return 'place';
+  return !scene.examples || scene.examples.some((e) => e.role === v && !e.earlier) ? v : 'place';
 }
 
 /**

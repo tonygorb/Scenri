@@ -1,0 +1,37 @@
+{
+  "id": "chug-courtside",
+  "title": "Courtside with the chug bottle",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "carrick-stead-chug-710"
+      },
+      {
+        "t": "character",
+        "id": "tove"
+      },
+      {
+        "t": "template",
+        "id": "clay-court"
+      },
+      {
+        "t": "text",
+        "v": " Between points on the clay court she tips the navy bottle back for a long drink, eyes closed, sweat on her shoulders, the racket under her arm. She wears a plain white tennis dress with no marks, white socks and plain white court shoes. 70mm, framed from the knees up, hard sun and the net shadow behind her."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 102,
+  "family": "human"
+}

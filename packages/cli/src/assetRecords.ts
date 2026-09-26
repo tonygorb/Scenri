@@ -7,7 +7,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Core } from '@scenri/core';
 import { validateBrand } from '@scenri/brand';
-import type { Scene, SceneSubject } from './scenes.js';
+import { isSceneView, type Scene, type SceneSubject, type SceneView } from './scenes.js';
 
 export interface CustomShot {
   file: string;
@@ -105,10 +105,30 @@ export interface SceneExample {
 
 export interface CustomScene extends Scene {
   setups?: SceneSetup[];
-  /** Written by the examples job only; every edit keeps them as they are. */
+  /**
+   * Written by the examples job, and the hero by the studio when it drew one
+   * with the place (`heroHash`); every other edit keeps them as they are.
+   */
   examples?: SceneExample[];
+  /**
+   * Which picture stands for the scene on its card, in the picker and on its
+   * chips. Presentation only: nothing here is ever read by the compiler, and
+   * the picture a shot is given stays `preview`. Absent means the place, which
+   * is how every scene made before the hero came first keeps its look.
+   */
+  cover?: SceneView;
+  /** The pictures the scene was read from: provenance, and what a fresh picture is drawn beside. Never sent with a shot. */
   refs?: { file: string }[];
+  /** The scene's picture: its card, its page, what its examples are drawn from. */
   preview?: string;
+  /**
+   * The preview is an anchor: drawn since the scene studio drew beside its
+   * references and then made nobody's (`drawSceneAnchor`), or drawn from words.
+   * Only an anchor is sent with a shot as the world's picture. A preview drawn
+   * before it (2026-08-28 to 2026-09-23 some were drawn beside the references
+   * and kept their people) keeps the older rule until it is drawn again.
+   */
+  anchor?: true;
   instruction?: string;
   /**
    * The figure this concept depends on, when it depends on one.
@@ -174,6 +194,12 @@ export const strList = (v: unknown, max: number, each: number): string[] =>
         .filter(Boolean)
         .slice(0, max)
     : [];
+/** A demo catalog id (`demoProducts.ts`, `presenters.ts`), or null. */
+const catalogId = (v: unknown): string | null => {
+  const id = str(v, 120);
+  return /^[a-z0-9-]+$/.test(id) ? id : null;
+};
+
 const assetRef = (hash: unknown): string | null => {
   const h = String(hash ?? '');
   return /^[a-f0-9]{32}$/.test(h) ? `asset:${h}` : null;
@@ -287,6 +313,14 @@ export interface SceneInput {
   figureTreatment?: unknown;
   refHashes?: unknown;
   previewHash?: unknown;
+  /** Said with `previewHash`: that picture is an anchor. A new picture without it is not. */
+  anchor?: unknown;
+  /** The hero the studio drew with that picture: written as the `hero` example, drawn from it. */
+  heroHash?: unknown;
+  /** Who stands in that hero: `{product?, presenter?}`, the demo catalog's ids. */
+  heroWith?: unknown;
+  /** The picture that stands for the scene (`CustomScene.cover`). */
+  cover?: unknown;
   setups?: unknown;
 }
 
@@ -399,9 +433,42 @@ export function sceneRecordFrom(
   if (scene.figure && treatment && !/\{[^}]*\}/.test(treatment)) scene.figureTreatment = treatment;
   if (refs?.length) scene.refs = refs;
   if (previewRef) scene.preview = previewRef;
-  // Never from the request: the examples job writes them, and an edit that
-  // rebuilds the record keeps them, the earlier-picture ones included.
-  if (base?.examples?.length) scene.examples = base.examples;
+  // The flag belongs to the picture: a new one is an anchor only when the
+  // request says so, and one kept is whatever it already was.
+  const anchor = has('previewHash') ? input.anchor === true : previewRef === base?.preview && base?.anchor === true;
+  if (previewRef && anchor) scene.anchor = true;
+  // Never from the request, with one exception: the examples job writes them,
+  // and an edit that rebuilds the record keeps them, the earlier-picture ones
+  // included. The exception is the hero the studio drew with this very picture,
+  // which the person saw and approved before anything was saved.
+  let examples = base?.examples ?? [];
+  const heroRef = has('heroHash') ? assetRef(input.heroHash) : null;
+  const heroIsNew = !!heroRef && !!scene.preview && heroRef !== examples.find((e) => e.role === 'hero')?.file;
+  if (heroRef && scene.preview) {
+    const w = (input.heroWith ?? {}) as Record<string, unknown>;
+    const product = catalogId(w.product);
+    const presenter = catalogId(w.presenter);
+    const hero: SceneExample = {
+      role: 'hero',
+      file: heroRef,
+      from: scene.preview,
+      ...(product ? { product } : {}),
+      ...(presenter ? { presenter } : {}),
+    };
+    examples = [hero, ...examples.filter((e) => e.role !== 'hero')];
+  }
+  if (examples.length) scene.examples = examples;
+  // Presentation only, and the person's once chosen: a hero drawn now stands for
+  // a scene that has no cover yet (a new one, or one made before covers), and
+  // an edit that keeps the hero it had changes nothing about how it is shown.
+  const cover = has('cover')
+    ? isSceneView(input.cover)
+      ? input.cover
+      : undefined
+    : heroIsNew
+      ? (base?.cover ?? 'hero')
+      : base?.cover;
+  if (cover) scene.cover = cover;
   return { ok: true, scene };
 }
 

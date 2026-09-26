@@ -1,0 +1,37 @@
+{
+  "id": "ridgeline-chalk-sprint",
+  "title": "Running the chalk steps",
+  "category": "lifestyle",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "voss-rowe-ridgeline-trail"
+      },
+      {
+        "t": "character",
+        "id": "paloma"
+      },
+      {
+        "t": "template",
+        "id": "chalk-steps"
+      },
+      {
+        "t": "text",
+        "v": " She runs up the limestone steps, caught as her lead trail shoe lands flat on the next step with her weight moving over it, the trailing foot pushing off the step below, arms driving in rhythm and her high ponytail swinging. She wears a bone-white running crop top, black running tights to the ankle and the trail shoes. The camera sits low at the side of the steps, 35mm, the wildflowers soft in the foreground and the navy sky above her."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 73,
+  "family": "place"
+}

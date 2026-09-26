@@ -1,0 +1,33 @@
+{
+  "id": "yuzu-flash-walk",
+  "title": "Night flash with a yuzu tonic",
+  "category": "editorial",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "brixa-yuzu-tonic"
+      },
+      {
+        "t": "character",
+        "id": "ren"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. Paparazzi-style night flash on a city pavement: he walks straight at the lens, cracking open the violet can with one hand, the print lit hard by a direct on-camera flash. Behind him the shopfronts smear into warm streaks from a slow shutter. He wears an oversized charcoal bomber over a white T-shirt, black straight-leg trousers and black leather loafers. 28mm, framed from the knees up, a candid half-smile, hair lifted by the breeze."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 76,
+  "family": "human"
+}

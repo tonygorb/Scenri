@@ -1,0 +1,33 @@
+{
+  "id": "gummies-bedside",
+  "title": "Sleep gummies at the bedside",
+  "category": "lifestyle",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "hollow-reed-sleep-gummies"
+      },
+      {
+        "t": "character",
+        "id": "helene"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. Evening at the bedside: she sits on the edge of a made bed in an ivory silk pyjama shirt, shaking one gummy from the cherry-red bottle into her palm, a warm bedside lamp beside her. 50mm, waist up, warm lamplight against a blue dusk window."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 25,
+  "family": "human"
+}

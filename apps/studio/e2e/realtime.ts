@@ -107,6 +107,9 @@ export async function goCreate(page: Page): Promise<void> {
 export async function goScenes(page: Page): Promise<void> {
   await mainNav(page).getByRole('link', { name: 'Scenes', exact: true }).click();
   await expect(page).toHaveURL(/\/scenes$/);
+  // The URL moves before the page does: until the wall renders, the bar's New is
+  // still the shot link, and a click on it went to Create (SC-H15, CI 2026-09-26).
+  await expect(page.getByRole('button', { name: 'New scene', exact: true })).toBeVisible();
 }
 
 /**

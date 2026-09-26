@@ -1,4 +1,5 @@
-import { isGuard, placeCaret } from './caret.js';
+import { caretUnits, isGuard, placeCaret } from './caret.js';
+import { unitsBeforeChip } from './insert.js';
 import { caretIn, isChip } from './invariants.js';
 
 // ---------------------------------------------------------------- a chip and its guard, as one
@@ -67,4 +68,21 @@ export function deletionAtLineEdge(root: HTMLElement | null, key: 'Backspace' | 
   const c = caretIn(root);
   if (!c || !isGuard(c.text)) return false;
   return key === 'Backspace' ? !c.text.previousSibling : !c.text.nextSibling;
+}
+
+/**
+ * The chip a Tab from the line goes to: the first one after the caret, or with
+ * Shift the last one before it. Null when there is none that way, and the Tab
+ * is the browser's, out of the line to the next control.
+ *
+ * Positions are units (`unitsBeforeChip`), so a guard in a gap never counts: a
+ * caret in the guard just after a chip is past that chip and before the next.
+ */
+export function chipPastCaret(root: HTMLElement | null, dir: 'forward' | 'back'): HTMLElement | null {
+  const at = caretUnits(root);
+  if (!root || at == null) return null;
+  const chips = Array.from(root.childNodes).filter(isChip) as HTMLElement[];
+  if (dir === 'forward') return chips.find((c) => unitsBeforeChip(root, c) >= at) ?? null;
+  for (let i = chips.length - 1; i >= 0; i--) if (unitsBeforeChip(root, chips[i]) < at) return chips[i];
+  return null;
 }

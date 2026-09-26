@@ -1,0 +1,37 @@
+{
+  "id": "bowler-red-blade",
+  "title": "Bowler bag in a blade of red light",
+  "category": "cinematic",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "rowan-ash-bowler-bag"
+      },
+      {
+        "t": "character",
+        "id": "liv"
+      },
+      {
+        "t": "template",
+        "id": "red-light-blade"
+      },
+      {
+        "t": "text",
+        "v": " She stands side-on in the black void, holding the bowler bag at hip height so the red blade of light falls exactly across the bag and her eyes, everything else in darkness. She wears a black turtleneck, black wide-leg trousers and black pointed ankle boots. 50mm, framed from the knees up, the red light saturated and the shadows true black."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 87,
+  "family": "optical"
+}

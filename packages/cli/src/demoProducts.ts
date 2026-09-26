@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, existsSync } from 'node:fs';
+import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
@@ -52,6 +52,13 @@ export interface DemoProduct {
   keywords?: string[];
   materials?: string;
   primaryColors?: string;
+  /**
+   * Real-world size in words, with units ("about 29 cm long, 11 cm wide and
+   * 12 cm tall"). It outranks a size read from a photo (productScale.ts
+   * resolveSize) and replaces the description as the brief's scale anchor, so
+   * a showcase recipe compiles the same in every brand.
+   */
+  dimensions?: string;
   /** Scene collection/vertical tags this product photographs well against. */
   suitableScenes?: string[];
   /** Things the model should never do to this product (extra guardrail text). */
@@ -65,21 +72,49 @@ export interface DemoProduct {
  * apps/studio/src/productCategories.ts's `angles` field exactly (kept as a
  * self-contained constant here rather than imported cross-package, same
  * precedent as presenters.ts's own PRESENTER_ANGLES). Every demo product
- * gets one photo per angle key in its category's list.
+ * gets one photo per angle key in its category's list, and every one of them
+ * shows the whole product: the references exist so a shot knows the object
+ * from every side, and a zoomed crop tells the model less than a new angle
+ * (Tony, 2026-09-23).
  */
 export const PRODUCT_ANGLES_BY_CATEGORY: Record<string, string[]> = {
   fragrance: ['three-quarter', 'front', 'side'],
   footwear: ['three-quarter', 'lateral-side', 'medial-side'],
-  apparel: ['front', 'back', 'detail-fabric'],
+  apparel: ['front', 'back', 'three-quarter'],
   furniture: ['three-quarter', 'front', 'side'],
-  beauty: ['three-quarter', 'front', 'label'],
+  beauty: ['three-quarter', 'front', 'side'],
   electronics: ['three-quarter', 'front', 'back'],
-  jewelry: ['three-quarter', 'front', 'clasp-detail'],
-  accessories: ['three-quarter', 'front', 'detail'],
-  beverage: ['three-quarter', 'front', 'label'],
-  food: ['three-quarter', 'front', 'packaging-label'],
+  jewelry: ['three-quarter', 'front', 'side'],
+  accessories: ['three-quarter', 'front', 'side'],
+  beverage: ['three-quarter', 'front', 'side'],
+  food: ['three-quarter', 'front', 'side'],
   other: ['three-quarter', 'front', 'side'],
 };
+
+/**
+ * Close-ups from the plan before every reference became a whole-product view.
+ * Products drawn under it still carry these files; each stands in, under its
+ * own key, for the view that replaced it, so nothing already compiled moves.
+ */
+const STAND_INS: Record<string, string[]> = {
+  side: ['label', 'packaging-label', 'detail', 'clasp-detail'],
+  'three-quarter': ['detail-fabric'],
+};
+
+/** A demo product's reference files in plan order: each planned view, or the older close-up standing in for it. */
+export function demoProductAngleFiles(
+  templatesRoot: string,
+  id: string,
+  category: string,
+): { angle: string; path: string }[] {
+  const plan = PRODUCT_ANGLES_BY_CATEGORY[category] ?? PRODUCT_ANGLES_BY_CATEGORY.other;
+  return plan.flatMap((planned) => {
+    const found = [planned, ...(STAND_INS[planned] ?? [])]
+      .map((angle) => ({ angle, path: demoProductRefPath(templatesRoot, id, angle) }))
+      .find((f) => existsSync(f.path));
+    return found ? [found] : [];
+  });
+}
 
 /** The "slightly dimensional, not flat" angle used as the card/chip thumbnail — three-quarter where the category has one, else front. */
 export function primaryAngleFor(category: string): string {
@@ -98,6 +133,7 @@ function isDemoProduct(x: any): x is DemoProduct {
     (x.promptName === undefined || (typeof x.promptName === 'string' && !!x.promptName)) &&
     (x.brand === undefined || (typeof x.brand === 'string' && !!x.brand)) &&
     (x.format === undefined || (typeof x.format === 'string' && !!x.format)) &&
+    (x.dimensions === undefined || (typeof x.dimensions === 'string' && !!x.dimensions)) &&
     (x.legacyNames === undefined ||
       (Array.isArray(x.legacyNames) && x.legacyNames.every((n: any) => typeof n === 'string' && !!n))) &&
     (x.keywords === undefined ||
@@ -164,12 +200,16 @@ export function demoProductRefPath(templatesRoot: string, id: string, angle: str
 const resolvedRefs = new Map<string, string>();
 
 async function refHash(core: Core, path: string): Promise<string> {
-  const hit = resolvedRefs.get(path);
+  // Keyed by the file's version as well as its path: a library update swaps
+  // the pictures under the same names while the server keeps running.
+  const { mtimeMs, size } = statSync(path);
+  const key = `${path}\0${mtimeMs}\0${size}`;
+  const hit = resolvedRefs.get(key);
   // Verified before it is trusted: a hash is only valid for the store that
   // holds it, and tests build a fresh core per case.
   if (hit && core.images.has(hit)) return hit;
   const hash = core.images.save(await sharp(readFileSync(path)).png().toBuffer());
-  resolvedRefs.set(path, hash);
+  resolvedRefs.set(key, hash);
   return hash;
 }
 
@@ -188,12 +228,10 @@ export async function resolveDemoProductImages(
   primaryColors?: string;
   description?: string;
   category?: string;
+  dimensions?: string;
 } | null> {
-  const angles = PRODUCT_ANGLES_BY_CATEGORY[product.category] ?? PRODUCT_ANGLES_BY_CATEGORY.other;
   const shots: { file: string; angle: string; locked: boolean }[] = [];
-  for (const angle of angles) {
-    const path = demoProductRefPath(templatesRoot, product.id, angle);
-    if (!existsSync(path)) continue;
+  for (const { angle, path } of demoProductAngleFiles(templatesRoot, product.id, product.category)) {
     const hash = await refHash(core, path);
     shots.push({ file: `asset:${hash}`, angle, locked: true });
   }
@@ -220,6 +258,8 @@ export async function resolveDemoProductImages(
     // earned the "present it as a product" line.
     ...(product.description ? { description: product.description } : {}),
     ...(product.category ? { category: product.category } : {}),
+    // The written size: productSizes.apply reads it as the size that holds.
+    ...(product.dimensions ? { dimensions: product.dimensions } : {}),
   };
 }
 

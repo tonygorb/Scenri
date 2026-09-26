@@ -476,6 +476,15 @@ describe('analyze — scene: presence without identity', () => {
     expect(prompt).toContain('This is a different question from "subject"');
   });
 
+  it('asks what the first picture shows, and keeps only one of the four answers', async () => {
+    const { prompt, draft } = await scenePrompt({ hero: 'Both' });
+    expect(prompt).toContain(`"hero": what the scene's hero picture shows in it`);
+    expect(draft.hero).toBe('both');
+    // non-blocking: no answer or a wrong one is no answer, and the studio decides
+    expect((await scenePrompt({ hero: 'banner' })).draft.hero).toBeUndefined();
+    expect((await scenePrompt({ hero: undefined })).draft.hero).toBeUndefined();
+  });
+
   it('keeps a staged position, collapsed to one line', async () => {
     const { draft } = await scenePrompt({
       figure: '  someone is seated at the stone ledge,\n  mid-ground, at human scale  ',

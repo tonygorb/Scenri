@@ -1,0 +1,37 @@
+{
+  "id": "court-72-checker-sit",
+  "title": "Court sneakers in the cobalt room",
+  "category": "lifestyle",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "aubrey-lisle-court-72"
+      },
+      {
+        "t": "character",
+        "id": "liv"
+      },
+      {
+        "t": "template",
+        "id": "cobalt-color-room"
+      },
+      {
+        "t": "text",
+        "v": " She sits on the checker floor of the cobalt room with her knees up, the sole of one court sneaker toward the lens. She wears a cream cable cardigan, a pleated navy mini skirt, white crew socks and the court sneakers. Low and wide at 24mm, the room leaning in around her."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 62,
+  "family": "studio"
+}

@@ -17,6 +17,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
+import { basename } from 'node:path';
 import type { Core } from '@scenri/core';
 import type { PresenterDraft as AnalyzerDraft } from '@scenri/engine-codex';
 import {
@@ -94,6 +95,13 @@ export interface ViewSlot {
    * Written once when the job is admitted, gone when it lands.
    */
   startedAt?: string;
+  /**
+   * What the slot was when the step now running began. The failure path puts
+   * it back from memory; a restart has only the row, and without this it
+   * brought a stale picture of the old face back as a candidate to be used.
+   * Written with `startedAt`, gone when the step ends.
+   */
+  was?: ViewStatus;
 }
 
 /** One sentence sent to redraw a view. The conversation is read off these, in the order they were sent. */
@@ -200,6 +208,13 @@ export interface PresenterDraftRecord {
   stage: 'idle' | 'analyzing' | 'drawing';
   /** The presenter this session edits, the head when it was opened. Absent on a creation. */
   presenterId?: string;
+  /**
+   * The conversation that asked for this draft, as the studio names it. A
+   * create asked again under the same key is answered with this draft while
+   * nothing is drawn on it: a reload with the first create still on its way
+   * otherwise made a second, and left this one on the wall empty.
+   */
+  clientKey?: string;
   /** The head's id when the session was seeded; a save refuses when the head has moved since. */
   baseId?: string;
   /** Identity-wide instructions accepted in this session, on top of the record's own. Newest last. */
@@ -274,6 +289,7 @@ function fromRow(row: { id: string; brandId: string; json: unknown; createdAt: s
   if (j.readError) rec.readError = String(j.readError);
   if (j.presenterId) rec.presenterId = String(j.presenterId);
   if (j.baseId) rec.baseId = String(j.baseId);
+  if (j.clientKey) rec.clientKey = String(j.clientKey);
   if (Array.isArray(j.keptShots) && j.keptShots.length) rec.keptShots = j.keptShots.map(shotOf);
   backfillRecord(rec);
   return rec;
@@ -429,6 +445,13 @@ export function listPresenterDrafts(core: Core, brandId: string): PresenterDraft
 const running = new Map<string, { view: PresenterView | null; ctrl: AbortController }>();
 /** Set while the server is going away: nothing new starts, not even the next view of a set. */
 let closing = false;
+const restarting = () => fail('Scenri is restarting; try again in a moment', 503);
+/**
+ * The face whose read failed, by draft. The read only adds words, so a view
+ * is drawn without it, and the same face is not read again on every view
+ * after it. In memory: a restart is a fair moment to try once more.
+ */
+const unreadable = new Map<string, string>();
 
 /**
  * One run of a draft's work, as Activity shows it. A set that goes on view
@@ -453,7 +476,10 @@ const RUN_KEEP_MS = 24 * 60 * 60 * 1000;
 function beginRun(deps: AssetBuildDeps, id: string, view: PresenterView | null, chained: boolean): void {
   const prev = runs.get(id);
   if (chained && prev?.status === 'running') {
-    runs.set(id, { ...prev, view });
+    // The set is one run, so a view that failed on the way fails it, whichever
+    // view it ends on. Carried here while it runs; shown only once it has ended.
+    const failed = prev.view ? getPresenterDraft(deps.core, id)?.views[prev.view].error : undefined;
+    runs.set(id, { ...prev, view, error: prev.error ?? (failed && failed !== 'cancelled' ? failed : null) });
     return;
   }
   runs.set(id, {
@@ -472,8 +498,9 @@ function endRun(deps: AssetBuildDeps, id: string, view: PresenterView | null, ab
   const run = runs.get(id);
   if (!run || run.status !== 'running') return;
   const rec = getPresenterDraft(deps.core, id);
-  const error = view ? rec?.views[view].error : rec?.readError;
-  const failed = !aborted && !!error && error !== 'cancelled';
+  const own = view ? rec?.views[view].error : rec?.readError;
+  const error = own && own !== 'cancelled' ? own : run.error;
+  const failed = !aborted && !!error;
   runs.set(id, {
     ...run,
     view,
@@ -499,6 +526,7 @@ export function resetPresenterDrafts(): void {
   for (const job of running.values()) job.ctrl.abort();
   running.clear();
   runs.clear();
+  unreadable.clear();
   closing = false;
 }
 
@@ -521,6 +549,9 @@ export async function settlePresenterDrafts(): Promise<void> {
  * the reason on it, the way the nodes table sweeps its running rows.
  */
 export function sweepPresenterDrafts(core: Core): number {
+  // A server starting is not one going away. Only a test runs a second one in
+  // the same process, and it must not inherit the first one's drain.
+  closing = false;
   let swept = 0;
   for (const brand of core.store.listBrands()) {
     for (const rec of listPresenterDrafts(core, brand.id)) {
@@ -528,9 +559,25 @@ export function sweepPresenterDrafts(core: Core): number {
       if (!stuck.length && !rec.activeView && rec.stage === 'idle') continue;
       for (const v of stuck) {
         const slot = rec.views[v];
-        slot.status = slot.hash ? 'candidate' : 'empty';
+        // The same outcome the failure path gives a step that did not land.
+        if (!slot.hash && slot.prior) {
+          slot.hash = slot.prior;
+          slot.prior = undefined;
+          slot.origin = 'generated';
+          slot.status = dependents(v).some((d) => rec.views[d].hash) ? 'approved' : 'candidate';
+        } else if (slot.was && slot.was !== 'generating') slot.status = slot.was;
+        // A row from before `was` was kept: what it was drawn from, and what
+        // was drawn from it, are what is left to say what it was.
+        else if (!slot.hash) slot.status = 'empty';
+        else if (slot.conditionedOn?.length && !stillStands(rec, v)) slot.status = 'stale';
+        else slot.status = dependents(v).some((d) => rec.views[d].hash) ? 'approved' : 'candidate';
         slot.error = 'interrupted: server restarted mid-generation';
         slot.startedAt = undefined;
+        slot.was = undefined;
+      }
+      // The photo read (the one step with no view) said nothing, and nothing reads them again.
+      if (rec.stage === 'analyzing' && !rec.activeView && !rec.analysis && !rec.readError) {
+        rec.readError = 'Scenri restarted before the read finished';
       }
       rec.activeView = null;
       rec.stage = 'idle';
@@ -546,6 +593,8 @@ const KEEP_ITEM_CHARS = 200;
 /** Room for the answers and the forty asides the studio keeps, and no more. */
 const SETUP_CHARS = 40_000;
 const KEEP_ITEMS_MAX = 12;
+/** Photographs a draft keeps: what a saved presenter holds (presenterRecordFrom). The studio offers four. */
+const SOURCES_MAX = 8;
 
 /**
  * The kept things, each carried whole.
@@ -629,6 +678,8 @@ export interface CreateDraftInput {
   facets?: string[];
   /** Ask for the extra views from the start. */
   extras?: boolean;
+  /** The conversation asking: see `PresenterDraftRecord.clientKey`. */
+  clientKey?: string;
 }
 
 export async function createPresenterDraft(
@@ -642,7 +693,11 @@ export async function createPresenterDraft(
   const direction = str(input.direction, 400);
   const keep = str(input.keep, 240);
   const keepItems = keepItemsOf(input.keepItems, (h) => core.images.has(h));
-  const sources = (input.imageHashes ?? []).map(String).filter((h) => HASH.test(h) && core.images.has(h));
+  // Capped here, not at save: every one of them is sent to the read, and one
+  // past the record's cap was dropped at save with its file left behind.
+  const sources = [
+    ...new Set((input.imageHashes ?? []).map(String).filter((h) => HASH.test(h) && core.images.has(h))),
+  ].slice(0, SOURCES_MAX);
   if (source === 'synthetic' && !direction) throw fail('describe who they are in a sentence', 400);
   // A person from a description is nothing but what an engine draws.
   if (source === 'synthetic' && !deps.engine) throw fail('no engine here can draw a person', 400);
@@ -650,6 +705,16 @@ export async function createPresenterDraft(
   if (source === 'photos' && !input.attestation) {
     throw fail("confirm you have permission to use this person's likeness", 400);
   }
+  // Photographs start a read, and a read started now is past the drain's abort.
+  if (source === 'photos' && closing) throw restarting();
+  // The same conversation asking again is answered with the draft it already made.
+  const clientKey = str(input.clientKey, 80);
+  const made = clientKey
+    ? listPresenterDrafts(core, brand.id).find(
+        (d) => d.clientKey === clientKey && !d.presenterId && PRESENTER_VIEWS.every((v) => !d.views[v].hash),
+      )
+    : undefined;
+  if (made) return made;
   const views = {} as Record<PresenterView, ViewSlot>;
   for (const v of PRESENTER_VIEWS) views[v] = emptySlot();
   const rec: PresenterDraftRecord = {
@@ -674,6 +739,7 @@ export async function createPresenterDraft(
     createdAt: '',
     updatedAt: '',
   };
+  if (clientKey) rec.clientKey = clientKey;
   if (keepItems) writeItems(rec, keepItems);
   else {
     if (keep) rec.keep = keep;
@@ -943,11 +1009,10 @@ async function filePhotos(deps: AssetBuildDeps, id: string, signal: AbortSignal)
         signal,
       )) as AnalyzerDraft;
     } catch (err: any) {
-      if (signal.aborted) return;
-      readError = String(err?.message ?? 'the photos could not be read');
+      // A read cut short by Stop says so like a failed one: nothing reads them again.
+      readError = signal.aborted ? 'the read was stopped' : String(err?.message ?? 'the photos could not be read');
     }
   }
-  if (signal.aborted) return;
   mutate(core, id, (r) => {
     if (analysis) r.analysis = analysis;
     r.readError = readError;
@@ -1026,11 +1091,11 @@ function continueSet(deps: AssetBuildDeps, id: string): void {
     return DEPENDS[v].every((dep) => rec.views[dep].status === 'approved');
   });
   if (!next) return;
-  try {
-    generateView(deps, id, next, { decide: 'auto', chained: true });
-  } catch {
+  // Caught on the promise: a refusal thrown into nothing is an unhandled
+  // rejection, and that ends the whole process with every job in it.
+  void generateView(deps, id, next, { decide: 'auto', chained: true }).catch(() => {
     // refused (nothing to draw from, the draft changed): the studio says why when it is next opened
-  }
+  });
 }
 
 /* -------------------------------------------------------------- generate */
@@ -1056,6 +1121,7 @@ export async function generateView(
   let rec = getPresenterDraft(core, id);
   if (!rec) throw fail('draft not found', 404);
   if (running.has(id)) throw fail('a view is still being drawn', 409);
+  if (closing) throw restarting();
   if (isExtra(view) && !rec.extras) throw fail('extra views are built on request', 400);
   // A described person is drawn from that description, and a draft can lose
   // it: the patch route takes a cleared direction (`updatePresenterDraft`) and
@@ -1088,12 +1154,23 @@ export async function generateView(
   const decide = opts.decide === 'auto' ? 'auto' : undefined;
   const before = rec.views[view].status;
   const saved = mutate(core, id, (r) => {
+    r.views[view].was = r.views[view].status;
     r.views[view].status = 'generating';
     r.views[view].error = undefined;
     // The one stamp the clock measures: this step, from here.
     r.views[view].startedAt = new Date().toISOString();
     r.activeView = view;
     r.stage = 'drawing';
+    // Asked for by a person, the set goes on from here: the views that failed
+    // beside this one are drawn after it rather than each waiting for its own
+    // Retry. Never by the set itself, which would go round a failure that repeats.
+    if (decide === 'auto' && !opts.chained) {
+      for (const v of r.extras ? PRESENTER_VIEWS : CORE_VIEWS) {
+        const s = r.views[v];
+        if (v === view || !s.error || s.error === 'cancelled') continue;
+        if (s.status === 'empty' || s.status === 'stale') s.error = undefined;
+      }
+    }
     // The sentence joins the record once: the same one sent to the same view
     // again is Try again, not a second ask.
     const last = r.asks[r.asks.length - 1];
@@ -1127,28 +1204,44 @@ async function drawView(
   try {
     // The words that name the person, read off the approved portrait once.
     // Folded into the first step after the lock so approving is instant.
-    if (!rec.analysis && analyzer && view !== 'portrait' && rec.views.portrait.hash) {
+    const face = rec.views.portrait.hash;
+    if (!rec.analysis && analyzer && view !== 'portrait' && face && unreadable.get(id) !== face) {
       mutate(core, id, (r) => {
         r.stage = 'analyzing';
       });
-      const analysis = (await analyzer.analyze(
-        {
-          kind: 'presenter',
-          imagePaths: [core.images.pathFor(rec.views.portrait.hash)],
-          name: rec.name || 'New presenter',
-          instruction: rec.direction || undefined,
-          vocabulary: deps.vocabulary,
-        },
-        signal,
-      )) as AnalyzerDraft;
-      rec = mutate(core, id, (r) => {
-        r.analysis = analysis;
-        r.stage = 'drawing';
-      });
+      try {
+        const analysis = (await analyzer.analyze(
+          {
+            kind: 'presenter',
+            imagePaths: [core.images.pathFor(face)],
+            name: rec.name || 'New presenter',
+            instruction: rec.direction || undefined,
+            vocabulary: deps.vocabulary,
+          },
+          signal,
+        )) as AnalyzerDraft;
+        rec = mutate(core, id, (r) => {
+          r.analysis = analysis;
+          r.stage = 'drawing';
+        });
+      } catch (err) {
+        if (signal.aborted) throw err;
+        // The read only adds words to a face that rides as a reference anyway.
+        // Failing the view on it left the full body behind a Retry that spent
+        // another read and failed the same way, every time.
+        unreadable.set(id, face);
+        rec = mutate(core, id, (r) => {
+          r.stage = 'drawing';
+        });
+      }
     }
     if (signal.aborted) throw new Error('cancelled');
 
     const { prompt, refs, roles } = planStep(rec, view, adjustment, caps.maxReferenceImages);
+    // What they said should stay, as this view carries it. The words can
+    // change while it draws (the patch route takes them at any time), and a
+    // picture drawn without the glasses they just added is not a current one.
+    const kept = keepFor(view, identityOf(rec).items);
     /**
      * The pictures this draw is conditioned on, as they stand right now.
      *
@@ -1166,19 +1259,32 @@ async function drawView(
       const p = core.images.pathFor(h);
       paths.push(caps.maxReferenceEdge ? await capReferenceEdge(core, p, caps.maxReferenceEdge) : p);
     }
-    const drawn = await draw(deps, {
-      prompt,
-      brandId: rec.brandId,
-      ...(paths.length ? { referenceImages: paths, referenceRoles: roles } : {}),
-      signal,
-    });
+    let drawn: string;
+    try {
+      drawn = await draw(deps, {
+        prompt,
+        brandId: rec.brandId,
+        ...(paths.length ? { referenceImages: paths, referenceRoles: roles } : {}),
+        signal,
+      });
+    } finally {
+      // A reference cut down for the engine is a copy of somebody's photograph
+      // that no record names, so it goes once the engine is done with it.
+      const cut = paths.filter((p, i) => p !== core.images.pathFor(refs[i])).map((p) => basename(p).split('.')[0]);
+      removeUnreferenced(core, cut, {});
+    }
     // Before anything chains off it: a bar left on the anchor is a bar the
     // next view is conditioned on and faithfully reproduces.
     const hash = await trimEdgeBars(core, drawn);
+    // The frame as it arrived is nobody's picture once the trimmed one is kept.
+    if (hash !== drawn) removeUnreferenced(core, [drawn], {});
     // The last moment a Stop can arrive before the slot is written; from here
     // the landing is one synchronous write, so a picture that came back after
-    // Stop never lands over the stopped slot.
-    if (signal.aborted) throw new Error('cancelled');
+    // Stop never lands over the stopped slot, and nothing will ever point at it.
+    if (signal.aborted) {
+      removeUnreferenced(core, [hash], {});
+      throw new Error('cancelled');
+    }
     mutate(core, id, (r) => {
       const slot = r.views[view];
       if (slot.hash && slot.hash !== hash) {
@@ -1201,6 +1307,7 @@ async function drawView(
       slot.adjustment = adjustment;
       slot.error = undefined;
       slot.startedAt = undefined;
+      slot.was = undefined;
       r.generations += 1;
       r.results = [
         ...r.results,
@@ -1224,6 +1331,8 @@ async function drawView(
           break;
         }
       }
+      // The same for the words: drawn from what they no longer say.
+      if (keepFor(view, identityOf(r).items) !== kept) slot.status = 'stale';
     });
   } catch (err: any) {
     mutate(core, id, (r) => {
@@ -1242,6 +1351,7 @@ async function drawView(
       if (adjustment) slot.adjustment = adjustment;
       slot.error = signal.aborted ? 'cancelled' : String(err?.message ?? 'the view could not be drawn');
       slot.startedAt = undefined;
+      slot.was = undefined;
       r.generations += 1;
     });
   }
@@ -1413,6 +1523,10 @@ export async function approveView(
       // replaced is let go of.
       if (!r.sources.includes(s.prior)) s.rejected = [...s.rejected, s.prior];
       s.prior = undefined;
+      // A new face for a person rolled from a sentence is read afresh, as a
+      // redo reads it: the words read off the old one led every view drawn
+      // after it, and the record, with hair the face no longer has.
+      if (view === 'portrait' && r.source === 'synthetic') r.analysis = undefined;
     }
     /**
      * Whatever was drawn from this view is asked whether it still stands.
@@ -1554,7 +1668,11 @@ function stillStands(r: PresenterDraftRecord, view: PresenterView): boolean {
   // skips the left one when their own words name a side - and a view drawn
   // under one rule must not read as out of date under another.
   for (const h of on) {
-    const owner = r.results.find((x) => x.hash === h)?.view;
+    // The log is capped; the slots are not, and every picture a view let go
+    // of stays on it, so a face that rolled out of the log is still found.
+    const owner =
+      r.results.find((x) => x.hash === h)?.view ??
+      PRESENTER_VIEWS.find((v) => v !== view && (r.views[v].prior === h || r.views[v].rejected.includes(h)));
     if (!owner || owner === view) continue;
     if (r.views[owner].hash !== h) return false;
   }
@@ -1575,7 +1693,7 @@ function reconcileDependents(r: PresenterDraftRecord, view: PresenterView): void
     if (!s.hash) continue;
     if (stillStands(r, d)) {
       if (s.status === 'stale') s.status = 'approved';
-    } else if (s.status === 'approved' || s.status === 'candidate') s.status = 'stale';
+    } else if (s.status === 'approved' || s.status === 'candidate') staleOut(s);
   }
 }
 
@@ -1584,8 +1702,18 @@ function staleDependents(r: PresenterDraftRecord, view: PresenterView): void {
     const s = r.views[d];
     // A photograph is the truth whatever was drawn upstream of it.
     if (s.origin === 'photo') continue;
-    if (s.status === 'approved' || s.status === 'candidate') s.status = 'stale';
+    if (s.status === 'approved' || s.status === 'candidate') staleOut(s);
   }
+}
+
+/**
+ * Out of date, and nothing else. An error on the slot was a redraw of a
+ * picture that no longer stands; kept, it held the view out of the set that
+ * redraws stale views and replayed an old failure as a new one.
+ */
+function staleOut(s: ViewSlot): void {
+  s.status = 'stale';
+  s.error = undefined;
 }
 
 /**
@@ -1704,17 +1832,51 @@ export async function savePresenterDraft(
   id: string,
   hooks: CleanupHooks = {},
 ): Promise<{ presenter: CustomPresenter; brand: ReturnType<Core['store']['getBrand']> }> {
-  const { core } = deps;
-  const rec = getPresenterDraft(core, id);
+  const rec = getPresenterDraft(deps.core, id);
   if (!rec) throw fail('draft not found', 404);
   if (running.has(id)) throw fail('a view is still being drawn', 409);
-  if (rec.presenterId) return saveEdit(deps, rec, hooks);
+  // The draft is busy while it is written: a second Save, or a draw into a
+  // draft about to go, is refused rather than started under it.
+  running.set(id, { view: null, ctrl: new AbortController() });
+  try {
+    return rec.presenterId ? await saveEdit(deps, rec, hooks) : await saveNew(deps, rec, hooks);
+  } finally {
+    running.delete(id);
+  }
+}
+
+/**
+ * The draft as it stands after the crops were cut. Discard does not wait for
+ * a save, and it removes every picture the draft alone held, so a save that
+ * went on from what it read before would commit a person with no pictures.
+ */
+function stillThere(core: Core, id: string, crops: (string | undefined)[], hooks: CleanupHooks): void {
+  if (getPresenterDraft(core, id)) return;
+  removeUnreferenced(
+    core,
+    crops.filter((h): h is string => !!h),
+    hooks,
+  );
+  throw fail('draft not found', 404);
+}
+
+async function saveNew(
+  deps: AssetBuildDeps,
+  rec: PresenterDraftRecord,
+  hooks: CleanupHooks,
+): Promise<{ presenter: CustomPresenter; brand: ReturnType<Core['store']['getBrand']> }> {
+  const { core } = deps;
+  const id = rec.id;
   if (!rec.name.trim()) throw fail('give them a name', 400);
   // Without an engine the photographs are the presenter: the portrait leads
   // and the rest follow as they are. Fewer views than a drawn set has, but a
   // working person rather than a blocked flow, exactly the old build's
-  // fallback.
-  const blind = !deps.engine;
+  // fallback. Read off the draft, never the probe alone: a probe that times
+  // out at save time saved a drawn set as its face and dropped the rest.
+  const drawnSet = CORE_VIEWS.some(
+    (v) => v !== 'portrait' && rec.views[v].origin === 'generated' && !!rec.views[v].hash,
+  );
+  const blind = !deps.engine && !drawnSet;
   // In save order: the core views, then whichever extras were drawn.
   const required: PresenterView[] = blind
     ? ['portrait']
@@ -1731,6 +1893,7 @@ export async function savePresenterDraft(
   const sourceFiles = rec.sources.map((h) => `asset:${h}`);
   const mode = presenterCropMode(portraitFile, sourceFiles, 'portrait');
   const { previewHash, avatarHash } = await presenterCrops(core, shots[0], mode);
+  stillThere(core, id, [previewHash, avatarHash], hooks);
   const a = rec.analysis;
   const built = presenterRecordFrom({
     name: rec.name,
@@ -1764,7 +1927,7 @@ export async function savePresenterDraft(
     // the row goes with the append, in one transaction: see `commit`
     id,
   );
-  removeUnreferenced(core, letGoOf(rec), hooks);
+  removeUnreferenced(core, [...letGoOf(rec), ...detailsOf(rec)], hooks);
   return { presenter: built.presenter, brand: core.store.getBrand(rec.brandId) };
 }
 
@@ -1795,6 +1958,15 @@ function letGoOf(rec: PresenterDraftRecord): string[] {
     const s = rec.views[v];
     return [...s.rejected, ...(s.prior && s.prior !== s.hash ? [s.prior] : [])];
   });
+}
+
+/**
+ * The pictures of the details they asked to keep: a tattoo, a scar, a pair of
+ * frames. Only the draft holds them; a record keeps the words and the views
+ * they were drawn into, so once the draft goes they go with it.
+ */
+function detailsOf(rec: PresenterDraftRecord): string[] {
+  return [...(rec.keepItems ?? []).flatMap((i) => i.refs ?? []), ...Object.values(rec.detailRefs ?? {}).flat()];
 }
 
 /**
@@ -1844,10 +2016,17 @@ async function saveEdit(
     const built = presenterRecordFrom({ name: rec.name, suitableCategories: rec.facets }, base);
     if (!built.ok) throw fail(built.error, 400);
     const patched = built.presenter;
-    commit(core, rec.brandId, (json) => {
-      if (headOf(json, baseId) !== baseId) throw moved();
-      json.characters = brandCharacters(json).map((c: any) => (c.id === base.id ? patched : c));
-    });
+    // The session's row goes in the same write as the record, as a creation's
+    // does: apart, a fault between them left a session that could only 409.
+    commit(
+      core,
+      rec.brandId,
+      (json) => {
+        if (headOf(json, baseId) !== baseId) throw moved();
+        json.characters = brandCharacters(json).map((c: any) => (c.id === base.id ? patched : c));
+      },
+      rec.id,
+    );
     head = patched;
   } else {
     if (!views.length) throw fail('approve the face first', 400);
@@ -1860,6 +2039,7 @@ async function saveEdit(
       first.angle,
     );
     const { previewHash, avatarHash } = await presenterCrops(core, first.hash, mode);
+    stillThere(core, rec.id, [previewHash, avatarHash], hooks);
     const built = mintRevision(base, {
       name: rec.name,
       shotHashes: views.map((v) => v.hash),
@@ -1898,17 +2078,21 @@ async function saveEdit(
     const minted = carried.length
       ? { ...built.presenter, shots: [...(built.presenter.shots ?? []), ...carried] }
       : built.presenter;
-    commit(core, rec.brandId, (json) => {
-      if (headOf(json, baseId) !== baseId) throw moved();
-      json.characters = [
-        ...brandCharacters(json).map((c: any) => (c.id === base.id ? { ...c, supersededBy: minted.id } : c)),
-        minted,
-      ];
-    });
+    commit(
+      core,
+      rec.brandId,
+      (json) => {
+        if (headOf(json, baseId) !== baseId) throw moved();
+        json.characters = [
+          ...brandCharacters(json).map((c: any) => (c.id === base.id ? { ...c, supersededBy: minted.id } : c)),
+          minted,
+        ];
+      },
+      rec.id,
+    );
     head = minted;
   }
-  core.store.deletePresenterDraft(rec.id);
-  removeUnreferenced(core, letGoOf(rec), hooks);
+  removeUnreferenced(core, [...letGoOf(rec), ...detailsOf(rec)], hooks);
   return { presenter: head, brand: core.store.getBrand(rec.brandId) };
 }
 
@@ -1935,7 +2119,10 @@ function readWords(a: AnalyzerDraft | undefined): Partial<PresenterInput> {
  * reason) and the draft goes idle; nothing is drawn again until asked. The
  * engine gets the abort, so a process under way is killed, not left to spend.
  */
-export async function stopPresenterDraft(deps: AssetBuildDeps, id: string): Promise<PresenterDraftRecord> {
+export async function stopPresenterDraft(
+  deps: Pick<AssetBuildDeps, 'core'>,
+  id: string,
+): Promise<PresenterDraftRecord> {
   const rec = getPresenterDraft(deps.core, id);
   if (!rec) throw fail('draft not found', 404);
   const job = running.get(id);
@@ -1945,10 +2132,18 @@ export async function stopPresenterDraft(deps: AssetBuildDeps, id: string): Prom
   return getPresenterDraft(deps.core, id) ?? rec;
 }
 
-/** Intentional cancel: the row goes, and every picture this draft alone was holding. */
-export async function discardPresenterDraft(deps: AssetBuildDeps, id: string, hooks: CleanupHooks = {}): Promise<void> {
+/**
+ * Intentional cancel: the row goes, and every picture this draft alone was
+ * holding. The job is told to stop and stays counted until it has: the
+ * update gate reads that count, and a step that has not heard the abort yet
+ * is still work in flight.
+ */
+export async function discardPresenterDraft(
+  deps: Pick<AssetBuildDeps, 'core'>,
+  id: string,
+  hooks: CleanupHooks = {},
+): Promise<void> {
   running.get(id)?.ctrl.abort();
-  running.delete(id);
   runs.delete(id);
   const rec = getPresenterDraft(deps.core, id);
   if (!rec) return;
@@ -1971,7 +2166,13 @@ export async function discardPresenterDraft(deps: AssetBuildDeps, id: string, ho
 export async function releasePresenter(
   deps: AssetBuildDeps,
   brandId: string,
-  presenter: { id: string; shots?: { file?: unknown }[]; sourceRefs?: unknown[]; preview?: unknown; avatar?: unknown },
+  presenter: {
+    id: string;
+    shots?: { file?: unknown }[];
+    sourceRefs?: { file?: unknown }[];
+    preview?: unknown;
+    avatar?: unknown;
+  },
   hooks: CleanupHooks = {},
 ): Promise<void> {
   for (const d of listPresenterDrafts(deps.core, brandId)) {
@@ -1979,7 +2180,9 @@ export async function releasePresenter(
   }
   const held = [
     ...(presenter.shots ?? []).map((s) => s?.file),
-    ...(presenter.sourceRefs ?? []),
+    // a source is { file: 'asset:<hash>' } like a shot; spread whole, it was
+    // read as '[object Object]' and the photographs were never let go
+    ...(presenter.sourceRefs ?? []).map((s) => s?.file),
     presenter.preview,
     presenter.avatar,
   ];
@@ -2020,11 +2223,12 @@ function stampMs(s: string): number {
 
 function dropDraft(core: Core, rec: PresenterDraftRecord, hooks: CleanupHooks): void {
   core.store.deletePresenterDraft(rec.id);
+  unreadable.delete(rec.id);
   const generated = PRESENTER_VIEWS.flatMap((v) => {
     const s = rec.views[v];
     return [...s.rejected, ...(s.hash && s.origin === 'generated' ? [s.hash] : []), ...(s.prior ? [s.prior] : [])];
   });
-  removeUnreferenced(core, [...generated, ...rec.sources], hooks);
+  removeUnreferenced(core, [...generated, ...rec.sources, ...detailsOf(rec)], hooks);
 }
 
 /**

@@ -6,7 +6,8 @@ import {
   asideTurns,
   openQuestionId,
 } from '../../conversation/question.js';
-import { reason } from './presenterCopy.js';
+import type { FailureRemedy } from '../../failure.js';
+import { failureWords, keptAfter } from './presenterCopy.js';
 import {
   CORE_VIEWS,
   type DraftLike,
@@ -147,6 +148,31 @@ export function isDirty(d: DraftLike, base: EditBase): boolean {
   }
   return false;
 }
+
+/**
+ * Nothing happened in the session: it is the record as saved, with nothing
+ * said, drawn or decided in it. Opening the editor seeds one, so closing an
+ * untouched one takes it away again, or the page offers "Continue editing"
+ * over a session that holds nothing.
+ */
+export function isUntouched(d: DraftLike, base: EditBase): boolean {
+  return (
+    !isDirty(d, base) &&
+    !d.activeView &&
+    d.stage === 'idle' &&
+    !d.asks?.length &&
+    // the record's own pictures ride in as history when a session opens; only
+    // a picture the slot is not wearing says something was drawn here
+    (d.results ?? []).every((r) => d.views[r.view]?.hash === r.hash) &&
+    !d.decisions?.length
+  );
+}
+
+/** What a view's draw that failed, or was stopped, says. */
+const drawFailed = (view: StudioView, error: string): { text: string; remedy?: FailureRemedy; stopped: boolean } =>
+  error === 'cancelled'
+    ? { text: `Stopped drawing the ${VIEW_NAME[view]}. Nothing finished was touched.`, stopped: true }
+    : { ...failureWords(`The ${VIEW_NAME[view]} could not be drawn`, error, keptAfter(view)), stopped: false };
 
 /** The core views the record never had; a legacy presenter is offered them once. */
 export const missingCore = (d: DraftLike): StudioView[] =>
@@ -459,11 +485,23 @@ function shapeEdit(
     // another view and came back, which is what made it read as broken. The
     // stage covered for it on a desktop; a phone has no stage.
     const slot = d.views[candidate];
+    // A candidate can carry a failure: a Try again that failed keeps the
+    // picture it was replacing, and a restart mid-redraw leaves the one it
+    // was redrawing. The failure is said, and the picture is not passed off
+    // as a new one.
+    if (slot.error) {
+      const failed = drawFailed(candidate, slot.error);
+      say(`failed-${candidate}`, failed.text, failed.stopped ? undefined : 'alert');
+    }
     if (slot.hash) {
       T.push({
         kind: 'scenri',
         id: `candidate-${candidate}-${slot.hash}`,
-        text: candidate === 'portrait' ? `Here is ${name} with the change.` : `Redrew the ${VIEW_NAME[candidate]}.`,
+        text: slot.error
+          ? `Here is the ${VIEW_NAME[candidate]} as it is.`
+          : candidate === 'portrait'
+            ? `Here is ${name} with the change.`
+            : `Redrew the ${VIEW_NAME[candidate]}.`,
         thumb: slot.hash,
         label: VIEW_LABEL[candidate],
         view: candidate,
@@ -490,17 +528,21 @@ function shapeEdit(
 
   if (ui.failed || failedView) {
     openAsk();
-    const stopped = !!failedView && d.views[failedView].error === 'cancelled';
+    const failed = failedView
+      ? drawFailed(failedView, d.views[failedView].error ?? '')
+      : { ...failureWords('That did not go through', ui.failed ?? ''), stopped: false };
     ask({
       id: 'retry',
       kind: 'confirm',
-      ...(stopped ? { quiet: true } : { tone: 'alert' as const }),
-      prompt: stopped
-        ? `Stopped drawing the ${VIEW_NAME[failedView as StudioView]}. Nothing finished was touched.`
-        : failedView
-          ? `The ${VIEW_NAME[failedView]} could not be drawn: ${reason(d.views[failedView].error ?? '')}. Nothing finished was touched.`
-          : `That did not go through: ${reason(ui.failed ?? '')}. Nothing finished was touched.`,
-      options: [{ id: 'retry', label: stopped ? 'Draw it again' : 'Retry' }],
+      ...(failed.stopped ? { quiet: true } : { tone: 'alert' as const }),
+      prompt: failed.text,
+      // The control that fixes it comes first. Retry stays: the composer is
+      // off while this is open, and Retry is how the draw is asked for again
+      // once it is fixed. The remedy's id says where it opens.
+      options: [
+        ...(failed.remedy ? [{ id: `remedy:${failed.remedy.opens}`, label: failed.remedy.label }] : []),
+        { id: 'retry', label: failed.stopped ? 'Draw it again' : 'Retry' },
+      ],
     });
     return done();
   }

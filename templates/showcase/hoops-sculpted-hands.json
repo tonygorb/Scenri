@@ -1,0 +1,33 @@
+{
+  "id": "hoops-sculpted-hands",
+  "title": "Dome hoops held by sculpted hands",
+  "category": "catalog",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "verity-stone-dome-hoops"
+      },
+      {
+        "t": "template",
+        "id": "hand-studio"
+      },
+      {
+        "t": "text",
+        "v": " One dome hoop rests in each open palm, the pair offered toward camera, the polished gold catching a single soft highlight and a warm reflection of the blush sweep. 100mm at palm height, the hands and hoops filling the middle of the frame."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 101,
+  "family": "studio"
+}

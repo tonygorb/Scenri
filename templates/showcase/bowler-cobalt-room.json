@@ -1,0 +1,33 @@
+{
+  "id": "bowler-cobalt-room",
+  "title": "Cherry bowler in a cobalt room",
+  "category": "catalog",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "rowan-ash-bowler-bag"
+      },
+      {
+        "t": "template",
+        "id": "cobalt-color-room"
+      },
+      {
+        "t": "text",
+        "v": " The cherry-red bowler bag sits alone in the centre of the checker floor, handle upright, its box leather catching one long highlight, the only warm colour in the cobalt room. The camera is low and wide so the checker floor rushes toward the lens and the walls lean in. 24mm at f/11, the bag in the lower middle third."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 42,
+  "family": "studio"
+}

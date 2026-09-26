@@ -1,0 +1,37 @@
+{
+  "id": "hoops-painted-canvas",
+  "title": "Dome hoop in a hard beauty light",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "verity-stone-dome-hoops"
+      },
+      {
+        "t": "character",
+        "id": "amara"
+      },
+      {
+        "t": "template",
+        "id": "painted-canvas"
+      },
+      {
+        "t": "text",
+        "v": " A beauty close-up in front of the painted canvas: she is turned three-quarters away, chin lifted, the crop running from her crown to her collarbone, the dome hoop on her near ear catching one hard specular from a bare dish high on the right. A faint sheen across her cheekbone and jaw, bare shoulders, no other jewellery. 85mm at f/4, focus on the hoop, her far eye just soft."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 2,
+  "family": "human"
+}

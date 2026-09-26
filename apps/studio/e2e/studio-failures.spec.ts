@@ -86,7 +86,7 @@ test('a change that fails out of sight leaves one card that stays and leads back
   await expect(line(page)).toBeEnabled();
 });
 
-test('a change that failed closes without asking, waits on the wall as not finished, and opens with every way on', async ({
+test('a change that failed closes without asking, waits on the wall as drawn, and opens with every way on', async ({
   page,
 }) => {
   test.setTimeout(60_000);
@@ -99,7 +99,7 @@ test('a change that failed closes without asking, waits on the wall as not finis
   await expect(page.getByRole('alertdialog')).toHaveCount(0);
   await page.waitForURL(new RegExp(`/${slug}/scenes$`));
   const card = page.locator('.sc-lookcard[data-build]', { hasText: 'Stuck Cyc' });
-  await expect(card).toContainText('Did not finish');
+  await expect(card).toContainText('Drawn, not used yet');
   await card.getByRole('link').click();
   await page.waitForURL((u) => u.pathname === at);
   await expect(openQ(page)).toHaveAttribute('data-turn', /^q:(agree|decide)-/);

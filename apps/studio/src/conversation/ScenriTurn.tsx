@@ -147,7 +147,9 @@ export const arrivalVars = (delay: number): CSSProperties =>
  */
 export function Eyebrow({ thinking, at, now }: { thinking?: boolean; at?: number; now?: number }) {
   return (
-    <span className="sc-convo-who" data-thinking={thinking || undefined}>
+    // who is speaking is plain from the page; read aloud before every line it
+    // was the same two words again, the time after them changing as it aged
+    <span className="sc-convo-who" data-thinking={thinking || undefined} aria-hidden="true">
       <ScenriMark className="sc-convo-mark" />
       Scenri
       {at ? <TurnTime at={at} now={now} /> : null}
@@ -181,7 +183,8 @@ export function Working({ what = 'Thinking' }: { what?: string }) {
   return (
     <div className="sc-convo-turn" data-who="scenri" data-working="true">
       <Eyebrow thinking />
-      <p className="sc-convo-say" role="status">
+      {/* the log around it already announces this line as it arrives */}
+      <p className="sc-convo-say">
         <span className="sc-convo-work">
           {what}
           <Ellipsis />
@@ -217,9 +220,18 @@ export function Thinking() {
   );
 }
 
-/** The words of a line, each on its own beat while the line arrives, plain text once it has. */
+/**
+ * The words of a line, each on its own beat while the line arrives.
+ *
+ * Once a line has played, its words stay the spans they arrived in (with the
+ * reveal gone they are plain words to the eye). Swapping them for a text node
+ * at the end added the line to the log a second time, so a screen reader said
+ * every line twice.
+ */
 export function RevealWords({ text, playing }: { text: string; playing: boolean }) {
-  if (!playing) return <>{text}</>;
+  const played = useRef(playing);
+  if (playing) played.current = true;
+  if (!played.current) return <>{text}</>;
   const { words, step } = revealPlan(text);
   let n = 0;
   let at = 0;

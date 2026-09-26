@@ -1,0 +1,33 @@
+{
+  "id": "c15-dew-bed",
+  "title": "C15 Serum among dewy succulents",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "calder-vane-c15-serum"
+      },
+      {
+        "t": "template",
+        "id": "succulent-dew-bed"
+      },
+      {
+        "t": "text",
+        "v": " The serum bottle lies cradled between two broad leaves of a dewy succulent rosette, beaded with the same fine droplets, its label turned up to the light, the orange serum glowing against the cool green. 90mm, close and low across the leaves, the bottle sharp and the rosettes falling soft behind it."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 84,
+  "family": "botanical"
+}

@@ -177,10 +177,14 @@ export function AssetsPanel({
       if (!result.swatch) return;
       if (result.added) {
         try {
-          const row = await api.updateBrand(brand.id, {
-            ...(brand.json ?? {}),
-            palette: result.palette,
-          });
+          const row = await api.updateBrand(
+            brand.id,
+            {
+              ...(brand.json ?? {}),
+              palette: result.palette,
+            },
+            brand.json,
+          );
           applyBrand(row);
         } catch (e) {
           push(failureToast(e, 'Could not save the brand'));
@@ -199,10 +203,14 @@ export function AssetsPanel({
       const result = removeColor(brand.json?.palette, hex);
       if (!result.removed) return;
       try {
-        const row = await api.updateBrand(brand.id, {
-          ...(brand.json ?? {}),
-          palette: result.palette,
-        });
+        const row = await api.updateBrand(
+          brand.id,
+          {
+            ...(brand.json ?? {}),
+            palette: result.palette,
+          },
+          brand.json,
+        );
         applyBrand(row);
       } catch (e) {
         push(failureToast(e, 'Could not save the brand'));

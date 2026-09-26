@@ -1,0 +1,33 @@
+{
+  "id": "open-buds-hands",
+  "title": "Open buds offered by sculpted hands",
+  "category": "catalog",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "oswin-hale-open-buds"
+      },
+      {
+        "t": "template",
+        "id": "hand-studio"
+      },
+      {
+        "t": "text",
+        "v": " The open cobalt case rests in the open palms, the buds in their cradles, the lid up and the wordmark to camera. 100mm at palm height, the case large."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 57,
+  "family": "studio"
+}

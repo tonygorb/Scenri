@@ -155,6 +155,8 @@ export interface FlowContext {
     analysis?: { photos?: { index: number; usable?: boolean }[] };
   } | null;
   canGenerate: boolean;
+  /** The engine that draws, by its display name, when one is known. */
+  engine?: string;
 }
 
 export const NO_DRAFT: FlowContext = { draft: null, canGenerate: true };

@@ -161,6 +161,24 @@ test('a product in the brief that is then deleted is flagged, not silently kept'
   await expectSameSession(page);
 });
 
+// The delete confirmations promised that shots already made "keep their images
+// and their recipe". A recipe names what it was made with by id and nothing
+// keeps a copy, so the old shot's recipe lost the product the moment it went,
+// and the delete has no undo (S1-05).
+test('the delete confirmation says what shots already made keep, and what they lose', async ({ page }) => {
+  const brand = await currentBrand(page);
+  await seedProduct(page.request, brand.id, 'Recipe Mug');
+  await page.goto(`/${brand.slug}/products`);
+  await openProduct(page, 'Recipe Mug');
+  await page.getByRole('button', { name: 'Delete product' }).click();
+  const dialog = page.getByRole('alertdialog');
+  await expect(dialog).toContainText('Shots already made with it keep their images.');
+  await expect(dialog).not.toContainText('Only future shots lose it');
+  await expect(dialog).toContainText('Their recipe loses this product, and building from one again will miss it.');
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+  await expect(dialog).toHaveCount(0);
+});
+
 // Two reads of the library crossed: the older one, with the product in it, lands last.
 test('a slow library read that started before a delete cannot bring the product back', async ({ page }) => {
   const brand = await currentBrand(page);

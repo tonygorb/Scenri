@@ -1,6 +1,14 @@
 import { test, expect, type Page } from '@playwright/test';
 import { isolate } from './harness.js';
-import { currentBrand, expectSameSession, goCreate, markSession, switchBrand } from './realtime.js';
+import {
+  brandJson,
+  currentBrand,
+  expectSameSession,
+  goCreate,
+  holdNext,
+  markSession,
+  switchBrand,
+} from './realtime.js';
 
 /**
  * Brand-level mutations and the shot surfaces, on the same terms as the asset
@@ -182,5 +190,110 @@ test('a kit save does not make the bell poll again', async ({ page }) => {
 
   // no tick chasing the write: the poll keeps its own cadence
   expect(polls.filter((t) => t >= savedAt - 50 && t <= savedAt + 600)).toEqual([]);
+  await expectSameSession(page);
+});
+
+// A kit field wrote itself when it blurred, and a field taken away with the
+// caret in it never blurs: Back closed Settings around it, and a window
+// crossing the phone width rebuilt Settings as the other layout (S2-02).
+test('a kit edit still being typed is kept through Back and through a change of layout', async ({ page }) => {
+  const brand = await currentBrand(page);
+  await page.goto(`/${brand.slug}/create`);
+  await markSession(page);
+  await openSettings(page);
+  const tagline = () => page.getByRole('dialog', { name: 'Settings' }).getByLabel('Tagline');
+  await tagline().click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.type('Kept through Back');
+  await expect(tagline()).toBeFocused();
+  await page.goBack();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect.poll(async () => (await brandJson(page.request, brand.id)).meta?.tagline).toBe('Kept through Back');
+
+  await openSettings(page);
+  await tagline().click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.type('Kept through a resize');
+  await expect(tagline()).toBeFocused();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(async () => (await brandJson(page.request, brand.id)).meta?.tagline).toBe('Kept through a resize');
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expectSameSession(page);
+});
+
+// A kit save sent the window's whole copy of the kit, so a tagline typed in a
+// window that had not seen a rename put the old name back, and the two
+// windows and the server then disagreed (S4-01). The rename here is made
+// through the API: another window, or a phone beside the desktop.
+test('a kit save from a window that has not seen a rename keeps the rename', async ({ page }) => {
+  const brand = await currentBrand(page);
+  await page.goto(`/${brand.slug}/create`);
+  await markSession(page);
+  await openSettings(page);
+  const dialog = page.getByRole('dialog', { name: 'Settings' });
+  const name = dialog.getByLabel('Name', { exact: true });
+  const before = await name.inputValue();
+  expect(before).not.toBe('');
+
+  const json = await brandJson(page.request, brand.id);
+  const renamed = await page.request.put(`/api/brands/${brand.id}`, {
+    data: { brand: { ...json, meta: { ...json.meta, name: 'Renamed Elsewhere' } }, keepAssets: true },
+  });
+  expect(renamed.ok()).toBe(true);
+  await expect(name).toHaveValue(before);
+
+  const tagline = dialog.getByLabel('Tagline');
+  const put = page.waitForResponse((r) => r.request().method() === 'PUT' && /\/api\/brands\/[^/]+$/.test(r.url()));
+  await tagline.fill('Typed beside the rename');
+  await tagline.press('Enter');
+  await put;
+
+  const saved = await brandJson(page.request, brand.id);
+  expect(saved.meta.name).toBe('Renamed Elsewhere');
+  expect(saved.meta.tagline).toBe('Typed beside the rename');
+  // and this window now shows what the server holds
+  await expect(name).toHaveValue('Renamed Elsewhere');
+  await expectSameSession(page);
+});
+
+// The frame kept the brand it had left's workspace until the new brand's
+// answer landed, and Create sent that project: a shot typed in that moment
+// was filed in the other brand, with its rules, while its tile spun here (S8-03).
+test('a shot sent right after a brand switch is filed in the brand on screen', async ({ page }) => {
+  const home = await currentBrand(page);
+  const made = await page.request.post('/api/brands', {
+    data: { brand: { specVersion: '0.1', meta: { name: 'Second Studio' } } },
+  });
+  const other = (await made.json()) as { id: string };
+  const projectOf = async (id: string) =>
+    ((await (await page.request.get(`/api/brands/${id}/workspace`)).json()) as { project: { id: string } }).project.id;
+  const otherProject = await projectOf(other.id);
+  const homeProject = await projectOf(home.id);
+
+  await page.goto(`/${home.slug}/create`);
+  await markSession(page);
+  await expect(page.locator('.sc-brief-line').first()).toBeVisible();
+  const sent: string[] = [];
+  page.on('request', (r) => {
+    if (r.method() === 'POST' && r.url().endsWith('/api/nodes')) sent.push(JSON.parse(r.postData() ?? '{}').projectId);
+  });
+
+  // the new brand's workspace answer is late, the way a loaded server's is
+  const held = await holdNext(page, `**/api/brands/${other.id}/workspace`);
+  await switchBrand(page, 'Second Studio');
+  await goCreate(page);
+  await held.caught;
+  const line = page.locator('.sc-brief-line').first();
+  await line.click();
+  await page.keyboard.type('a shelf in the second studio');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(500);
+  expect(sent, `sent before the brand on screen was known; ${homeProject} is the brand just left`).toEqual([]);
+
+  held.release();
+  await expect(page.locator('.sc-canvas-dock .sc-send').first()).toBeEnabled();
+  await line.click();
+  await page.keyboard.press('Enter');
+  await expect.poll(() => sent).toEqual([otherProject]);
   await expectSameSession(page);
 });

@@ -1,7 +1,7 @@
 import { Fragment, useLayoutEffect, useRef, type CSSProperties, type ReactNode, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router';
-import type { ShowcaseEntry } from '../api.js';
+import { type ShowcaseEntry, thumbOf } from '../api.js';
 import { placeTip } from '../composer/anchorPanel.js';
 import { CatalogCard, CatalogCardSkeleton, type CatalogCardSize } from './CatalogCard.js';
 import { useWallDensitySize } from './DensityControl.js';
@@ -294,7 +294,7 @@ function CreditTip({
             aria-label={`${role}: ${credit.name}`}
           >
             <span className="sc-credit-tip-card">
-              <img src={credit.previewUrl} alt="" />
+              <img src={thumbOf(credit.previewUrl, 'small')} alt="" />
               {/* The name was reaching only the aria-label, so a sighted user
                   got a picture and the word "Product" and no way to learn what
                   it was called. This is the surface with the most room on the
@@ -325,7 +325,7 @@ function roundChip({ credit, step }: { credit: Credit; step: 1 | 2 }): ReactNode
         // stop the bubble, never the default, or modified clicks die with it.
         onClick={(e) => e.stopPropagation()}
       >
-        {previewUrl ? <img src={previewUrl} alt="" /> : null}
+        {previewUrl ? <img src={thumbOf(previewUrl, 'micro')} alt="" /> : null}
       </Link>
     );
   }
@@ -334,7 +334,7 @@ function roundChip({ credit, step }: { credit: Credit; step: 1 | 2 }): ReactNode
   // nothing to see and the name is said instead.
   return (
     <span className="sc-showcase-chip" data-step={step}>
-      {previewUrl ? <img src={previewUrl} alt={name} /> : <span className="sc-vh">{name}</span>}
+      {previewUrl ? <img src={thumbOf(previewUrl, 'micro')} alt={name} /> : <span className="sc-vh">{name}</span>}
     </span>
   );
 }
@@ -351,14 +351,14 @@ function presenterPill(credit: Credit): ReactNode {
         aria-label={`See ${name}`}
         onClick={(e) => e.stopPropagation()}
       >
-        {previewUrl ? <img src={previewUrl} alt="" /> : null}
+        {previewUrl ? <img src={thumbOf(previewUrl, 'micro')} alt="" /> : null}
         <span className="sc-showcase-badge-name">{name}</span>
       </Link>
     );
   }
   return (
     <span className="sc-showcase-badge" aria-hidden>
-      {previewUrl ? <img src={previewUrl} alt="" /> : null}
+      {previewUrl ? <img src={thumbOf(previewUrl, 'micro')} alt="" /> : null}
       <span className="sc-showcase-badge-name">{name}</span>
     </span>
   );

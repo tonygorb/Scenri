@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import type { ActivityNode, AssetBuild, CatalogImportJob, StudioWork } from '../src/api.js';
 import {
+  examplesInItsStudio,
   agoLabel,
   batchTask,
   catalogPercent,
@@ -765,5 +766,25 @@ describe('studio work in the bell', () => {
     const done = [taskFromStudioWork(w({ status: 'done' }), brand)];
     expect(settled(running, done)).toHaveLength(1);
     expect(settled(new Map(done.map((t) => [t.id, t])), done)).toHaveLength(0);
+  });
+});
+
+describe('examples drawn inside the conversation that asked for them', () => {
+  const ex = { id: 'examples:j1', href: '/harbor/scenes/us-1' };
+  it('are on screen in that scene’s edit studio, not in another scene’s', () => {
+    expect(examplesInItsStudio(ex, '/harbor/scenes/us-1/edit/c9', 'b1')).toBe(true);
+    expect(examplesInItsStudio(ex, '/harbor/scenes/us-2/edit/c9', 'b1')).toBe(false);
+  });
+  it('are on screen in a new conversation whose kept record names the scene', () => {
+    localStorage.setItem('scenri:scene-studio:b1:c7', JSON.stringify({ sceneId: 'us-1', at: 1 }));
+    expect(examplesInItsStudio(ex, '/harbor/scenes/new/c7', 'b1')).toBe(true);
+    localStorage.setItem('scenri:scene-studio:b1:c8', JSON.stringify({ sceneId: null, at: 1 }));
+    expect(examplesInItsStudio(ex, '/harbor/scenes/new/c8', 'b1')).toBe(false);
+  });
+  it('are news anywhere else, and only examples are read this way', () => {
+    expect(examplesInItsStudio(ex, '/harbor/create', 'b1')).toBe(false);
+    expect(examplesInItsStudio({ id: 'scene:j1', href: '/harbor/scenes/us-1' }, '/harbor/scenes/us-1/edit', 'b1')).toBe(
+      false,
+    );
   });
 });

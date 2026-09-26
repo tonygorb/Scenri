@@ -1,0 +1,33 @@
+{
+  "id": "open-buds-surf-check",
+  "title": "Open buds at the dawn surf check",
+  "category": "lifestyle",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "oswin-hale-open-buds"
+      },
+      {
+        "t": "character",
+        "id": "finn"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. Dawn on a beach: he sits on the sea wall in a faded navy hoodie with wet salty hair, putting one bud in, the open cobalt case in his other hand. Surf rolling behind, soft pink light. 85mm, waist up."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 17,
+  "family": "human"
+}

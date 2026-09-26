@@ -163,10 +163,12 @@ export function StudioStage<V extends string = string>({
           {drawing && !hash && <span className="sc-shimmer" aria-hidden />}
           {drawing && hash && <span className="sc-pstudio-veil" aria-hidden />}
           {drawing && (
-            <span className="sc-pstudio-doing" role="status">
+            // Not a live region: the conversation's log already says what is
+            // being drawn, and a clock inside a status was read out every second.
+            <span className="sc-pstudio-doing">
               <span className="sc-pstudio-ring" aria-hidden />
               <span>{doing ?? 'Drawing'}</span>
-              {since && <time>{elapsedLabel(since, now)}</time>}
+              {since && <time aria-hidden="true">{elapsedLabel(since, now)}</time>}
             </span>
           )}
           {/* Compare is already showing another picture in this well; two ways to

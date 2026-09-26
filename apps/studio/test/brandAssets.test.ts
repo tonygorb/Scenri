@@ -4,6 +4,7 @@ import {
   customPresentersOf,
   customSceneById,
   customScenesOf,
+  coverViewOf,
   headPresenterId,
   newestFirst,
   productsNewestFirst,
@@ -289,5 +290,59 @@ describe('a brief started from an old shot', () => {
       { t: 'text', v: 'by a window' },
     ]);
     expect(withHeadPresenters(brand, [{ t: 'character', id: 'unknown' }])).toEqual([{ t: 'character', id: 'unknown' }]);
+  });
+});
+
+describe('a scene’s cover', () => {
+  const place = `asset:${HASH_A}`;
+  const hero = `asset:${HASH_B}`;
+  const SCENE = {
+    id: 'us-cover01',
+    name: 'Hall',
+    prompt: 'A hall.',
+    lighting: 'Soft',
+    preview: place,
+    examples: [{ role: 'hero', file: hero, from: place, product: 'vial' }],
+  };
+
+  it('shows the view it names on every card, and keeps the place as the place', () => {
+    const [s] = customScenesOf(brandWith({ scenes: [{ ...SCENE, cover: 'hero' }] }));
+    expect(s.previewUrl).toBe(`/api/images/${HASH_B}`);
+    expect(s.placeUrl).toBe(`/api/images/${HASH_A}`);
+    expect(s.previewHash).toBe(HASH_A);
+    expect(coverViewOf(s)).toBe('hero');
+  });
+
+  it('leaves a scene made before covers looking as it did, and falls back to the place for a view it lost', () => {
+    const [legacy] = customScenesOf(brandWith({ scenes: [SCENE] }));
+    expect(legacy.previewUrl).toBe(`/api/images/${HASH_A}`);
+    expect(coverViewOf(legacy)).toBe('place');
+    const [lost] = customScenesOf(brandWith({ scenes: [{ ...SCENE, cover: 'bold' }] }));
+    expect(lost.previewUrl).toBe(`/api/images/${HASH_A}`);
+    expect(coverViewOf(lost)).toBe('place');
+  });
+});
+
+describe('a scene whose place changed after its hero was drawn', () => {
+  it('shows the place as it is now on every card, not the hero drawn in the place before (SS-H10)', () => {
+    // what a Use without a hero leaves: the new place, the old hero still filed from the old place, and the cover still naming the hero
+    const [s] = customScenesOf(
+      brandWith({
+        scenes: [
+          {
+            id: 'us-cover02',
+            name: 'Hall',
+            prompt: 'A hall.',
+            lighting: 'Soft',
+            preview: `asset:${HASH_C}`,
+            examples: [{ role: 'hero', file: `asset:${HASH_B}`, from: `asset:${HASH_A}`, product: 'vial' }],
+            cover: 'hero',
+          },
+        ],
+      }),
+    );
+    expect(s.examples?.[0].earlier).toBe(true);
+    expect(s.previewUrl).toBe(`/api/images/${HASH_C}`);
+    expect(coverViewOf(s)).toBe('place');
   });
 });

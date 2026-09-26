@@ -16,6 +16,7 @@ import { ImageLightbox } from '../composer/ImageLightbox.js';
 import { Rail } from '../layout/Rail.js';
 import { RecordCrumb } from '../layout/RecordCrumb.js';
 import { RecordKeep } from '../layout/RecordKeep.js';
+import { deleteLeaves } from '../layout/catalogPick.js';
 import { Tip } from '../layout/Tip.js';
 import { EmptyRefFrame, ShotThumb, Slider } from '../layout/ReferenceGallery.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
@@ -34,8 +35,6 @@ const ROLE_LABEL: Record<string, string> = {
   'left-profile': 'Left',
   'right-profile': 'Right',
 };
-/** A curated presenter's frames arrive in this order, with no angle on them. */
-const CURATED_LABELS = ['Front', 'Left', 'Right', 'Back'];
 
 /**
  * One presenter: who they are right now.
@@ -63,7 +62,7 @@ export function PresenterPage() {
   const stillHere = useStillHere();
   const removing = useRef(false);
   const applyPresenter = useApplyPresenter();
-  const [refs, setRefs] = useState<string[]>([]);
+  const [refs, setRefs] = useState<{ url: string; angle: string }[]>([]);
   const [open, setOpen] = useState<{ src: string; label: string } | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
 
@@ -246,7 +245,7 @@ export function PresenterPage() {
         }))
         .filter((f): f is { src: string; label: string; angle: string | undefined } => !!f.src)
     : refs.length
-      ? refs.map((src, i) => ({ src, label: CURATED_LABELS[i] ?? `Reference ${i + 1}` }))
+      ? refs.map((f, i) => ({ src: f.url, label: ROLE_LABEL[f.angle] ?? `Reference ${i + 1}`, angle: f.angle }))
       : presenter.previewUrl
         ? [{ src: presenter.previewUrl, label: 'Preview' }]
         : [];
@@ -399,7 +398,7 @@ export function PresenterPage() {
             <Confirm
               label="Delete presenter"
               title={`Delete ${owned.name}?`}
-              body="Shots already made with them keep their images and their recipe. Only future shots lose them."
+              body={deleteLeaves('presenter', 1)}
               busy={busy}
               onConfirm={() => void remove()}
             />

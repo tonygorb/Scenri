@@ -98,6 +98,145 @@
   color: var(--sc-fg);
   text-align: start;
 }
+/* A scene chip's own pictures, as two sections under the search: the attach
+   picker's section rows and tiles (attach-panel.css), this scene's pictures
+   three across with Whole scene first, then the other scenes. */
+.sc-swap-this {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--swap-inset);
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.sc-swap-sec-others {
+  margin-top: var(--sc-space-7);
+  padding-top: var(--sc-space-6);
+  border-top: 1px solid var(--sc-line);
+}
+.sc-swap-sec-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration: none;
+}
+/* Whole scene: its own pictures as four equal cuts that touch, one outer
+   radius and no inner lines, the way a playlist's mosaic reads as one cover.
+   The fourth is frosted, not blacked out: the picture's colour comes through
+   the blur, and the count sits on it in bright type. Two or three pictures cut
+   the square in halves, or a tall half and two quarters. */
+.sc-ap-thumb.sc-swap-mosaic {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 0;
+}
+.sc-ap-thumb.sc-swap-mosaic[data-count="2"] {
+  grid-template-rows: minmax(0, 1fr);
+}
+.sc-ap-thumb.sc-swap-mosaic[data-count="3"] > :first-child {
+  grid-row: span 2;
+}
+.sc-swap-cut {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.sc-swap-cut img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* The fourth cut is frosted by blurring its own picture, never by a
+   backdrop filter: a live backdrop re-blurred under the hover and flickered.
+   A static blur on the image, scaled so its soft edge stays outside the cut,
+   and a light tint for the count to sit on. */
+.sc-ap-thumb .sc-swap-cut img {
+  transition: none;
+}
+.sc-swap-cut[data-more] img {
+  filter: blur(6px) saturate(1.2);
+  transform: scale(1.15);
+}
+/* Under the pointer every tile here lights the same way: one veil over the
+   picture. It began on the mosaic, where four cuts brightening one by one
+   beside a frosted one that could not shimmered at the seams, and it reads
+   clearer than a one-step brighten, so the views wear it too and it replaces
+   theirs. */
+.sc-swap-this .sc-ap-thumb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgb(255 255 255 / 0);
+  pointer-events: none;
+  transition: background var(--sc-dur-fast) var(--sc-ease);
+}
+@media (hover: hover) {
+  .sc-swap-this .sc-ap-card:not([aria-disabled="true"]):hover .sc-ap-thumb img {
+    filter: none;
+  }
+  .sc-ap-card:not([aria-disabled="true"]):hover .sc-ap-thumb .sc-swap-cut[data-more] img {
+    filter: blur(6px) saturate(1.2);
+  }
+  .sc-swap-this .sc-ap-card:not([aria-disabled="true"]):hover .sc-ap-thumb::after {
+    background: rgb(255 255 255 / 0.12);
+  }
+}
+/* Over a photograph, so theme-neutral, like the scrim tokens. */
+.sc-swap-cut-more {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 0.22);
+  color: #fff;
+  font: 600 15px / 1 var(--sc-font);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+}
+/* With two sections the search is a header over a scrolling list: its own
+   breath and a hairline under it, as the attach panel's head has, so tiles
+   never slide up flush against the field. */
+.sc-swap-inner[data-sections] .sc-swap-head {
+  padding-bottom: var(--swap-inset);
+  border-bottom: 1px solid var(--sc-line);
+}
+/* The select box sits top-left, where every select tick in the app does
+   (a card's pick, a shot's). */
+.sc-swap-this .sc-ap-puck,
+.sc-swap-card .sc-ap-puck {
+  right: auto;
+  left: 6px;
+}
+/* Another scene is one press away, so it shows the plus the tiles above show. */
+@media (hover: hover) {
+  .sc-swap-card:hover .sc-ap-puck {
+    display: grid;
+  }
+  .sc-swap-card:hover .sc-ap-puck-add {
+    display: block;
+  }
+}
+:where(:root:not([data-input="pointer"])) .sc-swap-card:focus-visible .sc-ap-puck {
+  display: grid;
+}
+:where(:root:not([data-input="pointer"])) .sc-swap-card:focus-visible .sc-ap-puck-add {
+  display: block;
+}
+/* Whole scene held has nothing to take away: it keeps its tick under the
+   pointer, where a held picture turns to the x that lets it go. */
+@media (hover: hover) {
+  .sc-ap-card[data-whole][data-on]:hover .sc-ap-puck-on {
+    display: block;
+  }
+  .sc-ap-card[data-whole][data-on]:hover .sc-ap-puck-off {
+    display: none;
+  }
+}
 /* The one thing on the row that is a control, and it says so: a real target,
    its own hover, and the only pointer cursor here. Revealed on hover on a
    mouse, always there on a touch screen, which is the grammar the catalog
@@ -213,6 +352,13 @@
   background: var(--sc-well);
   box-shadow: inset 0 0 0 1px var(--sc-line);
 }
+/* An inset box-shadow paints beneath an image's own pixels, so on a picture the
+   hairline is an inset outline: the frame the attach tiles draw, over the photo. */
+img.sc-swap-thumb {
+  outline: 1px solid var(--sc-line);
+  outline-offset: -1px;
+  transition: filter var(--sc-dur-fast) var(--sc-ease);
+}
 .sc-swap-thumb-empty {
   display: grid;
   place-items: center;
@@ -286,9 +432,34 @@
   flex: none;
   margin-bottom: 0;
 }
+/* The attach tile's hover: the frame firms. */
 .sc-swap-card:hover .sc-swap-thumb,
 .sc-swap-cur:hover .sc-swap-thumb {
-  box-shadow: inset 0 0 0 1px var(--sc-line-strong);
+  box-shadow: inset 0 0 0 1px var(--sc-line-hover);
+  outline-color: var(--sc-line-hover);
+}
+.sc-swap-cur:hover .sc-swap-thumb {
+  filter: brightness(1.06);
+}
+/* And the picture takes the scene tiles' veil, drawn from the card over the
+   thumbnail's square because an img takes no ::after. Before the puck in paint
+   order, so the plus sits on top of it. */
+.sc-swap-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--sc-radius);
+  background: rgb(255 255 255 / 0);
+  pointer-events: none;
+  transition: background var(--sc-dur-fast) var(--sc-ease);
+}
+@media (hover: hover) {
+  .sc-swap-card:hover::before {
+    background: rgb(255 255 255 / 0.12);
+  }
 }
 :where(:root:not([data-input="pointer"])) .sc-swap-card:focus-visible {
   outline: none;
@@ -682,29 +853,40 @@
   font-size: var(--sc-text-caption);
 }
 .sc-lightbox-cap {
-  margin: var(--sc-space-4) 0 0;
+  margin: var(--sc-space-6) 0 0;
   text-align: center;
 }
+/* The picture's own name is the heading, at a panel's title size; what it
+   belongs to sits quieter under it. */
 .sc-lightbox-cap b {
   display: block;
-  font-size: var(--sc-text-caption);
-  font-weight: 550;
-  line-height: 1.35;
+  font-size: var(--sc-text-title-s);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--sc-fg);
 }
 .sc-lightbox-cap span {
   display: block;
-  font-size: var(--sc-text-micro);
+  margin-top: var(--sc-space-1);
+  font-size: var(--sc-text-body);
   color: var(--sc-fg3);
-  line-height: 1.35;
+  line-height: 1.4;
 }
 /* What can be done with the picture, when anything can: centred under the
-   caption, wrapping to a second line on a phone rather than shrinking. */
+   caption, the main action first as on a record page's own header, wrapping
+   to a second line on a phone rather than shrinking. */
 .sc-lightbox-acts {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: var(--sc-space-2);
-  margin-top: var(--sc-space-4);
+  gap: var(--sc-space-4);
+  margin-top: var(--sc-space-6);
+}
+
+/* The close stands where the grip does not: a phone's sheet drags away. */
+.sc-lightbox-head {
+  display: none;
+  justify-content: flex-end;
 }
 
 /* And the card hugs the plate, rather than every picture arriving in the same
@@ -714,5 +896,9 @@
   .sc-newdlg.sc-lightbox {
     width: fit-content;
     max-width: min(var(--sc-newdlg-max), calc(100vw - 48px));
+  }
+  .sc-lightbox-head {
+    display: flex;
+    margin-bottom: var(--sc-space-2);
   }
 }

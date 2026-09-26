@@ -6,9 +6,10 @@ import type { Core } from '@scenri/core';
 
 /**
  * Derivatives of the images the store holds, for every surface that shows a
- * picture smaller than it is: the feed tile (640 wide, WebP), the picker tile
- * (320) and the small surfaces (160 wide) such as the rail, the notification
- * rows and the version strip. Content-addressed like the originals, so a
+ * picture smaller than it is: the feed tile (640 wide, WebP), a card laid out
+ * past 640 device pixels (960: the Large density, a scene's page), the picker
+ * tile (320) and the small surfaces (160 wide) such as the rail, the
+ * notification rows and the version strip. Content-addressed like the originals, so a
  * derivative is immutable and needs no invalidation. Made when a shot lands
  * and otherwise on first request, never for the whole library at once: a
  * hundred thousand images would be hours of background work and gigabytes
@@ -21,7 +22,7 @@ import type { Core } from '@scenri/core';
  * key instead of a hash. Same directory, same queue, same failure memo, and
  * the danger zone's `clear()` takes them with everything else.
  */
-const THUMB_WIDTHS = [640, 320, 160] as const;
+const THUMB_WIDTHS = [960, 640, 320, 160] as const;
 type ThumbWidth = (typeof THUMB_WIDTHS)[number];
 /** What a landing shot pre-makes: the feed tile and the chip. The picker's 320 is made on first request. */
 const WARM_WIDTHS: readonly ThumbWidth[] = [640, 160];
@@ -57,7 +58,17 @@ export interface ThumbStore {
   stream(path: string): ReturnType<typeof createReadStream>;
 }
 
-const QUALITY: Record<ThumbWidth, number> = { 640: 82, 320: 80, 160: 75 };
+/**
+ * Every derivative is sharpened lightly after the resize: a downscale and the
+ * WebP encode together kept 82 to 85 percent of the edge detail of the same
+ * picture resized once to the size a card shows it at, and the cards read soft
+ * beside the picture opened. sharp's fast mild sharpen (no sigma: one small
+ * convolution) brings them to 92 to 100 percent at a seventh more time than
+ * none; the sigma form works in LAB and cost a third more, which a first Home
+ * paid on every derivative it made. The quality a few points lower holds the
+ * bytes where they were (a tile, a presenter, a scene and a product, 2026-09-26).
+ */
+const QUALITY: Record<ThumbWidth, number> = { 960: 78, 640: 78, 320: 76, 160: 72 };
 /** A file key: letters, digits and dashes. A store hash is 32 hex and is namespaced apart below. */
 const FILE_KEY = /^[a-z0-9-]{1,120}$/;
 
@@ -110,6 +121,7 @@ export function createThumbStore(core: Core, opts: { concurrency?: number } = {}
       // a small original stays itself.
       await sharp(source)
         .resize({ width: w, withoutEnlargement: true })
+        .sharpen()
         .webp({ quality: QUALITY[w], effort: 4 })
         .toFile(tmp);
       await rename(tmp, final);

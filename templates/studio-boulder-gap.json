@@ -3,12 +3,13 @@
   "name": "Boulder Gap",
   "promptName": "Boulder Gap",
   "keywords": ["granite", "boulder", "rock", "lichen", "overcast", "geological", "stone", "natural", "outdoor"],
-  "description": "The product nested off-centre in the natural saddle where two weathered granite boulders lean together, real lichen crusts and moss packed into the crevice, cool overcast directional light. Raw inland geology at intimate scale, never a symmetrical pairing.",
+  "description": "A miniature world of weathered granite at the scale of a hand: two boulders lean together around a saddle packed with cushion moss, lichen crusts on every face under cool overcast light. Raw inland geology, intimate and tactile.",
   "lighting": "Cool overcast directional, lichen bounce",
-  "subject": "product",
+  "subject": "either",
   "collections": ["Studio"],
   "verticals": ["Fragrance", "Beauty", "Footwear", "Accessories", "Jewelry"],
-  "prompt": "the subject is the hero of the frame and occupies roughly 60 percent of the frame height, tack-sharp and clearly lit, nested off-centre in the natural saddle where two weathered glacial-erratic granite boulders lean together, the two boulders deliberately unmatched — different sizes, different distances from camera and different heights, never a symmetrical pair with the product centred between them, real mineral banding and quartz veining through the granite, ochre and pale-sage lichen crusts, deep moss packed into the crevice, dark water-staining where runoff tracks down the faces, cool overcast daylight with one soft directional bias from camera-left so the boulder faces separate by tone rather than by hard shadow, a faint warm bounce off the lichen into the shadowed underside of the subject, a soft out-of-focus rock edge crossing one foreground corner, genuine contact where the subject rests on stone with a soft occlusion shadow, believable scale between product and boulder, no sunset, no sea, no sky-dominant framing, immaculate commercial clarity",
+  "prompt": "A miniature world of weathered granite at the scale of a hand: two deliberately unmatched boulders lean together, their faces rising like small cliffs around a natural saddle packed with deep green cushion moss. Real mineral banding and quartz veins run through the stone, with ochre and pale-sage lichen crusts and dark water stains where runoff tracks down the faces. Cool overcast daylight with a soft bias from one side separates the stone faces by tone rather than hard shadow, and a faint warm bounce comes off the lichen. Raw inland geology, intimate and tactile, photographed on location.",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "cover": "hero"
 }

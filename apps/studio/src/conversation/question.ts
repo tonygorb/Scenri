@@ -56,6 +56,13 @@ export interface SwatchRow {
 interface QuestionBase {
   id: string;
   prompt: string;
+  /**
+   * Counts the presses of this question that failed before anything started.
+   * The block keeps the control it was tapped with lit until it goes, and a
+   * question asked again under the same id after a failed request never went:
+   * a new count hands it back, so it can be pressed again.
+   */
+  attempt?: number;
   /** A quiet line under the prompt. */
   hint?: string;
   tone?: QuestionTone;
@@ -194,6 +201,13 @@ export type Question =
       /** No primary: every option is a quiet button (an aside rather than a decision). */
       quiet?: boolean;
       /**
+       * Enter never answers it. For a first option that throws work away or
+       * spends what nobody asked for (three more draws, a draft deleted): a
+       * key pressed with the keyboard resting on the question is not a
+       * decision about either.
+       */
+      noEnter?: boolean;
+      /**
        * The words the decision is about, set apart above the ask and copyable:
        * a sentence that is going somewhere else (a prompt, a brief) rather
        * than a line of talk.
@@ -201,6 +215,12 @@ export type Question =
       quote?: string;
       /** What the quoted words are, over them. */
       quoteLabel?: string;
+      /**
+       * The quoted words were read out whole at the step before: here they
+       * stand at their first line with a way to read the rest, so what is
+       * being decided (a picture above them) stays on a phone's screen.
+       */
+      quoteFolded?: boolean;
       /** A way to say something instead of deciding, which hands the composer this question. */
       describe?: string;
       /** A way to answer with a picture of the thing, in the same row as the words. */
@@ -289,6 +309,23 @@ export type Turn =
   | { kind: 'question'; question: Question };
 
 export const turnKey = (t: Turn): string => (t.kind === 'question' ? `q:${t.question.id}` : `${t.kind}:${t.id}`);
+
+/**
+ * The decision Enter may answer with its first option, or none.
+ *
+ * Only the open one, only a real decision, and only while nothing else is
+ * being answered: with an answer open for change the question under it stands
+ * dimmed and takes no answer, and the same holds for its keyboard. A question
+ * marked `noEnter` is never answered this way at all. Where the keyboard has
+ * to be for it is the shell's to check.
+ */
+export function enterDecides(turns: Turn[]): (Question & { kind: 'confirm' }) | null {
+  const open = turns[turns.length - 1];
+  if (open?.kind !== 'question' || open.question.kind !== 'confirm') return null;
+  if (open.question.quiet || open.question.noEnter) return null;
+  const changing = turns.some((t) => (t.kind === 'question' && t.question.reopened) || (t.kind === 'you' && t.editing));
+  return changing ? null : open.question;
+}
 
 /**
  * How a deterministic line appears: word by word, each a beat after the

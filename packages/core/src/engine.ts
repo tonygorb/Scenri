@@ -57,7 +57,7 @@ export const REFERENCE_ROLE_DIRECTIVE: Record<ReferenceRole, string> = {
   // half the model heard. Every treatment clause is retained word for word;
   // only the order and the register of the identity refusal changed.
   scene:
-    'a reference for this world, never for a person: take no identity from the person in it — not their face, not their likeness — they are an anonymous stand-in whose place the attached presenter takes. Match the environment, the light, and the material, density, scale, finish and spread of the treatment applied to the figure, including which parts of the form it covers and how far it reaches; its furniture, props and objects are part of the set at their real size, never a stand-in for an attached product and never a measure of its size',
+    'a reference for this world, never for a person: take no identity from the person in it — not their face, not their likeness — they are an anonymous stand-in whose place the attached presenter takes. Match the environment, the light, and the material, density, scale, finish and spread of the treatment applied to the figure, including which parts of the form it covers and how far it reaches; its furniture, props and objects are part of the set at their real size and never a measure of an attached product; only a plain object it shows as the hero marks where an attached product goes, and gives way to it',
   composition:
     'a reference for framing, camera angle and pose only — take no subject, color, material or branding from it',
   style: 'a reference for overall treatment and mood only — take no composition, subject or product detail from it',

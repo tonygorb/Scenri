@@ -1,0 +1,18 @@
+{
+  "id": "elias",
+  "name": "Elias",
+  "presentation": "man",
+  "descriptor": "Grooming · wavy hair · short beard",
+  "ageRange": "early 30s",
+  "facial": "strong brows, dark eyes, a sculpted jaw, a neatly groomed short dark beard",
+  "skin": "olive with a warm undertone, natural texture, minimal retouch",
+  "hair": "thick dark wavy hair pushed back off the forehead",
+  "build": "lean and broad-shouldered",
+  "wardrobeDefault": "an unbuttoned white linen shirt",
+  "suitableCategories": ["Fragrance", "Beauty", "Accessories"],
+  "suitableStyles": ["Editorial"],
+  "identityNotes": "the thick dark wavy hair, the groomed short beard and the sculpted jaw must survive every generation",
+  "negativeConstraints": ["no long beard", "no clean shave", "no grey hair"],
+  "width": 1024,
+  "height": 1280
+}

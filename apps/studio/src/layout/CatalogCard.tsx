@@ -1,10 +1,11 @@
 import { memo, useEffect, useRef, useState, type ReactElement } from 'react';
-import { thumbOf } from '../api.js';
+import { CARD_SIZES, thumbOf, tileSrcSet } from '../api.js';
 import { useHoverNone } from '../useMediaQuery.js';
 import { Link } from 'react-router';
 import { ContextMenu, DropdownMenu } from '@radix-ui/themes';
 import { Check, DotsThree, DotsThreeVertical, ImageSquare, Star, Trash } from '@phosphor-icons/react';
 import type { CatalogMenuItem } from './catalogMenu.js';
+import { useWallDensitySize } from './DensityControl.js';
 import { MenuGlyph } from './menuGlyph.js';
 import { iconTip } from './Tip.js';
 
@@ -122,6 +123,8 @@ function CatalogCardInner({
   const [armed, setArmed] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const touchUi = useHoverNone();
+  // the column this card sits in, so its picture is fetched once at the width shown
+  const density = useWallDensitySize();
   const named = (label: string, control: ReactElement) => iconTip(label, control, touchUi);
 
   const showUseButton = variant === 'use' && !!onOpen && !!onUse && !batching;
@@ -146,7 +149,14 @@ function CatalogCardInner({
 
   const preview =
     previewUrl && !broken ? (
-      <img src={thumbOf(previewUrl, 'tile')} alt="" loading="lazy" onError={() => setBroken(true)} />
+      <img
+        src={thumbOf(previewUrl, 'tile')}
+        srcSet={tileSrcSet(previewUrl)}
+        sizes={CARD_SIZES[density]}
+        alt=""
+        loading="lazy"
+        onError={() => setBroken(true)}
+      />
     ) : pending ? (
       <span className="sc-shimmer" />
     ) : (

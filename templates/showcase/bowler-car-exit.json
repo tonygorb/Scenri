@@ -1,0 +1,33 @@
+{
+  "id": "bowler-car-exit",
+  "title": "Stepping out with the bowler bag",
+  "category": "editorial",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "rowan-ash-bowler-bag"
+      },
+      {
+        "t": "character",
+        "id": "amara"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. Candid paparazzi frame at dusk: she steps out of the back of a black car onto the pavement, the cherry-red bowler bag swinging from one hand toward camera, her gaze past the lens. She wears a black double-breasted blazer dress, sheer black tights and black pointed slingback heels. Direct on-camera flash mixed with blue dusk ambient, 35mm, framed from head to shoes, the car door edge soft in the foreground."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 11,
+  "family": "human"
+}

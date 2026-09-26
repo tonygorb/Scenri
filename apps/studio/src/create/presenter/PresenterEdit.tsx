@@ -44,7 +44,8 @@ export function PresenterEdit({ onClose, ...args }: EditingFlowArgs & { onClose:
   const dock = f.keepPrevious ? (
     <div className="sc-pstudio-offer">
       <span>Redrew the {VIEW_NAME[f.view]}.</span>
-      <button type="button" className="sc-btn sc-btn-ghost" onClick={f.keepPrevious}>
+      {/* off while an action is in flight, so a double click sends one revert */}
+      <button type="button" className="sc-btn sc-btn-ghost" onClick={f.keepPrevious} disabled={f.surface.busy}>
         Keep previous
       </button>
     </div>
@@ -54,5 +55,6 @@ export function PresenterEdit({ onClose, ...args }: EditingFlowArgs & { onClose:
     </p>
   ) : null;
 
-  return <StudioShell surface={{ ...f.surface, headAction, dock }} onClose={onClose} />;
+  // A session nothing happened in is taken away on the way out.
+  return <StudioShell surface={{ ...f.surface, headAction, dock }} onClose={f.closeUntouched ?? onClose} />;
 }

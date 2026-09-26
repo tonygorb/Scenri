@@ -726,7 +726,10 @@ describe('the record once a face is drawn', () => {
     const d = draft({ views: { ...draft().views, portrait: { ...emptySlot(), status: 'candidate', hash: 'p1' } } });
     const q = open(turns(state(a), d));
     expect(q?.id).toBe('identity');
-    expect(q?.kind === 'confirm' && q.options.map((o) => o.id)).toEqual(['use', 'again', 'change']);
+    expect(q?.kind === 'confirm' && q.options.map((o) => o.id)).toEqual(['use', 'again']);
+    // changing the person is a way into the line, not an answer: pressed as an
+    // option it took the question with it, and the face could no longer be used
+    expect(q?.kind === 'confirm' && q.describe).toBe('Change something');
     expect(composerFor(q, state(a), d, 'portrait').action).toBe('Refine');
   });
 
@@ -1184,5 +1187,34 @@ describe('words kept about them', () => {
   it('still drops a subject, and still gives the words back when there is nothing else', () => {
     expect(asKept('she has a prosthetic left arm')).toBe('a prosthetic left arm');
     expect(asKept('but')).toBe('but');
+  });
+});
+
+describe('a candidate that carries a failure', () => {
+  const said = (T: Turn[]) =>
+    T.map((t) =>
+      t.kind === 'question' ? (t.question.kind === 'confirm' ? t.question.prompt : '') : 'text' in t ? t.text : '',
+    )
+      .join(' ')
+      .toLowerCase();
+  const withFront = (front: DraftLike['views']['front']) =>
+    draft({ name: 'Maren', views: { ...draft().views, portrait: approved('p1'), front } });
+  const answered = state({ ...TAPPED, traits: [] });
+
+  it('says a failed Try again on the full body, rather than asking about it as a new picture (PC-H16)', () => {
+    const d = withFront({ ...emptySlot(), status: 'candidate', hash: 'f1', attempts: 2, error: 'quota exceeded' });
+    expect(said(turns(answered, d))).toContain('quota exceeded');
+  });
+
+  it('says a refine cut short by a restart, rather than offering the picture as new (PC-H16)', () => {
+    // what the restart sweep leaves: the approved picture, now a candidate, with the reason on it
+    const d = withFront({
+      ...emptySlot(),
+      status: 'candidate',
+      hash: 'f1',
+      attempts: 1,
+      error: 'interrupted: server restarted mid-generation',
+    });
+    expect(said(turns(answered, d))).toContain('restarted');
   });
 });

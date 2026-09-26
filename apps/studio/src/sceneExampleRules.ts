@@ -1,5 +1,6 @@
-import type { SceneExampleJob, SceneExampleRole } from './api.js';
+import type { SceneExampleJob, SceneExampleRole, SceneView } from './api.js';
 import type { SceneExampleView } from './brandAssets.js';
+import { describeFailure } from './failure.js';
 
 /**
  * A scene's examples, as its page and Activity say them.
@@ -17,6 +18,19 @@ export const EXAMPLE_LABEL: Record<SceneExampleRole, string> = {
   hands: 'Hands',
   angle: 'Another angle',
   bold: 'A bold one',
+};
+
+/**
+ * What a picked view is called on its scene's chip ("Block Tower · Close-up"):
+ * one short word each, since the chip already shows the picture.
+ */
+export const VIEW_CHIP_NAME: Record<SceneView, string> = {
+  place: 'Place',
+  hero: 'Hero',
+  close: 'Close-up',
+  hands: 'Hands',
+  angle: 'Angle',
+  bold: 'Bold',
 };
 
 /** What the role is called inside a sentence ("Drawing the close-up"). */
@@ -108,4 +122,14 @@ export function examplesSubtitle(w: {
     return `${role ? `Drawing the ${role}` : 'Drawing examples'}${of}`;
   }
   return w.done === 1 ? 'One example drawn' : `${w.done ?? 0} examples drawn`;
+}
+
+/**
+ * A provider's failure as a person reads it, the way the rest of the app reads
+ * one (failure.ts): what happened and what to do. Null when it is not one
+ * Scenri recognises, and then the engine's own words are all there is to say.
+ */
+export function failureWords(raw: string): string | null {
+  const f = describeFailure(raw);
+  return f.kind === 'unknown' ? null : [f.title, f.fix].filter(Boolean).join(' ');
 }

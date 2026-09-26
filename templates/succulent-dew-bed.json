@@ -4,12 +4,13 @@
   "promptName": "Succulent Dew Bed",
   "legacyNames": ["Succulent Dew Bed"],
   "keywords": ["succulent", "dew", "droplets", "water beads", "green", "emerald", "fresh", "botanical", "hydration"],
-  "description": "The product resting among broad succulent/aloe leaves beaded with genuine water droplets, a cool sage-to-emerald gradient field behind, real humid tactile realism throughout.",
-  "lighting": "Soft cool diffused wrap light",
+  "description": "Sculptural succulent and aloe rosettes beaded with genuine water droplets, raked by one soft side light and falling away into deep emerald shadow. Humid, fresh and tactile, with real surface tension on every bead.",
+  "lighting": "Soft cool side light, deep emerald falloff",
   "subject": "product",
   "collections": ["Colored backgrounds"],
-  "verticals": ["Beauty", "Fragrance"],
-  "prompt": "the subject resting among broad succulent leaves beaded with genuine water droplets, real waxy leaf sheen and fine ridge texture, a cool sage-to-emerald gradient field behind, soft diffused slightly cool-toned wrap light with gentle even glow, genuine water-droplet surface tension and refraction, shallow depth of field keeping the subject and nearest leaves crisp, no soil or pot visible, no second product, immaculate commercial-render clarity",
+  "verticals": ["Beauty", "Fragrance", "Beverage"],
+  "prompt": "Sculptural succulent and aloe rosettes, their thick waxy blue-green leaves beaded with genuine water droplets that hold real surface tension and each catch a tiny bright highlight. One soft, cool light from the side rakes across the leaves, bringing out their fine ridges and powdery bloom, while the deeper leaves fall away into shallow focus and a dark, cool emerald shadow. Humid, fresh and tactile, a close botanical world photographed on set, with no soil or pot visible.",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "cover": "hero"
 }

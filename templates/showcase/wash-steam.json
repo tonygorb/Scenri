@@ -1,0 +1,33 @@
+{
+  "id": "wash-steam",
+  "title": "After the shower with fig and vetiver",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "harlow-made-fig-vetiver-wash"
+      },
+      {
+        "t": "character",
+        "id": "elias"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. Steam in a tiled bathroom: he holds the olive pump bottle at chest height, label to camera, a white waffle towel around his shoulders, wet wavy hair pushed back, drops on his short beard. Soft window light through the steam. 85mm, framed from crown to chest."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 50,
+  "family": "human"
+}

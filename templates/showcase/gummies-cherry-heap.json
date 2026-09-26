@@ -1,0 +1,29 @@
+{
+  "id": "gummies-cherry-heap",
+  "title": "Sleep gummies in a heap of cherries",
+  "category": "food-drink",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "hollow-reed-sleep-gummies"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. The cherry-red bottle is nested in a heap of dark glossy cherries with their stems, droplets of water on the fruit and on the bottle. Hard top light, deep red on red. 85mm, the bottle label to camera."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 65,
+  "family": "botanical"
+}

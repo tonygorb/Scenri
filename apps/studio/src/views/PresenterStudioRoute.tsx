@@ -45,22 +45,54 @@ export function PresenterStudioRoute() {
     };
   }, []);
 
+  /**
+   * The draft the conversation on screen is about, and a count that remounts it.
+   *
+   * The conversation keeps its answers in memory for as long as it is mounted,
+   * which is right for the draft it made (a create replaces the address, and
+   * the answers go on with the id) and wrong for any other. A toast's Open, or
+   * an Activity row, pushes another draft's address into this same mount, and
+   * the answers held here were read as that draft's: its words were rewritten,
+   * its face drawn again, and this conversation's own key retired. So arriving
+   * at a draft this conversation neither made nor was opened on starts that
+   * draft's own conversation from nothing, the way opening it from the wall
+   * does. Start over keeps the mount, and the words it hands the composer.
+   */
+  const about = useRef(draftId);
+  const mount = useRef(0);
+  if (draftId !== about.current) {
+    about.current = draftId;
+    mount.current += 1;
+  }
+
+  // Both only while the studio is on screen: a draft that answers after the
+  // person went Back must not pull them back into it.
   const openDraft = useCallback(
-    (id: string, replace = false) => navigate(presenterStudioPath(brand, id), { replace }),
+    (id: string, replace = false) => {
+      if (!mounted.current) return;
+      if (replace) about.current = id;
+      navigate(presenterStudioPath(brand, id), { replace });
+    },
     [navigate, brand],
   );
-  const leaveDraft = useCallback(() => navigate(presenterStudioPath(brand), { replace: true }), [navigate, brand]);
+  const leaveDraft = useCallback(() => {
+    if (!mounted.current) return;
+    about.current = null;
+    navigate(presenterStudioPath(brand), { replace: true });
+  }, [navigate, brand]);
   const close = useCallback(() => navigate(presentersPath(brand), { replace: true }), [navigate, brand]);
 
   return (
     <PresenterCreate
+      key={mount.current}
       draftId={draftId}
       convoKey={draftId ?? key}
       onOpenDraft={openDraft}
       onLeaveDraft={leaveDraft}
       onClose={close}
       onStarted={(made) => {
-        announce(made);
+        // said by the page it lands on, unless the person has already gone elsewhere
+        announce(made, { quiet: mounted.current && made.kind === 'presenter' });
         if (!mounted.current) return;
         navigate(made.kind === 'presenter' ? presenterPath(brand, made.id) : presentersPath(brand), { replace: true });
       }}

@@ -1,0 +1,33 @@
+{
+  "id": "orris-window-stripe",
+  "title": "Salt Orris in a stripe of window light",
+  "category": "editorial",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "verlaine-salt-orris"
+      },
+      {
+        "t": "template",
+        "id": "travertine-window-light"
+      },
+      {
+        "t": "text",
+        "v": " The flacon stands at the front edge of the travertine block, one hard stripe of low golden window light crossing it on the diagonal so the juice glows honey where the light passes through and the label sits half lit. Its shadow stretches long across the stone. 70mm, lens level with the top of the block, generous lime plaster above."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 54,
+  "family": "place"
+}

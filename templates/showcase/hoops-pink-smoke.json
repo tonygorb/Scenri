@@ -1,0 +1,37 @@
+{
+  "id": "hoops-pink-smoke",
+  "title": "Gold hoops in pink smoke",
+  "category": "editorial",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "verity-stone-dome-hoops"
+      },
+      {
+        "t": "character",
+        "id": "yuna"
+      },
+      {
+        "t": "template",
+        "id": "pink-smoke"
+      },
+      {
+        "t": "text",
+        "v": " She is in profile, emerging from the rolling pink smoke, her slicked-back bun sharp, the dome hoop on her near ear glowing gold against the pink. She wears a pale pink satin shirt. 85mm, head and shoulders, soft frontal light, the smoke wrapping her shoulders."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 46,
+  "family": "optical"
+}

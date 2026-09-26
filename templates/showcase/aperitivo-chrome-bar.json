@@ -1,0 +1,33 @@
+{
+  "id": "aperitivo-chrome-bar",
+  "title": "Aperitivo on the chrome bar",
+  "category": "cinematic",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "fenner-ross-aperitivo"
+      },
+      {
+        "t": "template",
+        "id": "martini-hour"
+      },
+      {
+        "t": "text",
+        "v": " The ruby bottle stands on the chrome bar beside the frosted martini, a spritz in a stemmed glass with an orange slice next to it, reflections doubling everything in the steel. 50mm at bar height, the bottle forward and large."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 61,
+  "family": "material"
+}

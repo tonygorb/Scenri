@@ -1,0 +1,33 @@
+{
+  "id": "court-72-baseline",
+  "title": "Court sneaker on the clay baseline",
+  "category": "catalog",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "aubrey-lisle-court-72"
+      },
+      {
+        "t": "template",
+        "id": "clay-court"
+      },
+      {
+        "t": "text",
+        "v": " A single court sneaker sits on the white baseline, the net shadow striping across the clay behind it, a dusting of red clay on the gum sole. 50mm from ground level, the sneaker side-on and large in the lower half."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 85,
+  "family": "place"
+}

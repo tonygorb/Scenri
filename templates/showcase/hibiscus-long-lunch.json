@@ -1,0 +1,37 @@
+{
+  "id": "hibiscus-long-lunch",
+  "title": "Hibiscus soda at a long lunch",
+  "category": "food-drink",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "pellow-hibiscus-soda"
+      },
+      {
+        "t": "character",
+        "id": "maeve"
+      },
+      {
+        "t": "template",
+        "id": "linen-morning-room"
+      },
+      {
+        "t": "text",
+        "v": " She sits at the white-clothed table with the curtains billowing behind her, pouring the pink soda from the long-neck bottle into a glass, laughing at someone out of frame. She wears a white linen sleeveless blouse. 50mm at table height, waist up, soft morning light through the sheers."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 14,
+  "family": "place"
+}

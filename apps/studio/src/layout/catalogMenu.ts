@@ -18,7 +18,8 @@ export type CatalogMenuIcon =
   | 'edit'
   | 'delete'
   | 'discard'
-  | 'select';
+  | 'select'
+  | 'cover';
 
 export interface CatalogMenuItem {
   key: string;

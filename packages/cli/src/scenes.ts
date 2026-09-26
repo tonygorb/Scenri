@@ -24,6 +24,32 @@ export interface TextZone {
 }
 export type SceneSubject = 'product' | 'person' | 'either';
 
+/**
+ * One picture of a scene, by what it shows: the place, or the place in use
+ * (a hero, a close-up, hands, another angle, a bold one). A made scene's
+ * examples carry these roles; a catalog scene's frames are filed under them by
+ * slot (`SCENE_VIEW_SLOTS`). The cover is one of these, never an index.
+ */
+export type SceneView = 'place' | 'hero' | 'close' | 'hands' | 'angle' | 'bold';
+export const SCENE_VIEWS: readonly SceneView[] = ['place', 'hero', 'close', 'hands', 'angle', 'bold'];
+export const isSceneView = (v: unknown): v is SceneView => SCENE_VIEWS.includes(v as SceneView);
+
+/**
+ * What a catalog scene's frames show, by file: the place alone, then four
+ * pictures of it in use with a Scenri demo product or presenter. The content
+ * library draws them in these slots (its `SCENE_SLOT`), so a frame is named by
+ * what it is here, never by its position on a page.
+ */
+export const SCENE_VIEW_SLOTS: Readonly<Record<string, SceneView>> = {
+  'ref-01': 'place',
+  'ref-02': 'hero',
+  'ref-03': 'close',
+  'ref-04': 'angle',
+  'ref-05': 'bold',
+};
+export const slotOfView = (view: SceneView): string | null =>
+  Object.entries(SCENE_VIEW_SLOTS).find(([, v]) => v === view)?.[0] ?? null;
+
 export interface Scene {
   id: string;
   /** What humans read. Free to change: nothing resolves by it. */
@@ -78,6 +104,13 @@ export interface Scene {
   fields?: SceneField[];
   /** Zones the model leaves empty; text lands as editable overlay layers instead of baked pixels. */
   textZones?: TextZone[];
+  /**
+   * Which of its pictures the card shows: the view the card image
+   * (`previews/<id>.jpg`) was cut from. Presentation only, never read by the
+   * compiler; absent means the place. Scenri's own choice, the same for every
+   * brand: only a scene a brand made changes its cover.
+   */
+  cover?: SceneView;
 }
 
 const SUBJECTS = new Set<SceneSubject>(['product', 'person', 'either']);
@@ -112,6 +145,7 @@ function isScene(x: any): x is Scene {
     (x.fields === undefined ||
       (Array.isArray(x.fields) &&
         x.fields.every((f: any) => f && typeof f.key === 'string' && typeof f.label === 'string'))) &&
+    (x.cover === undefined || isSceneView(x.cover)) &&
     (x.textZones === undefined ||
       (Array.isArray(x.textZones) &&
         x.textZones.every(

@@ -114,7 +114,7 @@ class Fixture {
         SCENRI_DEMO_ENGINE: '1',
         SCENRI_NO_UPDATE_CHECK: '0',
         // This spec is about versions, never about the library. Left on, the
-        // boot unpacks a 95 MB archive into content.staging for the whole of a
+        // boot unpacks a 155 MB archive into content.staging for the whole of a
         // run that finishes in seconds, and teardown deletes a directory still
         // being written into.
         SCENRI_NO_CONTENT_FETCH: '1',

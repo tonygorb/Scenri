@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { matchPath, Navigate, useLocation, useNavigate, useParams } from 'react-router';
-import type { Brand, SceneReading } from '../api.js';
+import type { Brand, HeroWith, SceneReading } from '../api.js';
 import { customSceneById } from '../brandAssets.js';
 import type { SavedScene } from '../create/scene/useSceneStudio.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useCreateFlow } from '../create/AssetCreateHost.js';
 import { SceneCreate } from '../create/scene/SceneCreate.js';
+import { sceneFinishedIn } from '../create/scene/sceneDrafts.js';
 import { seeded, type StudioState } from '../create/scene/sceneStudioRules.js';
 import { COPY } from '../create/scene/sceneCopy.js';
 import { P, sceneEditPath, scenePath, scenesPath, sceneStudioPath } from '../routes.js';
@@ -39,12 +40,28 @@ function seedFrom(brand: Brand, sceneId: string): StudioState | null {
   const pictures = (Array.isArray(r.refs) ? r.refs : []).map((x: any) => hashOf(x?.file)).filter(Boolean) as string[];
   return seeded({
     place: String(r.instruction ?? ''),
-    // a scene saved from elsewhere may hold up to eight; the studio reads from four
-    pictures: pictures.slice(0, 4),
+    // a scene saved from elsewhere may hold up to eight: the studio reads from
+    // four and keeps the rest (seeded splits them)
+    pictures,
     reading,
     hash: hashOf(r.preview) ?? null,
+    anchor: r.anchor === true,
+    // its hero, when one is drawn from this very picture: shown first, as it was made
+    ...heroOf(r),
     name: reading.name,
   });
+}
+
+/** A saved scene's hero, when it was drawn from the picture the scene wears now. */
+function heroOf(r: any): { hero?: string; heroWith?: HeroWith } {
+  const e = (Array.isArray(r.examples) ? r.examples : []).find((x: any) => x?.role === 'hero' && x?.from === r.preview);
+  const hero = hashOf(e?.file);
+  if (!hero) return {};
+  const heroWith: HeroWith = {
+    ...(e.product ? { product: String(e.product) } : {}),
+    ...(e.presenter ? { presenter: String(e.presenter) } : {}),
+  };
+  return { hero, heroWith };
 }
 
 /** A conversation's name in the URL. Not `randomUUID`: a lane opened over the LAN is not a secure context. */
@@ -80,10 +97,14 @@ export function SceneStudioRoute() {
   const from = typeof (state as any)?.from === 'string' ? ((state as any).from as string) : null;
   const toCreate = from && (matchPath(P.hub, from.split('?')[0]) || matchPath(P.set, from.split('?')[0]));
 
-  const close = useCallback(
-    () => navigate(from ?? (sceneId ? scenePath(brand, sceneId) : scenesPath(brand)), { replace: true }),
-    [navigate, from, sceneId, brand],
-  );
+  // Opened by a press in the app, the studio is one step on from where it was
+  // opened, so closing steps back: replacing it with that page left the page
+  // twice in the history, and the first Back seemed to do nothing. Arrived at
+  // any other way (a link, a bell row), closing goes to the page it belongs to.
+  const close = useCallback(() => {
+    if (from && ((window.history.state as { idx?: number } | null)?.idx ?? 0) > 0) navigate(-1);
+    else navigate(from ?? (sceneId ? scenePath(brand, sceneId) : scenesPath(brand)), { replace: true });
+  }, [navigate, from, sceneId, brand]);
 
   // Minted per arrival, then kept by the address: the replace below changes the
   // history entry's key, and the memo then reads the same id back from the URL.
@@ -96,8 +117,14 @@ export function SceneStudioRoute() {
   /** What Use saved, said to the app once the conversation is over (a reload finds it in the brand). */
   const saved = useRef<{ made: SavedScene; how: 'created' | 'updated' } | null>(null);
 
+  // A conversation that finished is its scene now: its address, from a bell
+  // row or any link, leads there. Read once per address, so the last press
+  // inside it goes where it says, not here.
+  const finishedAs = useMemo(() => (convoId ? sceneFinishedIn(brand.id, convoId) : null), [brand.id, convoId]);
+
   // a catalog scene has no record here to edit, and a gone one has nothing at all
   if (sceneId && !seed) return <Navigate to={scenePath(brand, sceneId)} replace />;
+  if (finishedAs) return <Navigate to={scenePath(brand, finishedAs)} replace />;
 
   return (
     <SceneCreate
@@ -121,17 +148,26 @@ export function SceneStudioRoute() {
       }}
       finish={toCreate ? COPY.useInAShot : COPY.openScene}
       onDone={(id, opts) => {
+        // Deleted since it was saved here (the conversation reopened from
+        // Activity): there is nothing to announce and no page to open.
+        if (!opts?.existing && !customSceneById(brand, id)) {
+          navigate(scenesPath(brand), { replace: true });
+          return;
+        }
         // a scene taken as it already was (a shot's own) was not saved here, so nothing is announced
         if (!opts?.existing) {
           const row = customSceneById(brand, id);
           const made = saved.current?.made.id === id ? saved.current.made : null;
-          announce({
-            kind: 'scene',
-            id,
-            name: made?.name ?? row?.name ?? '',
-            verticals: made?.verticals ?? row?.verticals ?? [],
-            how: saved.current?.how ?? (sceneId === id ? 'updated' : 'created'),
-          });
+          announce(
+            {
+              kind: 'scene',
+              id,
+              name: made?.name ?? row?.name ?? '',
+              verticals: made?.verticals ?? row?.verticals ?? [],
+              how: saved.current?.how ?? (sceneId === id ? 'updated' : 'created'),
+            },
+            { quiet: !(toCreate && from) },
+          );
         }
         if (toCreate && from)
           navigate(`${from.split('?')[0]}?scene=${encodeURIComponent(id)}&compose=1`, { replace: true });

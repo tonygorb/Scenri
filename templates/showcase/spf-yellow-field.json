@@ -1,0 +1,33 @@
+{
+  "id": "spf-yellow-field",
+  "title": "SPF 50 on a sun-yellow field",
+  "category": "launch",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "halden-bay-spf-50"
+      },
+      {
+        "t": "template",
+        "id": "sunlit-color-field"
+      },
+      {
+        "t": "text",
+        "v": " The butter-yellow tube stands on its cap on the yellow sweep, one squeeze of white lotion curled beside it, the hard high sun throwing the tube’s long black shadow. Yellow on yellow. 50mm from low."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 91,
+  "family": "studio"
+}

@@ -115,6 +115,29 @@ describe('presenter draft routes', () => {
     throw new Error('the draft never settled');
   };
 
+  // PC1-X1: a reload while the create was on its way asked for the same
+  // conversation's draft twice, and the first was left on the wall empty.
+  it('answers a create asked twice for one conversation with one draft', async () => {
+    const brand = await newBrand();
+    const base = `/api/brands/${brand.id}/presenter-drafts`;
+    const make = (clientKey?: string) =>
+      j('POST', base, { source: 'synthetic', direction: 'someone', ...(clientKey ? { clientKey } : {}) });
+    const first = await make('k1');
+    const again = await make('k1');
+    expect(again.status).toBe(200);
+    expect(again.body.id).toBe(first.body.id);
+    // a different conversation, and one that names none, each make their own
+    const other = await make('k2');
+    expect(other.body.id).not.toBe(first.body.id);
+    const loose = [(await make()).body.id, (await make()).body.id];
+    expect(loose[0]).not.toBe(loose[1]);
+    expect((await j('GET', base)).body.drafts).toHaveLength(4);
+    // once something is drawn on it, the key no longer names a draft to answer with
+    await j('POST', `${base}/${first.body.id}/views/portrait/generate`, {});
+    await settled(brand.id, first.body.id);
+    expect((await make('k1')).body.id).not.toBe(first.body.id);
+  });
+
   it('creates, draws, decides and saves a person from scratch', async () => {
     const brand = await newBrand();
     const base = `/api/brands/${brand.id}/presenter-drafts`;
@@ -298,6 +321,8 @@ describe('presenter draft routes', () => {
     await j('POST', `${base}/${body.id}/views/portrait/generate`, {});
     expect(runningDraftJobCount()).toBe(1);
     expect((await j('DELETE', `${base}/${body.id}`)).status).toBe(200);
+    // counted until the step has let go of the engine, which this one does not hear
+    for (let i = 0; i < 200 && runningDraftJobCount() > 0; i++) await new Promise((r) => setTimeout(r, 5));
     expect(runningDraftJobCount()).toBe(0);
     expect((await j('GET', `${base}/${body.id}`)).status).toBe(404);
     expect(existsSync(core.images.pathFor(first))).toBe(false);

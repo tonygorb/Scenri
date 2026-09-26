@@ -1,0 +1,35 @@
+{
+  "id": "fig-vetiver-travertine",
+  "title": "Fig and vetiver wash in the window light",
+  "category": "catalog",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "harlow-made-fig-vetiver-wash"
+      },
+      {
+        "t": "template",
+        "id": "travertine-window-light",
+        "view": "angle",
+        "viewName": "Angle"
+      },
+      {
+        "t": "text",
+        "v": " The bottle stands on the travertine block in the raking window light, its label to camera and its pump turned toward the window, the shadow bars of the mullions falling across it and the stone."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 18,
+  "family": "studio"
+}

@@ -41,7 +41,7 @@ export const PRODUCT_CATEGORIES: ProductCategory[] = [
     angles: [
       { key: 'front', label: 'Front' },
       { key: 'back', label: 'Back' },
-      { key: 'detail-fabric', label: 'Detail / fabric' },
+      { key: 'three-quarter', label: 'Three-quarter' },
     ],
   },
   {
@@ -59,7 +59,7 @@ export const PRODUCT_CATEGORIES: ProductCategory[] = [
     angles: [
       { key: 'three-quarter', label: 'Three-quarter' },
       { key: 'front', label: 'Front' },
-      { key: 'label', label: 'Label' },
+      { key: 'side', label: 'Side' },
     ],
   },
   {
@@ -77,7 +77,7 @@ export const PRODUCT_CATEGORIES: ProductCategory[] = [
     angles: [
       { key: 'three-quarter', label: 'Three-quarter' },
       { key: 'front', label: 'Front' },
-      { key: 'clasp-detail', label: 'Clasp detail' },
+      { key: 'side', label: 'Side' },
     ],
   },
   {
@@ -86,7 +86,7 @@ export const PRODUCT_CATEGORIES: ProductCategory[] = [
     angles: [
       { key: 'three-quarter', label: 'Three-quarter' },
       { key: 'front', label: 'Front' },
-      { key: 'detail', label: 'Detail' },
+      { key: 'side', label: 'Side' },
     ],
   },
   {
@@ -95,7 +95,7 @@ export const PRODUCT_CATEGORIES: ProductCategory[] = [
     angles: [
       { key: 'three-quarter', label: 'Three-quarter' },
       { key: 'front', label: 'Front' },
-      { key: 'label', label: 'Label' },
+      { key: 'side', label: 'Side' },
     ],
   },
   {
@@ -104,7 +104,7 @@ export const PRODUCT_CATEGORIES: ProductCategory[] = [
     angles: [
       { key: 'three-quarter', label: 'Three-quarter' },
       { key: 'front', label: 'Front' },
-      { key: 'packaging-label', label: 'Packaging label' },
+      { key: 'side', label: 'Side' },
     ],
   },
   {

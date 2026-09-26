@@ -1,9 +1,9 @@
 import { existsSync } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
 import {
+  demoProductAngleFiles,
   demoProductFacetsOf,
   demoProductRefPath,
-  PRODUCT_ANGLES_BY_CATEGORY,
   primaryAngleFor,
   type DemoProduct,
 } from '../demoProducts.js';
@@ -28,12 +28,7 @@ export function registerDemoProductRoutes(
     // A product may ship a partial angle set — hand-supplied reference photos
     // rarely cover all six. Fall back to the first angle actually on disk so
     // the catalog card renders instead of 404-ing on a missing primary angle.
-    const angles = PRODUCT_ANGLES_BY_CATEGORY[p.category] ?? PRODUCT_ANGLES_BY_CATEGORY.other;
-    for (const angle of angles) {
-      const candidate = demoProductRefPath(templatesRoot, id, angle);
-      if (existsSync(candidate)) return candidate;
-    }
-    return preferred;
+    return demoProductAngleFiles(templatesRoot, id, p.category)[0]?.path ?? preferred;
   };
   const decorateDemoProduct = (p: DemoProduct) => {
     const path = demoProductThumbPath(p.id);
@@ -64,11 +59,10 @@ export function registerDemoProductRoutes(
     if (!id) return reply.status(400).send({ error: 'bad product id' });
     const product = demoProductById(id);
     if (!product) return { frames: [] };
-    const angles = PRODUCT_ANGLES_BY_CATEGORY[product.category] ?? PRODUCT_ANGLES_BY_CATEGORY.other;
-    const frames = angles
-      .map((angle) => ({ angle, path: demoProductRefPath(templatesRoot, id, angle) }))
-      .filter((f) => existsSync(f.path))
-      .map((f) => ({ angle: f.angle, url: `/api/demo-product-previews/${id}/${f.angle}.jpg${mtimeQS(f.path)}` }));
+    const frames = demoProductAngleFiles(templatesRoot, id, product.category).map((f) => ({
+      angle: f.angle,
+      url: `/api/demo-product-previews/${id}/${f.angle}.jpg${mtimeQS(f.path)}`,
+    }));
     return { frames };
   });
   app.get('/api/demo-product-previews/:id/:file', async (req, reply) => {

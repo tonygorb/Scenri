@@ -1,0 +1,33 @@
+{
+  "id": "fig-leaf-lanterns",
+  "title": "Fig Leaf candle under paper lanterns",
+  "category": "lifestyle",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "birch-hollow-fig-leaf-candle"
+      },
+      {
+        "t": "template",
+        "id": "lantern-room"
+      },
+      {
+        "t": "text",
+        "v": " The candle stands lit on a low oak tray on the tatami close to camera, its lid set beside it, the flame glowing through the ribbed amber glass and its label turned to camera, the paper lanterns hanging soft and warm in the room behind. 50mm from low beside the tray, the candle large and sharp in the lower half of the frame, the room warm and dim."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 104,
+  "family": "place"
+}

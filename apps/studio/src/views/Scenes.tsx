@@ -26,7 +26,7 @@ import { useToasts } from '../toasts.js';
 import { AssetBuildCard } from '../layout/AssetBuildCard.js';
 import { SceneCard, SceneCardSkeleton } from '../layout/SceneCard.js';
 import { CatalogPickedBar } from '../layout/CatalogPickedBar.js';
-import { catalogPickVerb, keepersLine, settlePicked } from '../layout/catalogPick.js';
+import { catalogPickVerb, deleteLeaves, keepersLine, settlePicked } from '../layout/catalogPick.js';
 import { useCatalogPick } from '../layout/useCatalogPick.js';
 import { DensityControl, WallDensityCtx, densitySize, densityWallStyle } from '../layout/DensityControl.js';
 import { DENSITY_DEFAULT, normalizeDensity, type DensityCols } from '../layout/masonry.js';
@@ -70,8 +70,10 @@ const KEEPERS = '__bookmarked';
  * Keepers tab is where that lands — one more tab on the rail you already use.
  */
 export function ScenesView() {
-  const { scenes, collections, verticals, loaded, error, refetch, applyBrand, refreshBrands } = useAppData();
+  const { scenes: catalog, collections, verticals, loaded, error, refetch, applyBrand, refreshBrands } = useAppData();
   const { brand } = useBrand();
+  // the catalog as this brand shows it: a cover it chose is on the card
+  const scenes = catalog;
   const { push } = useToasts();
   const navigate = useNavigate();
   // The shortlist, per brand, in localStorage — deliberately not in the .brand
@@ -285,6 +287,31 @@ export function ScenesView() {
   const showMine = onlyMarked
     ? mineShown.length > 0
     : drafts.length > 0 || buildingScenes.length > 0 || mineShown.length > 0;
+  /**
+   * Your half pages the way Products pages it. It mounted every card, so a
+   * thousand scenes of your own were all in the DOM, and opening the studio
+   * over the wall re-rendered each one. Drafts and builds stay whole: they are
+   * few, and they are work still moving. Your scenes are newest first, so one
+   * just made lands on the first page.
+   */
+  const {
+    visible: mineVisible,
+    remaining: mineRemaining,
+    showMore: showMoreMine,
+  } = useLibraryPage(mineShown, `${brand.id}|${vertical ?? ''}|${onlyMarked ? 'bookmarked' : ''}|${q}`);
+  // Grown before the bottom arrives, against the page's own scroller, as Products does.
+  const [mineEnd, setMineEnd] = useState<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!mineEnd || mineRemaining <= 0) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) showMoreMine();
+      },
+      { root: mineEnd.closest('.sc-home'), rootMargin: '200% 0px' },
+    );
+    io.observe(mineEnd);
+    return () => io.disconnect();
+  }, [mineEnd, mineRemaining, showMoreMine]);
 
   const askSceneBatch = () => {
     if (pick.ids.size === 1) askDelete([...pick.ids][0]);
@@ -433,7 +460,7 @@ export function ScenesView() {
                       onRetry={() => createAsset('scene')}
                     />
                   ))}
-                {mineShown.map((s) => (
+                {mineVisible.map((s) => (
                   <SceneCard
                     key={s.id}
                     scene={s}
@@ -457,6 +484,14 @@ export function ScenesView() {
                   />
                 ))}
               </div>
+              {mineRemaining > 0 && <div ref={setMineEnd} aria-hidden />}
+              {mineRemaining > 0 && (
+                <div className="sc-lib-more">
+                  <button type="button" className="sc-btn sc-btn-ghost" onClick={showMoreMine}>
+                    Show {Math.min(mineRemaining, 60)} more
+                  </button>
+                </div>
+              )}
               {renaming && (
                 <RenameDialog
                   title="Rename scene"
@@ -474,7 +509,7 @@ export function ScenesView() {
                 <Confirm
                   label="Delete scene"
                   title={`Delete ${removing.name}?`}
-                  body="Shots already made here keep their images and their recipe. Only future shots lose it."
+                  body={deleteLeaves('owned-scene', 1)}
                   open
                   busy={removingBusy}
                   onOpenChange={(o) => {
@@ -487,7 +522,7 @@ export function ScenesView() {
                 <Confirm
                   label={catalogPickVerb('owned-scene', pick.ids.size).menu}
                   title={`${catalogPickVerb('owned-scene', pick.ids.size).menu}?`}
-                  body="Shots already made here keep their images and their recipe. Only future shots lose it."
+                  body={deleteLeaves('owned-scene', pick.ids.size)}
                   open
                   busy={removingBusy}
                   onOpenChange={(o) => {
@@ -639,7 +674,7 @@ export function ScenesView() {
         <div className="sc-wall-dock">
           <CatalogPickedBar
             count={pick.ids.size}
-            loaded={mineShown.length}
+            loaded={mineVisible.length}
             tool={catalogPickVerb('owned-scene', pick.ids.size).tool}
             icon={catalogPickVerb('owned-scene', pick.ids.size).icon}
             danger
@@ -649,7 +684,7 @@ export function ScenesView() {
             onSelectAll={() =>
               pick.selectAll(
                 'owned-scene',
-                mineShown.map((s) => s.id),
+                mineVisible.map((s) => s.id),
               )
             }
           />

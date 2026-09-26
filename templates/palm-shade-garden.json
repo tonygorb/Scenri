@@ -1,0 +1,15 @@
+{
+  "id": "palm-shade-garden",
+  "name": "Palm Shade",
+  "promptName": "Palm Shade",
+  "keywords": ["tropical", "palm shadow", "teal", "garden", "courtyard", "summer", "monstera", "fresh"],
+  "description": "A teal plaster courtyard striped with hard palm-frond shadows.",
+  "lighting": "Hard tropical sun through palm fronds, sharp leaf shadows",
+  "subject": "either",
+  "collections": ["Colored backgrounds"],
+  "verticals": ["Beauty", "Fragrance", "Food & drink", "Apparel"],
+  "prompt": "A garden courtyard wall of rough teal-painted plaster fills the background, sun-faded and slightly mottled. Hard tropical sun filters through overhead palm fronds and throws sharp, graphic frond shadows across the wall and the ground. In the middle ground a low cube of the same teal plaster stands at the foot of the wall, with glossy monstera and fern leaves crowding in from the edges of the frame. The foreground is pale sun-bleached stone, warm and dry. The palette is teal, deep leaf green, white stone and bright sun.",
+  "width": 1024,
+  "height": 1280,
+  "cover": "hero"
+}

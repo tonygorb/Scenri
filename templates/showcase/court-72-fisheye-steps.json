@@ -1,0 +1,33 @@
+{
+  "id": "court-72-fisheye-steps",
+  "title": "Court sneakers from the fisheye",
+  "category": "social",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "aubrey-lisle-court-72"
+      },
+      {
+        "t": "character",
+        "id": "soren"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. Fisheye from the ground: he sits on concrete stadium steps with one sneaker pushed toward the lens so it looms huge in the foreground, his face small and bemused above. He wears a pale grey sweatshirt, cream pleated trousers cropped at the ankle, white socks and the court sneakers. Hard afternoon sun and a blue sky."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 20,
+  "family": "optical"
+}

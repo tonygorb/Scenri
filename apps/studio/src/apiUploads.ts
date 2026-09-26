@@ -66,12 +66,25 @@ export async function uploadImage(file: File): Promise<string> {
  * from the rail wrote the old name back. The answer comes back as the row, or
  * null when there is nobody to tell or nothing to say.
  */
-export function saveBrandOnUnload(brandId: string, brand: unknown): Promise<Brand | null> {
+/**
+ * What a brand-kit save sends: the kit, without the products, scenes and
+ * presenters. The server keeps those as stored for such a save (keepAssets),
+ * so sending them only cost bytes, and bytes are what broke it: a library of
+ * about a thousand passed the server's 1 MiB body limit, and a leaving save
+ * rides a keepalive request, which a browser caps at 64 KB.
+ */
+export function brandKit(brand: unknown): unknown {
+  if (!brand || typeof brand !== 'object') return brand;
+  const { products: _p, scenes: _s, characters: _c, ...kit } = brand as Record<string, unknown>;
+  return kit;
+}
+
+export function saveBrandOnUnload(brandId: string, brand: unknown, base?: unknown): Promise<Brand | null> {
   try {
     return fetch(`/api/brands/${brandId}`, {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ brand, keepAssets: true }),
+      body: JSON.stringify({ brand: brandKit(brand), keepAssets: true, base: brandKit(base) }),
       keepalive: true,
     })
       .then((res) => (res.ok ? (res.json() as Promise<Brand>) : null))
@@ -95,8 +108,8 @@ export const assetUrl = (ref?: string) => (ref?.startsWith('asset:') ? imgUrl(re
  * the pixels the engine made. A tile used to fetch the same 2 MB PNG the
  * stage does, so one screen of feed was ten megabytes of decode.
  */
-export type ThumbSize = 'tile' | 'small' | 'micro';
-const THUMB_WIDTH: Record<ThumbSize, number> = { tile: 640, small: 320, micro: 160 };
+export type ThumbSize = 'large' | 'tile' | 'small' | 'micro';
+const THUMB_WIDTH: Record<ThumbSize, number> = { large: 960, tile: 640, small: 320, micro: 160 };
 export const thumbUrl = (hash: string, size: ThumbSize) => `${imgUrl(hash)}/thumb?w=${THUMB_WIDTH[size]}`;
 /** Renders an `asset:<hash>` brand ref at a derivative size, or null. */
 export const assetThumbUrl = (ref: string | undefined, size: ThumbSize) =>
@@ -110,7 +123,7 @@ const STORE_IMAGE = /^\/api\/images\/([a-f0-9]{32})(?:\/thumb\?w=\d+)?$/;
  * was 200 KB in an 88px picker tile, and one tab of them 4 MB.
  */
 const CURATED_IMAGE =
-  /^(\/api\/(?:presenter-avatars|presenter-thumbnails|scene-thumbnails|demo-product-thumbnails|showcase-previews)\/[a-z0-9-]+\.jpg)(?:\?v=(\d+))?(?:[?&]w=\d+)?$/;
+  /^(\/api\/(?:(?:presenter-avatars|presenter-thumbnails|scene-thumbnails|demo-product-thumbnails|showcase-previews)\/[a-z0-9-]+|scene-previews\/[a-z0-9-]+\/ref-[0-9]{2})\.jpg)(?:\?v=(\d+))?(?:[?&]w=\d+)?$/;
 /**
  * The same picture at another size when the URL is one of the store's, in
  * either of its shapes, or one of the curated catalog's; `full` is the
@@ -128,5 +141,33 @@ export function thumbOf<T extends string | null | undefined>(url: T, size: Thumb
   if (size === 'full') return base as T;
   return `${base}${c[2] ? '&' : '?'}w=${THUMB_WIDTH[size]}` as T;
 }
+
+/**
+ * A card's picture as a choice of two, for the browser to pick by the width it
+ * actually lays the card out at. The 640 derivative is the card at the Compact
+ * density on a 2x screen; the Large density and a scene's page lay a card out
+ * at 700 device pixels and more, where the 640 was enlarged and read soft
+ * (measured 2026-09-26). Undefined for a URL with no derivative route.
+ */
+export function tileSrcSet(url: string | null | undefined): string | undefined {
+  const tile = thumbOf(url, 'tile');
+  const large = thumbOf(url, 'large');
+  if (!tile || !large || tile === large) return undefined;
+  return `${tile} 640w, ${large} 960w`;
+}
+
+/**
+ * The width a card is laid out at, for its srcset to choose by: two columns on
+ * a phone, and on a wider screen the column a wall's density makes (Large runs
+ * about 300 to 420 CSS px, Compact about 200 to 260). Stated rather than `auto`:
+ * `auto` reads 100vw for a card not laid out yet, so a Home on a 1x screen
+ * asked for the 960 and then the 640 of most pictures, measured on the
+ * first-open run 2026-09-26. A picture shown as a larger card, a scene's own
+ * frames, uses `large`.
+ */
+export const CARD_SIZES = {
+  large: '(max-width: 720px) 50vw, 360px',
+  compact: '(max-width: 720px) 50vw, 240px',
+} as const;
 
 /** True when a brand has made nothing at all yet — any status, not just done-and-imaged. Every caller pairs this with `loaded`: check `loaded` first so a cold fetch isn't mistaken for a genuinely empty brand. */

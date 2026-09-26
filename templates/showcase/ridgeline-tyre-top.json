@@ -1,0 +1,33 @@
+{
+  "id": "ridgeline-tyre-top",
+  "title": "Trail runner on a green tyre stack",
+  "category": "launch",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "voss-rowe-ridgeline-trail"
+      },
+      {
+        "t": "template",
+        "id": "green-tyre-stack"
+      },
+      {
+        "t": "text",
+        "v": " The trail shoe perches on the rim of the top tyre, toe hanging just over the edge, its bone and burnt-orange upper the only warm colour in a world of glossy kelly green. Hard key light from the upper left, a crisp shadow dropping into the tyre, the gloss of the paint catching long highlights. 50mm from the height of the top tyre, the shoe large in the upper half."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 4,
+  "family": "studio"
+}

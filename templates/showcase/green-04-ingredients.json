@@ -1,0 +1,29 @@
+{
+  "id": "green-04-ingredients",
+  "title": "Green 04 among its own ingredients",
+  "category": "food-drink",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "orchard-oat-green-04"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. Seen straight down, the square bottle of green juice lies on a bed of crushed ice among the ingredients on its label: whole curly kale leaves, a split cucumber, green apples and halved limes, beaded with condensation like the bottle, its label turned up to the lens. Hard morning light from one side, crisp shadows, fresh and cold. 50mm from directly above, the bottle large across the middle of the frame."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 69,
+  "family": "studio"
+}

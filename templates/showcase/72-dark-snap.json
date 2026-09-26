@@ -1,0 +1,29 @@
+{
+  "id": "72-dark-snap",
+  "title": "Dark chocolate snapping mid-air",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "ottery-lane-72-dark"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. The bar hangs in mid-air with its sleeve half off, and two squares break away, shards and cocoa dust flying, frozen by flash. A clean warm-cream backdrop. 100mm, the sleeve print crisp."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 39,
+  "family": "studio"
+}

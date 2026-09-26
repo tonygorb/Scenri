@@ -1,0 +1,15 @@
+{
+  "id": "glass-block-room",
+  "name": "Glass Block Room",
+  "promptName": "Glass Block Room",
+  "keywords": ["glass blocks", "modernist", "steel", "rubber floor", "luminous", "architecture", "green", "interior"],
+  "description": "A double-height modernist room with a glowing wall of green glass blocks.",
+  "lighting": "Soft even daylight glowing through the glass blocks",
+  "subject": "either",
+  "collections": ["Interiors", "Furniture"],
+  "verticals": ["Furniture", "Home", "Fragrance", "Apparel", "Electronics"],
+  "prompt": "A double-height room whose entire far wall is a grid of pale green-tinted glass blocks held in a slender black steel frame, milky daylight glowing evenly through them so nothing outside can be seen. The floor is black studded rubber, its round studs catching small highlights, and the glow of the wall lays a soft sheen of light across it. A thin black steel stair rises along one side wall. The room is otherwise bare, spacious and quiet. The palette is sea-glass green, black steel and milky white, modernist, cool and luminous.",
+  "width": 1024,
+  "height": 1280,
+  "cover": "hero"
+}

@@ -10,9 +10,11 @@ import {
   type BriefPreview,
   type EngineInfo,
   type FeedNode,
+  type SceneView,
 } from '../api.js';
 import { withHeadPresenters } from '../brandAssets.js';
 import { effectiveCategory } from '../productCategories.js';
+import { VIEW_CHIP_NAME } from '../sceneExampleRules.js';
 import {
   briefTokens,
   BriefInput,
@@ -47,6 +49,7 @@ import {
   type QualityId,
 } from '../composer/ShotSettings.js';
 import { useOpenSettings, useOpenSetup } from '../app/dialogs.js';
+import { namesAView, withPickedViews } from '../app/showcaseViews.js';
 import { effectiveEngineId, engineTitle, FALLBACK_ENGINE_ID } from '../engines/active.js';
 import { sizingOf } from '../engines/capabilities.js';
 import { OpenAIMark } from './OpenAIMark.js';
@@ -122,6 +125,14 @@ export const Composer = forwardRef<
     startPresenter?: string;
     /** A product picked from its own page, seeded the same way as a scene. */
     startProduct?: string;
+    /**
+     * One picture of a scene (its own picture, or one of its examples) picked on
+     * its page to shoot like, and which view it is: the scene's own chip carries
+     * it, one chip for the scene and the picture, and the shot follows its
+     * composition, light and treatment (brief.ts unfolds it into the reference).
+     */
+    startRef?: string;
+    startView?: string;
     /**
      * One of the three seeds above has landed in the sentence, so whoever put
      * it in the URL should take it back out. A seed left in the address bar is
@@ -210,6 +221,8 @@ export const Composer = forwardRef<
     startSetup,
     startPresenter,
     startProduct,
+    startRef,
+    startView,
     onSeedsSpent,
     openAttachTab,
     onQueued,
@@ -349,6 +362,7 @@ export const Composer = forwardRef<
    * rather than swap, since a brief can carry more than one of either. */
   const lastAppliedStartPresenter = useRef<string | undefined>(undefined);
   const lastAppliedStartProduct = useRef<string | undefined>(undefined);
+  const lastAppliedStartRef = useRef<string | undefined>(undefined);
 
   const flushDraft = useCallback(
     (brandId: string) => {
@@ -406,8 +420,20 @@ export const Composer = forwardRef<
     if (carriedFormat) borrowFormat(carriedFormat.id);
     if (initialBrief.variants) borrowCount(initialBrief.variants);
     if (initialBrief.quality) borrowQuality(initialBrief.quality);
-    setSeedTokens(briefTokens(initialBrief));
     setTplFields(initialBrief.templateFields ?? {});
+    const tokens = briefTokens(initialBrief);
+    if (!tokens.some(namesAView)) {
+      setSeedTokens(tokens);
+      return;
+    }
+    // a Home example that follows one of its scene's views lands once that frame is in the store
+    let live = true;
+    void withPickedViews(tokens).then((picked) => {
+      if (live) setSeedTokens(picked);
+    });
+    return () => {
+      live = false;
+    };
   }, [initialBrief]);
 
   /**
@@ -465,9 +491,18 @@ export const Composer = forwardRef<
       // it, and this effect only runs on a fresh, target-less mount), so the
       // seed path resolves against no branch at all.
       const result = resolveSceneSwitch(existingSceneId, startScene, sceneName, null, null);
-      if (result.changed) {
+      // A picked view rides on the scene's own chip, so the same scene already
+      // in the sentence still takes it.
+      const view = startRef && /^[a-f0-9]{32}$/.test(startRef) ? startRef : null;
+      const viewName = startView && startView in VIEW_CHIP_NAME ? VIEW_CHIP_NAME[startView as SceneView] : undefined;
+      if (result.changed || view) {
         tokens = [
-          { t: 'template', id: startScene, ...(startSetup ? { setup: startSetup } : {}) },
+          {
+            t: 'template',
+            id: startScene,
+            ...(startSetup ? { setup: startSetup } : {}),
+            ...(view ? { view, ...(viewName ? { viewName } : {}) } : {}),
+          },
           ...base.filter((t) => t.t !== 'template'),
         ];
         if (result.toast) {
@@ -508,6 +543,14 @@ export const Composer = forwardRef<
       const already = base.some((t) => t.t === 'product' && t.id === startProduct);
       if (!already) tokens = [...base, { t: 'product', id: startProduct }];
     }
+    // A picture with no scene beside it (none reaches here today) keeps its own chip.
+    if (startRef && !startScene && /^[a-f0-9]{32}$/.test(startRef) && startRef !== lastAppliedStartRef.current) {
+      lastAppliedStartRef.current = startRef;
+      seedApplied = true;
+      const base = tokens ?? emptySentence();
+      const already = base.some((t) => t.t === 'ref' && t.imageHash === startRef);
+      if (!already) tokens = [...base, { t: 'ref', imageHash: startRef, label: 'Scene view' }];
+    }
 
     if (tokens) {
       setSeedTokens(tokens);
@@ -517,7 +560,7 @@ export const Composer = forwardRef<
     draftBrandIdRef.current = brand.id;
     // deliberately keyed on brand.id + the three seed props: this must run
     // once per brand, and again whenever any of them takes on a new value
-  }, [brand.id, startScene, startPresenter, startProduct]);
+  }, [brand.id, startScene, startPresenter, startProduct, startRef]);
 
   useEffect(() => {
     if (!seedTokens) return;
@@ -843,8 +886,19 @@ export const Composer = forwardRef<
   // words would silently ignore them, so it is blocked out loud instead.
   const aspectOnly = reshapeChoiceOpen && !hasContent;
   const cropWithWords = cropping && hasContent;
+  // A presenter deleted while their chip waited here: sent anyway, the shot
+  // came back without them and only a toast said so afterwards. The chip says
+  // why (flagToken); this holds the button, on the same roster guard.
+  const goneCharacter =
+    presenters.length > 0 && sentence.some((t) => t.t === 'character' && !presenters.some((p) => p.id === t.id));
   const canGo =
-    !busy && (hasContent || aspectOnly) && !cropWithWords && !!projectId && !targetPending && (cropping || !noEngine);
+    !busy &&
+    (hasContent || aspectOnly) &&
+    !cropWithWords &&
+    !goneCharacter &&
+    !!projectId &&
+    !targetPending &&
+    (cropping || !noEngine);
   /** Why the button will not go, in the words of the thing that is blocking. */
   const blockedReason =
     noEngine && !cropping
@@ -857,9 +911,11 @@ export const Composer = forwardRef<
             ? 'Wait for this version to finish, or press X to start a new shot'
             : cropWithWords
               ? 'This shape is reached by cropping, and a crop uses no words. Clear the prompt, or keep the current shape.'
-              : !hasContent && !aspectOnly
-                ? 'Write a prompt first'
-                : null;
+              : goneCharacter
+                ? 'Remove the presenter who is no longer in your roster'
+                : !hasContent && !aspectOnly
+                  ? 'Write a prompt first'
+                  : null;
 
   /**
    * The compiler's own reading of the brief, refreshed as it changes. For a

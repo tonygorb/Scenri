@@ -78,3 +78,27 @@ test('a tablet shows the rail beside the page, one idea per page', async ({ page
   // every group in the rail has its plain label, the deletes included
   await expect(page.locator('.sc-set-rail .sc-set-group')).toHaveText(['This brand', 'Studio', 'Delete']);
 });
+
+// A kit field wrote itself only when it blurred, and Back took the page away
+// with the caret still in it: the words on screen were never saved (S2-02).
+test('a kit edit still being typed is kept when Back takes the page away', async ({ page }) => {
+  const slug = await slugOf(page);
+  const brandId = ((await (await page.request.get('/api/brands')).json()) as { id: string; slug: string }[]).find(
+    (b) => b.slug === slug,
+  )?.id;
+  await page.locator('.sc-org-btn').click();
+  await page.locator('.sc-menu-item', { hasText: /^Settings$/ }).click();
+  const tagline = dialog(page).getByLabel('Tagline');
+  if (isPhone(page)) await dialog(page).getByRole('button', { name: 'Brand kit', exact: true }).click();
+  await tagline.click();
+  await page.keyboard.type('Kept on a phone');
+  await expect(tagline).toBeFocused();
+  await page.goBack();
+  await expect(tagline).toHaveCount(0);
+  await expect
+    .poll(async () => {
+      const brands = (await (await page.request.get('/api/brands')).json()) as { id: string; json: any }[];
+      return brands.find((b) => b.id === brandId)?.json?.meta?.tagline;
+    })
+    .toBe('Kept on a phone');
+});

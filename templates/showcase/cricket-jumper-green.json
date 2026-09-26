@@ -1,0 +1,33 @@
+{
+  "id": "cricket-jumper-green",
+  "title": "Cricket jumper on the village green",
+  "category": "seasonal",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "dunmore-kerr-cricket-jumper"
+      },
+      {
+        "t": "character",
+        "id": "anton"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. Golden hour on a village cricket green: he walks off the pitch with a bat over one shoulder, the cream cricket jumper over a white collared shirt, cream flannel trousers and white leather cricket shoes. The pavilion and the oaks soft behind. 85mm, full length, warm low sun from behind."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 64,
+  "family": "place"
+}

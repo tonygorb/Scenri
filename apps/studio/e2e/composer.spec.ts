@@ -840,7 +840,7 @@ test('a scene on its own is not a draft to come back to', async ({ page }) => {
  */
 test('a seeded scene leaves the URL behind, and stays removed', async ({ page }) => {
   const base = new URL(page.url()).pathname;
-  await page.goto(`${base}?scene=action-motion-freeze&attach=products&compose=1`);
+  await page.goto(`${base}?scene=clay-court&attach=products&compose=1`);
   await line(page).waitFor();
   await expect(chips(page)).toHaveCount(1);
   await expect.poll(() => new URL(page.url()).searchParams.get('scene')).toBeNull();
@@ -1474,8 +1474,8 @@ test('a mouse gets the search field straight away', async ({ page }) => {
   // the counterpart of the touch rule: on a pointer nothing is covered by the
   // keyboard, so typing is the fastest way into a catalog of this size
   await expect(pickSearch(page)).toBeFocused();
-  await page.keyboard.type('sil');
-  await expect(cards(page).first().locator('b')).toContainText(/sil/i);
+  await page.keyboard.type('lantern');
+  await expect(cards(page).first().locator('b')).toContainText(/lantern/i);
 });
 
 test('the current row links out to the asset, and only from its own button', async ({ page }) => {
@@ -1558,6 +1558,91 @@ test('a chip is reachable, openable and removable from the keyboard', async ({ p
   await page.keyboard.press('Backspace');
   await expect(chips(page)).toHaveCount(0);
   expect(await sentence(page)).toMatch(/^AAAA/);
+});
+
+/** Two chips from the caret menus, with words around them, the caret at the end. */
+async function twoChipBrief(p: Page) {
+  await p.keyboard.type('studio shot of @');
+  await p.locator('.sc-cmd-row').first().waitFor();
+  await p.keyboard.press('Enter');
+  await p.keyboard.type(' and #');
+  await p.locator('.sc-cmd-row').first().waitFor();
+  await p.keyboard.press('Enter');
+  await p.keyboard.type(' in warm light');
+}
+
+/** Where focus is, in the brief's terms: a chip by its place, the line itself, or out of it. */
+const focusIn = (p: Page) =>
+  p.evaluate(() => {
+    const el = document.activeElement as HTMLElement | null;
+    const line = el?.closest('.sc-brief-line');
+    if (!line) return `out:${el?.getAttribute('aria-label') ?? el?.tagName ?? ''}`;
+    if (el === line) return 'line';
+    const chips = Array.from(line.querySelectorAll('.sc-token'));
+    return `chip${chips.indexOf(el as Element) + 1}`;
+  });
+
+async function tabs(p: Page, key: 'Tab' | 'Shift+Tab', n: number): Promise<string[]> {
+  const seen: string[] = [];
+  for (let i = 0; i < n; i++) {
+    await p.keyboard.press(key);
+    seen.push(await focusIn(p));
+  }
+  return seen;
+}
+
+// Chips were in the page's Tab order inside the line, and a chip's Tab put the
+// caret back in the line: the next Tab found the first chip again, so forward
+// Tab never left a brief that held one (S3-01).
+test('Tab walks the chips from the caret and then leaves the brief', async ({ page }) => {
+  await twoChipBrief(page);
+  await expect(chips(page)).toHaveCount(2);
+
+  // from the end of the words, nothing is ahead: out to the row under the brief
+  expect(await tabs(page, 'Tab', 1)).toEqual(['out:Add to shot']);
+  // and back in, then each chip behind the caret, each time by way of the line
+  expect(await tabs(page, 'Shift+Tab', 5)).toEqual(['line', 'chip2', 'line', 'chip1', 'line']);
+  // from the start of the line, forward over both chips and out
+  expect(await tabs(page, 'Tab', 5)).toEqual(['chip1', 'line', 'chip2', 'line', 'out:Add to shot']);
+});
+
+test('Tab leaves a brief with a chip on Home and in an open shot too', async ({ page }) => {
+  const brand = new URL(page.url()).pathname.split('/')[1];
+  await page.goto(`/${brand}`);
+  await line(page).click();
+  await twoChipBrief(page);
+  expect(await tabs(page, 'Tab', 1)).toEqual(['out:Add to shot']);
+
+  const brands = (await (await page.request.get('/api/brands')).json()) as { id: string; slug: string }[];
+  const brandId = brands.find((b) => b.slug === brand)?.id ?? '';
+  const ws = (await (await page.request.get(`/api/brands/${brandId}/workspace`)).json()) as {
+    project: { id: string };
+    root: string;
+  };
+  const made = (await (
+    await page.request.post('/api/nodes', {
+      data: {
+        projectId: ws.project.id,
+        parentId: ws.root,
+        kind: 'generation',
+        prompt: 'a shelf',
+        engineId: 'demo',
+        count: 1,
+      },
+    })
+  ).json()) as { id?: string; nodes?: { id: string }[] };
+  const shot = made.id ?? made.nodes?.[0]?.id ?? '';
+  expect(shot).not.toBe('');
+  await expect
+    .poll(async () => ((await (await page.request.get(`/api/nodes/${shot}`)).json()) as { status: string }).status)
+    .toBe('done');
+
+  await page.goto(`/${brand}/create/shots/${shot}`);
+  const refine = page.locator('.sc-ovl-edit .sc-brief-line');
+  await expect(refine).toBeVisible();
+  await refine.click();
+  await twoChipBrief(page);
+  expect(await tabs(page, 'Tab', 1)).toEqual(['out:Add to shot']);
 });
 
 test('a query that finds rows after a miss grows the menu', async ({ page }) => {
@@ -3057,6 +3142,10 @@ test('a chip body opens its picture, and its caret gutter still takes the caret'
   await expect(lightbox(page)).toBeVisible();
   expect(await lightboxSrc(page)).toBe(`/api/images/${second}`);
   await page.keyboard.press('Escape');
+  await expect(lightbox(page)).toHaveCount(0);
+  // past 768 the sheet has no grip, so the way out is a close you can see
+  await chips(page).nth(1).click();
+  await lightbox(page).getByRole('button', { name: 'Close' }).click();
   await expect(lightbox(page)).toHaveCount(0);
 
   // and the outer EDGE pixels are still prose: aiming at the seam beside a

@@ -1,0 +1,33 @@
+{
+  "id": "scarlet-red-blade",
+  "title": "Scarlet 11 in a red blade",
+  "category": "cinematic",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "ilse-varden-scarlet-11"
+      },
+      {
+        "t": "template",
+        "id": "red-light-blade"
+      },
+      {
+        "t": "text",
+        "v": " The lipstick stands uncapped in the black void, and the single blade of red light crosses it at the height of the bullet, turning the scarlet incandescent while the lacquered case falls to black above and below. A faint reflection on the black floor. 100mm macro, the lipstick tall in the frame."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 23,
+  "family": "optical"
+}

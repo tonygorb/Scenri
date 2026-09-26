@@ -16,6 +16,15 @@ import { type BuildRouteDeps, makeBuildDeps } from './assetBuilds.js';
  * None of these writes a scene. The studio holds what they answer as versions,
  * and the scene is written by the plain scene routes when the person uses one.
  */
+/** Who stands in a hero, as the studio sends it back: the demo catalog's ids, or nothing. */
+function heroWithOf(raw: unknown): { product?: string; presenter?: string } | undefined {
+  const w = (raw ?? {}) as Record<string, unknown>;
+  const id = (v: unknown) => (typeof v === 'string' && /^[a-z0-9-]{1,120}$/.test(v) ? v : undefined);
+  const product = id(w.product);
+  const presenter = id(w.presenter);
+  return product || presenter ? { ...(product ? { product } : {}), ...(presenter ? { presenter } : {}) } : undefined;
+}
+
 export function registerSceneStudioRoutes(app: FastifyInstance, deps: BuildRouteDeps): void {
   const { core } = deps;
   const { buildDeps } = makeBuildDeps(deps);
@@ -50,6 +59,9 @@ export function registerSceneStudioRoutes(app: FastifyInstance, deps: BuildRoute
       imageHashes: Array.isArray(body.imageHashes) ? body.imageHashes.map((h: unknown) => String(h)) : [],
       reading: body.reading ?? undefined,
       from: body.from == null ? undefined : String(body.from),
+      fromAnchor: body.fromAnchor === true,
+      fromHero: body.fromHero == null ? undefined : String(body.fromHero),
+      heroWith: heroWithOf(body.heroWith),
       ask: body.ask == null ? undefined : String(body.ask),
       draw: body.draw === false ? false : undefined,
       reread: body.reread === true,

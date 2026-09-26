@@ -14,7 +14,7 @@ import { useApplyProduct } from '../app/useApplyProduct.js';
 import { productPath } from '../routes.js';
 import { ProductCard, ProductCardSkeleton } from '../layout/ProductCard.js';
 import { CatalogPickedBar } from '../layout/CatalogPickedBar.js';
-import { catalogPickVerb, keepersLine, settlePicked } from '../layout/catalogPick.js';
+import { catalogPickVerb, deleteLeaves, keepersLine, settlePicked } from '../layout/catalogPick.js';
 import { useCatalogPick } from '../layout/useCatalogPick.js';
 import { DemoProductCard } from '../layout/DemoProductCard.js';
 import { Confirm } from '../Confirm.js';
@@ -408,7 +408,7 @@ export function ProductsView() {
                 <Confirm
                   label="Delete product"
                   title={`Delete ${removing.name}?`}
-                  body="Shots already made with it keep their images and their recipe. Only future shots lose it."
+                  body={deleteLeaves('product', 1)}
                   open
                   busy={removingBusy}
                   onOpenChange={(o) => {
@@ -421,7 +421,7 @@ export function ProductsView() {
                 <Confirm
                   label={catalogPickVerb('product', pick.ids.size).menu}
                   title={`${catalogPickVerb('product', pick.ids.size).menu}?`}
-                  body="Shots already made with it keep their images and their recipe. Only future shots lose it."
+                  body={deleteLeaves('product', pick.ids.size)}
                   open
                   busy={removingBusy}
                   onOpenChange={(o) => {

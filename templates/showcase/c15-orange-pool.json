@@ -1,0 +1,29 @@
+{
+  "id": "c15-orange-pool",
+  "title": "C15 serum in a pool of orange juice",
+  "category": "launch",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "calder-vane-c15-serum"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. The dropper bottle stands in a shallow pool of fresh orange juice on white stone, one drop falling from above into the pool and throwing a crown of juice, a halved blood orange beside it. Hard backlight makes the juice glow. 100mm from pool level, the label crisp."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 9,
+  "family": "fluid"
+}

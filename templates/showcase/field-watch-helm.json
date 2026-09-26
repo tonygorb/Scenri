@@ -1,0 +1,33 @@
+{
+  "id": "field-watch-helm",
+  "title": "Field watch at the helm",
+  "category": "editorial",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "aldergate-field-38"
+      },
+      {
+        "t": "character",
+        "id": "anton"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. At the helm of a wooden sailing boat: his forearm rests on the varnished wheel, the field watch on his wrist square to camera, sea spray beading on the dial glass. He wears a navy waxed-cotton jacket with the sleeve pushed up. 85mm, framed from his shoulder to the wheel, his silver beard just in frame, grey sea and a white wake behind."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 56,
+  "family": "place"
+}

@@ -932,8 +932,9 @@
 .sc-scenepage-place {
   margin-top: var(--sc-space-7);
 }
-.sc-scenepage-place > button {
+.sc-scenepage-place .sc-scenepage-open {
   display: inline-grid;
+  vertical-align: top;
   place-items: center;
   padding: 0;
   cursor: zoom-in;
@@ -944,6 +945,17 @@
   border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius-lg);
   background: var(--sc-raised);
+}
+/* The place alone wears its view's controls: the frame hugs the picture, so
+   the Cover mark sits on the photograph's corner and not the column's. The
+   picture's width floor moves here, where 100% is the column: inside a frame
+   that hugs its content the button's own percentage has nothing to resolve
+   against, and a small picture shrank to its pixels. */
+.sc-scenepage-place.sc-sceneview-frame {
+  width: fit-content;
+  min-width: min(100%, 280px);
+  max-width: 100%;
+  margin-inline: auto;
 }
 .sc-scenepage-place img {
   display: block;
@@ -1047,7 +1059,7 @@
   --sc-refset-max: 400px;
   --sc-refset-w: min(
     var(--sc-refset-max),
-    calc((100cqi - 4px - (var(--sc-refset-n) - 1) * var(--sc-refset-gap)) / var(--sc-refset-n))
+    calc((100cqi - 12px - (var(--sc-refset-n) - 1) * var(--sc-refset-gap)) / var(--sc-refset-n))
   );
   --sc-refset-cap: 28px;
   width: max-content;
@@ -1070,12 +1082,24 @@
   right: 0;
   translate: 50% 0;
 }
+/* A set with more views than the column shows says so without a hover (a
+   phone has none): the arrow toward the views past the edge stays up. They
+   are views someone asked for, and nothing else hinted they were there. */
+.sc-refset-rail[data-overflow-right] .sc-rail-arrow.next,
+.sc-refset-rail[data-overflow-left] .sc-rail-arrow.prev {
+  opacity: 1;
+}
 .sc-refset-rail::before,
 .sc-refset-rail::after {
   content: none;
 }
 .sc-refset {
   gap: var(--sc-refset-gap);
+  /* Room for a ring outside a picture, the cover's (2px at 3px) or a focus
+     ring, which the track's own 2px clipped; given back in margin, so the
+     page does not move. */
+  padding: 6px;
+  margin-block: -4px;
 }
 .sc-refset > li {
   display: flex;
@@ -1141,6 +1165,57 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* A scene's views (SceneViewActions): the frame holds its own two actions,
+   Use this view in the centre and Set as cover in the top-left, and the Cover
+   tag on the one that stands for the scene. On a hover device they show on
+   hover or when the keyboard is inside the frame; on touch they are not drawn
+   at all, because the frame opens and the lightbox carries the same two. */
+.sc-sceneview-frame {
+  position: relative;
+  display: block;
+  width: 100%;
+  --sc-cell-ctl-size: 28px;
+}
+/* The cover wears a card's selected ring (lookcard.css, data-on), drawn just
+   outside the picture, and its caption says so in the caption's own quiet. */
+.sc-sceneview-frame[data-cover] .sc-refset-tile {
+  outline: 2px solid var(--sc-sel-line);
+  outline-offset: 3px;
+}
+.sc-refset-lb[data-cover] {
+  color: var(--sc-fg);
+}
+.sc-refset-lb .sc-sceneview-cover {
+  color: var(--sc-fg2);
+}
+/* Revealed here because a view is not a card: the pill and More on hover, on
+   the keyboard, and while More's menu is open. A click that leaves focus
+   inside does not hold them open. On touch More stays, as on a card. */
+@media (hover: hover) {
+  .sc-sceneview-frame:hover .sc-lookcard-use,
+  :where(:root:not([data-input="pointer"])) .sc-sceneview-frame:focus-within .sc-lookcard-use {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+    pointer-events: auto;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+  .sc-sceneview-frame:hover .sc-corner .sc-cell-ctl,
+  :where(:root:not([data-input="pointer"])) .sc-sceneview-frame:focus-within .sc-corner .sc-cell-ctl,
+  .sc-sceneview-frame:has(.sc-lookcard-more[data-state="open"]) .sc-corner .sc-cell-ctl {
+    opacity: 1;
+    pointer-events: auto;
+    transition-delay: 0s;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+}
+@media (hover: none) {
+  .sc-sceneview-frame .sc-lookcard-use {
+    display: none;
+  }
 }
 
 /* The photographs they were built from. Provenance, so they sit under the

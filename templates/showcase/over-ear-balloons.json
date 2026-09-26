@@ -1,0 +1,37 @@
+{
+  "id": "over-ear-balloons",
+  "title": "Headphones in a balloon tangle",
+  "category": "social",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "nordhavn-over-ear"
+      },
+      {
+        "t": "character",
+        "id": "nico"
+      },
+      {
+        "t": "template",
+        "id": "balloon-knot"
+      },
+      {
+        "t": "text",
+        "v": " He is sunk to the shoulders in the glossy balloon tangle, the powder-blue headphones on, eyes closed, lost in the music, his bleached curls against the pink, cobalt and tangerine. He wears a plain white T-shirt. 50mm from just above the balloons, head and shoulders, bright even studio light and saturated colour."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 59,
+  "family": "studio"
+}

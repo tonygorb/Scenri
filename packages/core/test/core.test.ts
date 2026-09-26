@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { mkdtempSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createCore, SpendCapError, type Core } from '../src/index.js';
@@ -449,6 +450,27 @@ describe('image store', () => {
     expect(core.images.has(h1)).toBe(true);
     expect(core.images.read(h1).equals(buf)).toBe(true);
     expect(() => core.images.pathFor('../etc/passwd')).toThrow(/invalid/);
+  });
+
+  it('writes a torn file whole again when the same bytes are saved (PS-H9)', () => {
+    const buf = Buffer.from('the bytes of a picture, longer than a killed write left behind. '.repeat(8));
+    const hash = createHash('sha256').update(buf).digest('hex').slice(0, 32);
+    // what a write cut short by a kill, a crash or a full disk leaves under the right name
+    writeFileSync(join(home, 'images', `${hash}.png`), buf.subarray(0, 64));
+    expect(core.images.save(buf)).toBe(hash);
+    expect(core.images.read(hash).equals(buf)).toBe(true);
+  });
+
+  // The boot sweep of pictures nothing references goes by file age, so bytes
+  // saved long ago and saved again today count as new.
+  it('counts the same bytes saved again as fresh', () => {
+    const buf = Buffer.from('a photo first saved long ago');
+    const hash = core.images.save(buf);
+    const file = core.images.pathFor(hash);
+    const old = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    utimesSync(file, old, old);
+    core.images.save(buf);
+    expect(Date.now() - statSync(file).mtimeMs).toBeLessThan(60_000);
   });
 });
 

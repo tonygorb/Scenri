@@ -1,0 +1,29 @@
+{
+  "id": "green-04-ice-trough",
+  "title": "Green juice in a trough of ice",
+  "category": "food-drink",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "orchard-oat-green-04"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. The square bottle stands in a galvanised trough of crushed ice with cucumber halves and kale leaves, meltwater and condensation running down the glass. Hard sun. 70mm from just above the ice, the label crisp."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 95,
+  "family": "fluid"
+}

@@ -8,8 +8,10 @@ import {
   Check,
   ImageSquare,
   MagnifyingGlass,
+  Plus,
   Star,
   Trash,
+  X,
 } from '@phosphor-icons/react';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
 import { useSheetDrag } from '../useSheetDrag.js';
@@ -18,7 +20,9 @@ import { useSheetDrag } from '../useSheetDrag.js';
 const COARSE = '(pointer: coarse)';
 import { bookmarkedScenes } from '../bookmarks.js';
 import { presenterPath, productPath, scenePath } from '../routes.js';
-import { panelStyle, placePanel, type Placed } from './anchorPanel.js';
+import { thumbOf, type SceneView } from '../api.js';
+import type { SceneViewOption } from './useSceneViews.js';
+import { panelStyle, placePanel, SCENE_PANEL_MAX_H, type Placed } from './anchorPanel.js';
 import { NOUN, PAGE, pickList, type Candidate, type IngredientKind } from './ingredientOptions.js';
 
 /**
@@ -81,6 +85,16 @@ export interface PickerProps {
   onAttachRequest?: (tab: 'Products' | 'Presenters') => void;
   /** Step the chip through the sentence; the sheet's touch reorder path. */
   onMove?: (dir: -1 | 1) => void;
+  /**
+   * A scene chip only: the current scene's own pictures, to follow one of them
+   * (the shot takes its camera and light), or the whole scene for none. Picking
+   * one closes the picker as picking a scene does.
+   */
+  views?: {
+    options: SceneViewOption[];
+    picked: SceneView | null;
+    onPick: (o: SceneViewOption | null) => Promise<void>;
+  };
 }
 
 /** The label on the button that empties the slot. */
@@ -116,9 +130,20 @@ function PickerBody({
   onClose,
   onAttachRequest,
   onMove,
+  views,
   autoFocusSearch,
 }: PickerProps & { autoFocusSearch: boolean }) {
   const [query, setQuery] = useState('');
+  const [following, setFollowing] = useState(false);
+  const follow = async (o: SceneViewOption | null) => {
+    if (!views || following) return;
+    setFollowing(true);
+    try {
+      await views.onPick(o);
+    } finally {
+      setFollowing(false);
+    }
+  };
   const [shown, setShown] = useState(PAGE);
   const searchRef = useRef<HTMLInputElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -239,10 +264,18 @@ function PickerBody({
    * shelves it is also what says whose product it is.
    */
   const showSub = kind === 'product';
+  /**
+   * A scene with pictures of its own opens on two sections, the attach
+   * picker's rows: this scene's pictures, Whole scene first, then the other
+   * scenes. A search is for another scene, so the first section steps aside
+   * while one is typed; a scene with one picture, or whose pictures are still
+   * on their way, keeps the current row.
+   */
+  const sections = !!list.current && !!views && views.options.length > 1 && !query.trim();
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: a key router, not a control
-    <div className="sc-swap-inner" onKeyDown={onKeyDown}>
+    <div className="sc-swap-inner" data-sections={sections || undefined} onKeyDown={onKeyDown}>
       <div className="sc-swap-head">
         <span className="sc-swap-search">
           <MagnifyingGlass size={13} />
@@ -270,7 +303,7 @@ function PickerBody({
           left is "let me look at it properly", which is real but secondary — so
           it is one small marked button at the end of the row, and the row
           itself does nothing at all. */}
-      {list.current && (
+      {list.current && !sections && (
         <div className="sc-swap-cur" title={list.current.full}>
           <Thumb src={list.current.thumb} tinted={!!list.current.tint} crop={list.current.crop} />
           <span className="sc-swap-curtext">
@@ -294,6 +327,51 @@ function PickerBody({
       )}
 
       <div className="sc-swap-body">
+        {sections && list.current && views && (
+          <>
+            <div className="sc-ap-sec">
+              <span className="sc-ap-sec-title" dir="auto">
+                {list.current.label}
+              </span>
+              <a
+                className="sc-ap-sec-act sc-swap-sec-open"
+                href={assetPath(kind, brandSlug, list.current.id)}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`Open ${list.current.label} in a new tab`}
+              >
+                Open
+                <ArrowSquareOut size={12} />
+              </a>
+            </div>
+            <fieldset
+              className="sc-swap-this"
+              aria-label={`${list.current.label}: the picture a shot follows`}
+              aria-busy={following || undefined}
+            >
+              <WholeSceneTile
+                views={views.options}
+                on={!views.picked}
+                disabled={following}
+                onPress={() => void follow(null)}
+              />
+              {views.options.map((o) => (
+                <ViewTile
+                  key={o.view}
+                  option={o}
+                  on={views.picked === o.view}
+                  disabled={following}
+                  onPress={() => void follow(views.picked === o.view ? null : o)}
+                />
+              ))}
+            </fieldset>
+            <div className="sc-ap-sec sc-swap-sec-others">
+              <span className="sc-ap-sec-title">
+                Other {noun}s<span className="sc-ap-sec-n">{list.total}</span>
+              </span>
+            </div>
+          </>
+        )}
         {list.items.length === 0 && (
           <p className="sc-swap-empty">{query.trim() ? `Nothing matches “${query.trim()}”.` : `No other ${noun}s.`}</p>
         )}
@@ -330,6 +408,9 @@ function PickerBody({
                 {c.label}
               </b>
               {showSub && c.sub && <span dir="auto">{c.sub}</span>}
+              {/* Under the scene's own tiles, another scene answers the pointer
+                  with the same plus they do. */}
+              {kind === 'scene' && <Puck />}
             </div>
           ))}
         </div>
@@ -387,6 +468,93 @@ function PickerBody({
   );
 }
 
+/** The attach picker's puck: a plus under the pointer, a tick when held, an x under the pointer on a held one. */
+function Puck() {
+  return (
+    <span className="sc-ap-puck" aria-hidden>
+      <Plus className="sc-ap-puck-add" size={11} weight="bold" />
+      <Check className="sc-ap-puck-on" size={11} weight="bold" />
+      <X className="sc-ap-puck-off" size={11} weight="bold" />
+    </span>
+  );
+}
+
+/**
+ * The scene as a whole: its own pictures as four equal cuts, the fourth under
+ * glass saying how many more it stands for. Never a copy of one of its views,
+ * which a catalog scene's cover usually is.
+ */
+function WholeSceneTile({
+  views,
+  on,
+  disabled,
+  onPress,
+}: {
+  views: SceneViewOption[];
+  on: boolean;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  const cuts = views.slice(0, 4);
+  const more = views.length - 3;
+  return (
+    <button
+      type="button"
+      className="sc-ap-card"
+      data-on={on ? '' : undefined}
+      data-whole=""
+      aria-pressed={on}
+      disabled={disabled}
+      onClick={onPress}
+    >
+      <span className="sc-ap-thumb sc-swap-mosaic" data-count={cuts.length}>
+        {cuts.map((o, i) => (
+          <span key={o.view} className="sc-swap-cut" data-more={i === 3 && more > 0 ? '' : undefined}>
+            <img src={thumbOf(o.thumb, 'micro')} alt="" loading="lazy" />
+            {i === 3 && more > 0 && <span className="sc-swap-cut-more">+{more}</span>}
+          </span>
+        ))}
+      </span>
+      <span className="sc-ap-cap">
+        <b>Whole scene</b>
+      </span>
+      <Puck />
+    </button>
+  );
+}
+
+/** One of the scene's pictures, as the attach picker draws a picture. */
+function ViewTile({
+  option,
+  on,
+  disabled,
+  onPress,
+}: {
+  option: SceneViewOption;
+  on: boolean;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="sc-ap-card"
+      data-on={on ? '' : undefined}
+      aria-pressed={on}
+      disabled={disabled}
+      onClick={onPress}
+    >
+      <span className="sc-ap-thumb">
+        <img src={thumbOf(option.thumb, 'small')} alt="" loading="lazy" />
+      </span>
+      <span className="sc-ap-cap">
+        <b>{option.name}</b>
+      </span>
+      <Puck />
+    </button>
+  );
+}
+
 /** A catalog import whose image never downloaded has a product but no picture. */
 function Thumb({ src, tinted, crop }: { src?: string | null; tinted: boolean; crop?: 'top' }) {
   const [broken, setBroken] = useState(false);
@@ -433,10 +601,11 @@ function PickerPanel(props: PickerProps) {
       // The clamp has to use the *visual* viewport or a software keyboard puts
       // the panel under itself; the rect and `position: fixed` are both in
       // layout coordinates, so those two need no translation.
-      const p = placePanel(anchor.getBoundingClientRect(), {
-        width: vv?.width ?? window.innerWidth,
-        height: vv?.height ?? window.innerHeight,
-      });
+      const p = placePanel(
+        anchor.getBoundingClientRect(),
+        { width: vv?.width ?? window.innerWidth, height: vv?.height ?? window.innerHeight },
+        kind === 'scene' ? { maxHeight: SCENE_PANEL_MAX_H } : undefined,
+      );
       // The brief is its own 30vh scroller, so a chip can leave the screen
       // while its panel is open. A panel pointing at nothing should go.
       if (!p) {

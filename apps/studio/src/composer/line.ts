@@ -39,7 +39,7 @@ export {
   offsetIn,
 } from './line/caret.js';
 export { normalizeLine, lineIsCanonical, syncEmpty } from './line/invariants.js';
-export { stepAcrossChip, chipToDelete, deletionAtLineEdge } from './line/keys.js';
+export { stepAcrossChip, chipToDelete, deletionAtLineEdge, chipPastCaret } from './line/keys.js';
 export type { InsertOptions, Sigil } from './line/insert.js';
 export {
   insertToken,

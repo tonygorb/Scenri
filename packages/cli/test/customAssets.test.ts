@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import JSZip from 'jszip';
-import { createCore, type Core, type EngineAdapter, type GenerateRequest } from '@scenri/core';
+import { createCore, type Core, type EditRequest, type EngineAdapter, type GenerateRequest } from '@scenri/core';
 import { buildServer } from '../src/server.js';
 import {
   lintSceneProse,
@@ -47,6 +47,7 @@ describe('custom presenters and scenes', () => {
   let core: Core;
   let app: FastifyInstance;
   let generated: GenerateRequest[];
+  let edited: EditRequest[];
   let analyzed: any[];
   /** Swap in to simulate an install with no codex and no engine that draws. */
   let engineAvailable: boolean;
@@ -83,7 +84,11 @@ describe('custom presenters and scenes', () => {
       const shade = (0x20 + generated.length * 0x11).toString(16).padStart(2, '0');
       return { images: [core.images.save(await png(`#${shade}3040`))], costUsd: 0 };
     },
-    edit: async () => ({ images: [], costUsd: 0 }),
+    // A scene's anchor is scrubbed by an edit of its first draw (drawSceneAnchor).
+    edit: async (req) => {
+      edited.push(req);
+      return { images: [core.images.save(await png(`#6${edited.length}6${edited.length}60`))], costUsd: 0 };
+    },
   });
 
   /** Stands in for codex: records what it was asked, answers a valid record. */
@@ -134,6 +139,7 @@ describe('custom presenters and scenes', () => {
   beforeEach(async () => {
     resetAssetBuilds();
     generated = [];
+    edited = [];
     analyzed = [];
     engineAvailable = true;
     nextGenerated = null;
@@ -482,7 +488,7 @@ describe('custom presenters and scenes', () => {
 
   /* ---------------------------------------------------------------- scenes */
 
-  it('builds a scene: references read into a record, one empty preview drawn', async () => {
+  it("builds a scene: references read into a record, its anchor drawn beside them and made nobody's", async () => {
     const brand = await newBrand();
     const refs = [await savePhoto('#334455')];
     const { job } = await runBuild(brand.id, {
@@ -505,12 +511,18 @@ describe('custom presenters and scenes', () => {
     expect(scene.height).toBe(1280);
 
     expect(analyzed[0].vocabulary.collections).toContain('Studio');
-    // A preview shows the world, not a stand-in product it would have to invent.
+    // The anchor is drawn beside the references, so it keeps what words
+    // cannot, and then an edit that never sees them makes it nobody's: beside
+    // them alone the card came back as their photograph (battery 2026-09-23).
     expect(generated).toHaveLength(1);
     expect(generated[0].prompt).toContain('A figure is in this photograph');
-    // The references are read for the place and never drawn from: beside them
-    // the card came back as their photograph (battery 2026-09-23).
-    expect(generated[0].referenceImages ?? []).toEqual([]);
+    expect(generated[0].referenceImages).toEqual(refs.map((h) => core.images.pathFor(h)));
+    expect(edited).toHaveLength(2);
+    expect(edited[0].instruction).toContain('Remove every person from this photograph');
+    expect(edited[1].instruction).toContain('Add one person to it: someone stands at the tide line');
+    expect(edited[1].instruction).toContain('the face wrapped in translucent fabric');
+    for (const e of edited) expect(e.referenceImages ?? []).toEqual([]);
+    expect(scene.anchor).toBe(true);
   });
 
   it('records the figure and its treatment, and never who it is', async () => {
@@ -554,7 +566,7 @@ describe('custom presenters and scenes', () => {
     expect(prompt).toContain('A figure is in this photograph: someone stands at the tide line');
     expect(prompt).toContain('the face wrapped in translucent fabric');
     // Somebody new in the role, never the person the references showed.
-    expect(prompt).toContain('nobody in particular, with no recognisable identity');
+    expect(prompt).toContain('nobody in particular, never a person from the attached images');
   });
 
   it('keeps the staged position when an edit touches only the prompt', async () => {
@@ -842,8 +854,9 @@ describe('custom presenters and scenes', () => {
     expect(preview.statusCode).toBe(200);
     expect(brandJson(brand.id).scenes[0].preview).toMatch(/^asset:[a-f0-9]{32}$/);
     expect(generated[0].prompt).toContain('flat daylight'); // the edit, not the original
-    // drawn from its words, never beside the references it was read from
-    expect(generated[0].referenceImages ?? []).toEqual([]);
+    // the same anchor the studio draws: beside the pictures it was read from
+    expect(generated[0].referenceImages).toEqual([core.images.pathFor(read)]);
+    expect(brandJson(brand.id).scenes[0].anchor).toBe(true);
 
     const gone = await app.inject({ method: 'DELETE', url: `/api/brands/${brand.id}/scenes/${scene.id}` });
     // The brand comes back, the way a deleted presenter's does: the wall, the

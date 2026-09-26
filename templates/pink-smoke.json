@@ -1,0 +1,15 @@
+{
+  "id": "pink-smoke",
+  "name": "Pink Smoke",
+  "promptName": "Pink Smoke",
+  "keywords": ["pink", "smoke", "dreamy", "color matched", "bold", "sweep", "glow", "playful"],
+  "description": "Dense bubblegum-pink smoke rolling across a matching pink sweep.",
+  "lighting": "Backlit glowing smoke, soft front light",
+  "subject": "either",
+  "collections": ["Colored backgrounds", "Social"],
+  "verticals": ["Beauty", "Fragrance", "Food & drink", "Apparel"],
+  "prompt": "A seamless paper sweep in saturated bubblegum pink fills the frame, and a dense, billowing cloud of pink smoke rolls across the floor and up through the middle ground in the same colour. Light from behind the smoke makes it glow from within, bright at its core and soft at its edges, while a soft front light keeps the foreground gentle. The smoke curls in slow, sculptural plumes against the paper. There is nothing else in the set, only pink paper, pink smoke and light. The palette is bubblegum, rose and pale blush, dreamy and bold.",
+  "width": 1024,
+  "height": 1280,
+  "cover": "hero"
+}

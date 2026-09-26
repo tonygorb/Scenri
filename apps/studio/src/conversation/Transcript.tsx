@@ -406,6 +406,30 @@ export function Transcript({
   });
 
   /**
+   * The same across a resize. The keyboard coming up on a phone shrinks the
+   * scroller without a render, so nothing above ran, and the open question
+   * slid under the composer with its answers out of reach. Heard on the
+   * scroller itself, which is what the keyboard (or a turned phone) makes
+   * shorter, and only while the reader was already at the bottom. The box
+   * that can scroll, whether or not it does yet: at the first question nothing
+   * overflows, so the scroller then was the transcript itself, which the
+   * keyboard does not shrink, and the answers went under the composer unheard.
+   */
+  const changingNow = useRef(changing);
+  changingNow.current = changing;
+  const turnCount = turns.length;
+  useEffect(() => {
+    const parent = turnCount > 0 && box.current ? canScroll(box.current) : null;
+    if (!parent || typeof ResizeObserver === 'undefined') return;
+    const keep = new ResizeObserver(() => {
+      if (!pinned.current || changingNow.current) return;
+      parent.scrollTop = parent.scrollHeight;
+    });
+    keep.observe(parent);
+    return () => keep.disconnect();
+  }, [turnCount]);
+
+  /**
    * An answer opened again is not somewhere else: the block takes the place
    * the answer held, under the line that asked for it, and grows downward
    * from there. Nothing is scrolled for it. The view moving as well as the
@@ -651,6 +675,7 @@ export function Transcript({
           now={clock}
           thumb={t.thumb}
           label={t.label}
+          view={t.view}
           current={t.current}
           restore={t.restore}
           onRestore={onRestore}
@@ -822,6 +847,15 @@ function scrollParent(el: HTMLElement): HTMLElement {
     node = node.parentElement;
   }
   return el;
+}
+
+/** The nearest box that scrolls when its content is taller, overflowing yet or not. */
+function canScroll(el: HTMLElement): HTMLElement | null {
+  for (let node: HTMLElement | null = el; node; node = node.parentElement) {
+    const { overflowY } = getComputedStyle(node);
+    if (overflowY === 'auto' || overflowY === 'scroll') return node;
+  }
+  return null;
 }
 
 const saidKey = (memoryKey: string) => `scenri:convo-said:${memoryKey}`;

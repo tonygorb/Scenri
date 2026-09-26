@@ -17,6 +17,12 @@ export const PANEL_W = 440;
 /** Taller than this stops being a quick pick and starts being a library page. */
 export const PANEL_MAX_H = 460;
 /**
+ * A scene chip's picker holds two sections, the scene's own pictures and then
+ * the other scenes, so it earns more room: three full rows of tiles between
+ * its header and its foot (a row is 148px and a 12px gap).
+ */
+export const SCENE_PANEL_MAX_H = 600;
+/**
  * A preview is one square picture and a two-line caption, so it is a fraction
  * of a picker: a glance at what a chip is holding, never a panel over the
  * composer. The face itself is 132px, and this is that plus the panel's inset
@@ -140,7 +146,11 @@ export function placeTip(
  * scroller, so a chip can leave the viewport while its panel is open, and a
  * panel pointing at nothing should close rather than drift.
  */
-export function placePanel(a: AnchorRect, vp: Viewport, opts?: { width?: number; gap?: number }): Placed | null {
+export function placePanel(
+  a: AnchorRect,
+  vp: Viewport,
+  opts?: { width?: number; gap?: number; maxHeight?: number },
+): Placed | null {
   if (a.bottom < 0 || a.top > vp.height) return null;
 
   const width = Math.min(opts?.width ?? PANEL_W, vp.width - MARGIN * 2);
@@ -154,7 +164,7 @@ export function placePanel(a: AnchorRect, vp: Viewport, opts?: { width?: number;
   const side: 'above' | 'below' = roomAbove >= COMFORTABLE || roomAbove >= roomBelow ? 'above' : 'below';
 
   const room = side === 'above' ? roomAbove : roomBelow;
-  const maxHeight = Math.max(MIN_H, Math.min(PANEL_MAX_H, room));
+  const maxHeight = Math.max(MIN_H, Math.min(opts?.maxHeight ?? PANEL_MAX_H, room));
   const left = Math.min(Math.max(a.left, MARGIN), Math.max(MARGIN, vp.width - width - MARGIN));
   const top = side === 'above' ? Math.max(MARGIN, a.top - gap - maxHeight) : a.bottom + gap;
   return side === 'above'

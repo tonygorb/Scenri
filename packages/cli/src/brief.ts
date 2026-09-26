@@ -38,10 +38,14 @@ import {
   productFidelityDirective,
   productHandlingDirective,
   productFramingDirective,
+  productInFrameDirective,
+  wardrobeRelease,
+  physicalPoseDirective,
   productScaleDirective,
   editScreenDirective,
   productSurfaceDirective,
   referenceIdentityGuard,
+  referenceProductGuard,
   sceneFigureDirectives,
   sceneGuardDirectives,
   shotAsksForAPerson,
@@ -60,8 +64,12 @@ export type BriefToken =
   | { t: 'color'; hex: string; name?: string }
   | { t: 'ref'; imageHash: string; label?: string }
   | { t: 'mark'; imageHash: string }
-  /** A scene, and optionally which of its setups is being shot. */
-  | { t: 'template'; id: string; setup?: string }
+  /**
+   * A scene, and optionally which of its setups is being shot, and which of its
+   * pictures the shot follows (Use this view): `view` is that picture's hash,
+   * `viewName` only what the chip calls it.
+   */
+  | { t: 'template'; id: string; setup?: string; view?: string; viewName?: string }
   | { t: 'format'; id: FormatId; w: number; h: number };
 
 export type FormatId = 'square' | 'story' | 'landscape' | 'portrait';
@@ -210,7 +218,8 @@ export const FORMATS: { id: FormatId; label: string; w: number; h: number }[] = 
  * a custom-only field to the catalog `Scene` interface, which 72 shipped files
  * and a loader validator answer to.
  */
-type CompilableScene = Scene & Pick<CustomScene, 'figure' | 'figureTreatment' | 'refs' | 'preview'>;
+type CompilableScene = Scene &
+  Pick<CustomScene, 'figure' | 'figureTreatment' | 'refs' | 'preview' | 'anchor' | 'examples'>;
 
 interface CompileContext {
   brand: any;
@@ -312,6 +321,10 @@ export function validateBrief(brief: unknown): string[] {
       case 'character':
       case 'template':
         if (!str(t.id)) errors.push(`${at}.id must be a non-empty string`);
+        if (t.t === 'template' && t.view !== undefined && !/^[a-f0-9]{32}$/.test(String(t.view)))
+          errors.push(`${at}.view must be an image hash when present`);
+        if (t.t === 'template' && t.viewName !== undefined && typeof t.viewName !== 'string')
+          errors.push(`${at}.viewName must be a string when present`);
         break;
       case 'color':
         if (!str(t.hex) || !/^#[0-9a-fA-F]{6}$/.test(String(t.hex))) errors.push(`${at}.hex must be a #RRGGBB color`);
@@ -358,7 +371,20 @@ type DeferredDirective =
  */
 const sceneRefSeam = (): number => Math.max(0, Math.min(4, Number(process.env.SCENRI_SCENE_REFS ?? 0) || 0));
 
-export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
+export function compileBrief(input: Brief, ctx: CompileContext): CompiledBrief {
+  // A scene chip carrying a picked view is the scene and that picture: one chip
+  // in the sentence, unfolded here into the reference a picked picture has
+  // always been, so it compiles exactly as the scene chip and a picture chip did.
+  const unfolded = new Set<BriefToken>();
+  const brief: Brief = {
+    ...input,
+    tokens: input.tokens.flatMap((t) => {
+      if (t.t !== 'template' || !t.view) return [t];
+      const ref: BriefToken = { t: 'ref', imageHash: t.view };
+      unfolded.add(ref);
+      return [t, ref];
+    }),
+  };
   const warnings: string[] = [];
   const attachments: Attachment[] = [];
   /** Identities that exist in the kit but have no usable photo - see below. */
@@ -400,12 +426,16 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const refTokens = brief.tokens.filter((t) => t.t === 'ref');
   const refWords = new Map<BriefToken, string>();
   brief.tokens.forEach((t, i) => {
-    if (t.t !== 'ref') return;
+    // A scene's picked view is always the frame the shot follows: the words
+    // beside its chip are about the scene, never about the picture.
+    if (t.t !== 'ref' || unfolded.has(t)) return;
     const words = (n: BriefToken | undefined) => n?.t === 'text' && n.v.trim() !== '';
     if (!words(brief.tokens[i - 1]) && !words(brief.tokens[i + 1])) return;
     refWords.set(t, refTokens.length > 1 ? `attached image ${refTokens.indexOf(t) + 1}` : 'the attached image');
   });
   let refSaid = false;
+  /** References the shot is told to match in composition: a picked frame the camera follows. */
+  const frameRefs = new Set<string>();
 
   // A reference that is byte-identical to a mark that will attach would ship
   // the same artwork twice under two contradictory contracts: reproduce it
@@ -559,7 +589,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
             'The attached person reference is the same person every time: match their face, facial structure, skin, hair and build exactly. ' +
               'Their outfit, pose, background and lighting are neutral studio capture conditions, not styling direction: ' +
               'dress and style them for this shot, to a commercial standard, following any wardrobe the direction itself specifies. ' +
-              'Where the direction specifies none, dress them for the place and the occasion the frame shows, and never return them to the plain base layers they were photographed in.',
+              wardrobeRelease(),
           );
           // The face is released the way the outfit is. Every reference is drawn
           // with a relaxed neutral expression and eyes to the lens, because that
@@ -654,7 +684,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         if (said) {
           append(said);
           refSaid = true;
-        }
+        } else frameRefs.add(tok.imageHash);
         otherDirectives.push({
           need: 'attachment',
           role: 'reference',
@@ -726,6 +756,25 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         append(withOwnLight(t, ctx.brand, composePrompt(t, { fields: brief.templateFields ?? {}, notes: '' })));
 
         /*
+         * A scene's anchor rides with the shot as the world's picture.
+         *
+         * The anchor is drawn beside the pictures the scene was made from and
+         * then made nobody's (drawSceneAnchor), so it carries what the words
+         * cannot: the exact light, the palette's strength, the materials, how
+         * the space is composed and staged. Words alone lost exactly that
+         * (v0.15 to v0.17), and the old dialog, which sent its picture, felt
+         * closer for it. A person in the anchor is the figure's stand-in and
+         * rides only with a presenter to take the place (the splice below); an
+         * object it shows as the hero only marks where an attached product
+         * goes (sceneGuardDirectives). Identity pictures seat first: the anchor
+         * is not essential, so it is the first thing to give way.
+         *
+         * A picture of this scene the person picked for the shot (a ref chip
+         * holding its anchor or one of its examples) is the scene's picture
+         * instead: one picture of a scene per shot, never two.
+         *
+         * A preview that is not an anchor keeps the older rule below.
+         *
          * A scene whose figure wears a treatment, with a presenter attached,
          * sends its drawn plate, because its prose cannot carry it.
          *
@@ -767,7 +816,13 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
          * and judged there.
          */
         const seam = sceneRefSeam();
-        if (ctx.mode !== 'edit' && ((t.figure && t.figureTreatment) || seam > 0)) {
+        const pickedHashes = new Set(brief.tokens.flatMap((x) => (x.t === 'ref' ? [x.imageHash] : [])));
+        const picked = [t.preview, ...(t.examples ?? []).map((e) => e.file)].some((f) => {
+          const h = assetHash(f);
+          return !!h && pickedHashes.has(h);
+        });
+        const rides = !picked && (!!t.anchor || !!(t.figure && t.figureTreatment));
+        if (ctx.mode !== 'edit' && (rides || seam > 0)) {
           // The battery's arm: `SCENRI_SCENE_REFS=n` sends up to n of a
           // scene's own pictures (its drawn plate first, then its uploads)
           // whatever the scene is and whoever is attached, so one scene can be
@@ -864,7 +919,6 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const productOnly = !!productId && !hasPerson && !!scene && scene.subject !== 'product';
   const placeTendency = productOnly && !setupCamera.trim();
   const cameraDirectives = [
-    ...(productOnly ? [productFramingDirective()] : []),
     ...(sceneCamera && !shotSpecifiesCamera(userWords) && !placeTendency
       ? [`Camera for this shot: ${sceneCamera.replace(/[.\s]+$/, '')}.`]
       : []),
@@ -886,7 +940,9 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   // anonymous person the model would keep: the scene degrades to prose,
   // quietly, the same way a budget-dropped scene ref does (its name never
   // appears in a left-out warning, brief.test pins it).
-  if (!hasPerson && !sceneRefSeam()) {
+  // A scene with no figure has nobody in its picture to hand over, so its
+  // anchor rides whoever is attached.
+  if (!hasPerson && !sceneRefSeam() && inlineTemplates[0]?.figure) {
     for (let i = attachments.length - 1; i >= 0; i--) if (attachments[i].role === 'scene') attachments.splice(i, 1);
   }
   // A reference that is byte-identical to an attached identity's own photo
@@ -985,6 +1041,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         hasPerson,
         hasScenePhoto: kept.some((a) => a.role === 'scene'),
         figureLed: !!scene?.figure,
+        anchor: !!scene?.anchor,
         emptyRole,
       })
     : [];
@@ -1093,6 +1150,11 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   // generation: an edit's identity rides the source frame.
   const refGuard =
     ctx.mode !== 'edit' && hasPerson && kept.some((a) => a.role === 'reference') ? [referenceIdentityGuard()] : [];
+  // A frame picked to follow, as it rode: it sets the camera (productInFrameDirective).
+  const framed = ctx.mode !== 'edit' && kept.some((a) => a.role === 'reference' && frameRefs.has(a.hash));
+  // The same for a product: a reference's own product never becomes this one.
+  const refProductGuard =
+    ctx.mode !== 'edit' && productId && kept.some((a) => a.role === 'reference') ? [referenceProductGuard()] : [];
 
   const allDirectives: DeferredDirective[] = [
     // First, beside the sentence that names things: the model reads the names
@@ -1101,20 +1163,25 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     ...productDirectives,
     ...(productId ? [productScaleDirective(hasPerson)] : []),
     ...personDirectives,
+    // once for everyone in the frame, on a generation: an edit keeps its poses
+    ...(hasPerson && ctx.mode !== 'edit' ? [physicalPoseDirective()] : []),
     ...pairDirectives,
     ...figureDirectives,
     ...closeUpDirectives,
     ...otherDirectives,
     ...absentDirectives,
+    // A picked frame that rode sets the camera; otherwise the product's scale does.
+    ...(productOnly ? [framed ? productInFrameDirective() : productFramingDirective()] : []),
     ...cameraDirectives,
     // After the camera line: a scene read from a wide picture names a wide
     // camera, and said first this lost to it (a phone stood frontal, 2 of 2).
-    ...(productId && ctx.mode !== 'edit' ? [productSurfaceDirective(!hasPerson, refSaid)] : []),
+    ...(productId && ctx.mode !== 'edit' ? [productSurfaceDirective(!hasPerson && !framed, refSaid)] : []),
     ...(ctx.mode === 'edit' && refSaid ? [editScreenDirective()] : []),
     ...apparelUnworn,
     ...brandLines,
     ...guard,
     ...refGuard,
+    ...refProductGuard,
     ...preservation,
   ];
   const spoken = dedupe(allDirectives.map(resolveDirective).filter((s): s is string => s !== null));
@@ -1179,7 +1246,8 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     onlyWords &&
     sceneHash &&
     ctx.images.has(sceneHash) &&
-    kept.every((a) => a.role === 'product')
+    // the scene's anchor riding is that same picture, which the two steps draw from
+    kept.every((a) => a.role === 'product' || (a.role === 'scene' && a.hash === sceneHash))
       ? {
           ...lead,
           sceneHash,

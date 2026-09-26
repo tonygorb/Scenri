@@ -1,0 +1,29 @@
+{
+  "id": "fig-leaf-frost-window",
+  "title": "Fig Leaf candle on a frosted sill",
+  "category": "seasonal",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "birch-hollow-fig-leaf-candle"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. The candle burns on a painted wooden window sill, frost ferns on the old glass and snow falling on dark pines outside at blue hour. The flame warms the ribbed amber glass and the sill, the rest of the frame cold blue. 50mm at sill height."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 19,
+  "family": "place"
+}

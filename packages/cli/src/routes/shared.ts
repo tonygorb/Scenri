@@ -108,7 +108,9 @@ const cappedRefs = new Map<string, string>();
 export async function capReferenceEdge(core: Core, path: string, maxEdge: number): Promise<string> {
   const key = `${path}#${maxEdge}`;
   const hit = cappedRefs.get(key);
-  if (hit) return hit;
+  // A copy is let go of once the draw that needed it is done (presenter
+  // drafts), so a remembered one is made again rather than handed over missing.
+  if (hit && existsSync(hit)) return hit;
   let out = path;
   try {
     const meta = await sharp(path).metadata();
@@ -170,7 +172,11 @@ export const readImagePart = async (
 // URL the browser has never cached anything under. That makes it safe to
 // cache aggressively again — correctness now comes from the URL changing,
 // not from asking the server to re-check.
-export const mtimeQS = (path: string) => (existsSync(path) ? `?v=${Math.round(statSync(path).mtimeMs)}` : '');
+/** A URL's cache-busting version: the newest of the files behind it, so a change to any one of them is a new URL. */
+export const mtimeQS = (...paths: string[]) => {
+  const times = paths.filter((p) => existsSync(p)).map((p) => statSync(p).mtimeMs);
+  return times.length ? `?v=${Math.round(Math.max(...times))}` : '';
+};
 export const serveJpeg = (req: FastifyRequest, reply: FastifyReply, path: string) => {
   const etag = `"${statSync(path).mtimeMs}"`;
   reply.header('cache-control', 'public, max-age=31536000, immutable').header('etag', etag);
@@ -186,6 +192,17 @@ export const serveJpeg = (req: FastifyRequest, reply: FastifyReply, path: string
 export const fileKey = (prefix: string, id: string, path: string) =>
   `${prefix}-${id}-${Math.round(statSync(path).mtimeMs)}`;
 
+/** A file's pixel width, read once per version of it: the card a derivative may be cut from. */
+const widths = new Map<string, number>();
+const widthOf = async (path: string): Promise<number> => {
+  const at = `${path}:${statSync(path).mtimeMs}`;
+  const known = widths.get(at);
+  if (known !== undefined) return known;
+  const width = (await sharp(path).metadata()).width ?? 0;
+  widths.set(at, width);
+  return width;
+};
+
 /**
  * A curated JPEG at the size a surface asked for. Without `w` it is the JPEG
  * exactly as before; with a valid `w` it is a WebP derivative made through the
@@ -200,15 +217,24 @@ export const serveJpegSized = async (
   path: string,
   thumbs: ThumbStore,
   key: string,
+  /**
+   * A larger file of the same picture, for a derivative wider than the JPEG at
+   * `path`: a bundled card beside the library's full-size picture. Narrower
+   * derivatives still come from the card, which is cheaper to cut and already
+   * wide enough; the full-size one is decoded only when a width needs it. The
+   * JPEG itself still answers without `w`.
+   */
+  sized?: { path: string; key: string },
 ) => {
   const raw = (req.query as { w?: unknown } | undefined)?.w;
   if (raw === undefined || raw === '') return serveJpeg(req, reply, path);
   const w = Number(raw);
   if (!isThumbWidth(w)) return reply.status(400).send({ error: `w must be one of ${THUMB_WIDTH_LIST}` });
   const immutable = 'public, max-age=31536000, immutable';
-  const etag = `"${key}-w${w}"`;
+  const from = sized && w > (await widthOf(path)) ? sized : { path, key };
+  const etag = `"${from.key}-w${w}"`;
   if (req.headers['if-none-match'] === etag) return reply.status(304).header('cache-control', immutable).send();
-  const made = await thumbs.ensureFile(key, path, w);
+  const made = await thumbs.ensureFile(from.key, from.path, w);
   const size = made ? await fileSize(made) : null;
   if (!made || size === null) {
     const back = new URL(req.url, 'http://scenri.local');

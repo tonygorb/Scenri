@@ -77,6 +77,48 @@
   color: var(--sc-fg);
 }
 
+/* Words already read out whole at the step before stand at their first line
+   (QuestionBlock's Quote, `quoteFolded`), with the rest one press away. */
+.sc-convo-brief-text[data-folded] {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  overflow: hidden;
+}
+.sc-convo-brief-more {
+  margin-top: var(--sc-space-2);
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--sc-text-caption);
+  color: var(--sc-fg2);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.sc-convo-brief-more:hover {
+  color: var(--sc-fg);
+}
+/* On touch the words stay small and the target grows to the tap floor, as a
+   toast's actions do. */
+@media (pointer: coarse) {
+  .sc-convo-brief-more {
+    position: relative;
+  }
+  .sc-convo-brief-more::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    min-width: 100%;
+    width: var(--sc-tap);
+    height: var(--sc-tap);
+    transform: translate(-50%, -50%);
+  }
+}
+
 /* a finger has no hover: the way to copy is simply there */
 @media (hover: none) {
   .sc-convo-brief-copy {
@@ -1527,9 +1569,10 @@ button.sc-convo-shot-do {
   scroll-margin-top: var(--sc-space-6);
   scroll-margin-bottom: var(--sc-space-6);
 }
-/* the group takes the keyboard when it opens; it is not a control, so it wears
-   no ring of its own and the first Tab goes to the first choice */
-.sc-convo-q:focus {
+/* the group takes the keyboard when it opens, and Enter answers it there, so
+   a keyboard user sees where they are: the floor's ring (interaction.css).
+   After a click or a tap it wears none, like every control. */
+:where([data-input="pointer"]) .sc-convo-q:focus {
   outline: none;
 }
 /* An answer being rewritten in place: the words as they were, in a field where they stand. */
@@ -2238,6 +2281,16 @@ button.sc-convo-shot-do {
 }
 
 .sc-convo-card textarea.sc-in::placeholder {
+  color: var(--sc-fg3);
+}
+
+/* Off, the field's placeholder is the reason ("Retry above."), so it is not
+   faded like a disabled form field: the global .sc-in:disabled put
+   --sc-disabled on top of the placeholder grey. The card already says it is
+   off (quiet, or Stop while a draw runs); anything left in the field reads at
+   that same grey. */
+.sc-convo-card textarea.sc-in:disabled {
+  opacity: 1;
   color: var(--sc-fg3);
 }
 

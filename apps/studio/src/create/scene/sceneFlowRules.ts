@@ -2,13 +2,15 @@ import {
   type Aside,
   answersNothing,
   asideTurns,
+  type ChoiceOption,
   type NothingKind,
   type PickItem,
   type Question,
   type Turn,
 } from '../../conversation/question.js';
 import type { SceneExampleRole, SceneReading } from '../../apiTypes.js';
-import { EXAMPLE_LABEL, type ExampleTile } from '../../sceneExampleRules.js';
+import { describeFailure, type FailureRemedy } from '../../failure.js';
+import { EXAMPLE_LABEL, type ExampleTile, failureWords } from '../../sceneExampleRules.js';
 import { COPY } from './sceneCopy.js';
 import { optionOf, rowNoun, ROWS, type SceneRow, swatchRow } from './sceneRows.js';
 import {
@@ -23,7 +25,15 @@ import {
   serializeSetup,
   saidSomething,
 } from './sceneSetup.js';
-import { current, deserialize, pictureNumber, readingLines, serialize, type StudioState } from './sceneStudioRules.js';
+import {
+  current,
+  deserialize,
+  pictureNumber,
+  readingLines,
+  serialize,
+  shownOf,
+  type StudioState,
+} from './sceneStudioRules.js';
 
 /**
  * The scene studio's conversation, read off its state: the transcript and the
@@ -40,8 +50,11 @@ export interface FlowArgs {
   studio: StudioState;
   canDraw: boolean;
   uploading: number;
-  /** A saved scene opened to change it: no setup, the record from the start. */
-  edit: { name: string } | null;
+  /**
+   * A saved scene opened to change it: no setup, the record from the start.
+   * `changed` once anything differs from the record, so Save is offered only then.
+   */
+  edit: { name: string; changed: boolean } | null;
   /** The name is being rewritten in its own bubble. */
   editingName: boolean;
   /** One line Scenri says about the pictures or the connection, before the open question. */
@@ -123,10 +136,55 @@ export function readingQuote(r: SceneReading): string {
     .join(' ');
 }
 
-/** A stop or a lost job says its own sentence; a failure is quoted inside one. */
-const SAYS_ITSELF = new Set([COPY.stopped, COPY.stoppedRead, COPY.stoppedDraw, COPY.stoppedChange, COPY.lost]);
-const retryPrompt = (error: string) =>
-  SAYS_ITSELF.has(error) ? error : COPY.failedFirst(error.replace(/[.\s]+$/, ''));
+/** A stop, a lost job or a line of the studio's own says its own sentence; a provider's failure is read first. */
+const SAYS_ITSELF = new Set([
+  COPY.stopped,
+  COPY.stoppedRead,
+  COPY.stoppedDraw,
+  COPY.stoppedChange,
+  COPY.lost,
+  COPY.failed,
+  COPY.busyElsewhere,
+]);
+/** A failure as the conversation says it: in words when Scenri knows it, else its own words in a sentence. */
+const sayFailure = (error: string) =>
+  SAYS_ITSELF.has(error) ? error : (failureWords(error) ?? COPY.failedKept(error.replace(/[.\s]+$/, '')));
+/** A person's own Stop is not a fault: said plainly, without the alarm, as the presenter says it. */
+const STOPS = new Set([COPY.stopped, COPY.stoppedRead, COPY.stoppedDraw, COPY.stoppedChange]);
+const alarm = (error: string) => (STOPS.has(error) ? {} : { tone: 'alert' as const });
+const retryPrompt = (error: string) => {
+  if (SAYS_ITSELF.has(error)) return error;
+  const words = failureWords(error);
+  return words ? COPY.failedSaid(words) : COPY.failedFirst(error.replace(/[.\s]+$/, ''));
+};
+
+/**
+ * The one control that fixes a failure, when there is one: a key to add, a
+ * cap to raise, Codex to sign in. Offered beside the way on, never instead of
+ * it, since a fix made elsewhere is not something the studio can see. Its id
+ * says where it opens (`remedy:engines`), as the presenter's does.
+ */
+const remedyOf = (error: string | null): FailureRemedy | undefined =>
+  error && !SAYS_ITSELF.has(error) ? describeFailure(error).remedy : undefined;
+
+const remedyOption = (error: string | null): ChoiceOption[] => {
+  const remedy = remedyOf(error);
+  return remedy ? [{ id: `remedy:${remedy.opens}`, label: remedy.label }] : [];
+};
+
+/**
+ * The ways on from a failure before anything stands: its remedy first; the
+ * line, for a failure that cannot succeed twice and has no control of its own
+ * (a brief declined); and Try again, always.
+ */
+function retryOptions(error: string): ChoiceOption[] {
+  const stuck = !remedyOf(error) && !SAYS_ITSELF.has(error) && !describeFailure(error).retryable;
+  return [
+    ...remedyOption(error),
+    ...(stuck ? [{ id: 'reword', label: COPY.sayDifferently }] : []),
+    { id: 'retry', label: COPY.retry },
+  ];
+}
 
 /* ------------------------------------------------------------- questions */
 
@@ -349,7 +407,8 @@ export function turnsFor(args: FlowArgs): Turn[] {
         kind: 'scenri',
         id: `pic-${i}`,
         text: v.how === 'change' ? COPY.changed : v.how === 'again' ? COPY.again : COPY.here,
-        thumb: v.hash,
+        // the hero is what the person judges; Put back still names the place it came with
+        thumb: shownOf(v) ?? v.hash,
         label: COPY.version(pictureNumber(studio, i)),
         view: 'scene',
         current: i === studio.current,
@@ -398,42 +457,43 @@ export function turnsFor(args: FlowArgs): Turn[] {
         open = {
           id: 'retry',
           kind: 'confirm',
-          tone: 'alert',
+          ...alarm(studio.error),
           prompt: retryPrompt(studio.error),
-          options: [{ id: 'retry', label: COPY.retry }],
+          options: retryOptions(studio.error),
         };
     } else if (!v && studio.error)
       open = {
         id: 'retry',
         kind: 'confirm',
-        tone: 'alert',
+        ...alarm(studio.error),
         prompt: retryPrompt(studio.error),
-        options: [{ id: 'retry', label: COPY.retry }],
+        options: retryOptions(studio.error),
       };
     else if (v) {
       if (studio.error)
-        T.push({ kind: 'scenri', id: `error-${studio.versions.length}`, text: studio.error, tone: 'alert' });
+        T.push({
+          kind: 'scenri',
+          id: `error-${studio.versions.length}`,
+          text: sayFailure(studio.error),
+          ...alarm(studio.error),
+        });
       const quote = readingQuote(v.reading);
       if (!v.hash) {
         const photos = !edit && a.source?.door === 'photos';
         const shot = !edit && a.source?.door === 'shot';
         // a place read from the wrong shot is put right by choosing another, before anything is drawn
         const another = shot ? [{ id: 'another-shot', label: COPY.anotherShot }] : [];
+        const ask =
+          v.how === 'change' ? COPY.agreeChanged : photos ? COPY.agreePhotos : shot ? COPY.agreeShot : COPY.agree;
         open = {
           id: `agree-${studio.current}`,
           kind: 'confirm',
-          prompt: !args.canDraw
-            ? COPY.agreeBlind
-            : v.how === 'change'
-              ? COPY.agreeChanged
-              : photos
-                ? COPY.agreePhotos
-                : shot
-                  ? COPY.agreeShot
-                  : COPY.agree,
+          // a place read as its own hero is drawn alone; every other draw brings its hero too
+          prompt: !args.canDraw ? COPY.agreeBlind : v.reading.hero === 'place' ? ask : `${ask} ${COPY.drawsTwo}`,
           quote,
           quoteLabel: COPY.readingHead,
           options: [
+            ...remedyOption(studio.error),
             ...(args.canDraw
               ? [{ id: 'draw', label: COPY.draw }]
               : [{ id: 'use', label: edit ? COPY.saveChanges : COPY.saveWords }]),
@@ -441,16 +501,28 @@ export function turnsFor(args: FlowArgs): Turn[] {
           ],
         };
       } else {
+        // A saved scene nothing has changed in yet has nothing to save, the way
+        // the presenter editor offers Save only once it is dirty. Its Try again
+        // stays quiet, so Enter never spends a draw.
+        const untouched = !!edit && !edit.changed;
         open = {
           id: `decide-${studio.current}`,
           kind: 'confirm',
-          prompt: (edit ? COPY.decideEdit : COPY.decide)(studio.name.trim() || v.reading.name),
+          prompt: untouched
+            ? COPY.decideSaved
+            : (edit ? COPY.decideEdit : COPY.decide)(studio.name.trim() || v.reading.name),
           quote,
           quoteLabel: COPY.readingHead,
+          // A picture drawn from words already read out whole at the read-back
+          // brings them folded, so the picture stays on a phone's screen with
+          // the decision. After a change the words are new here, and stand whole.
+          ...(v.how === 'draw' || v.how === 'again' ? { quoteFolded: true } : {}),
           options: [
-            { id: 'use', label: edit ? COPY.saveChanges : COPY.use },
+            ...remedyOption(studio.error),
+            ...(untouched ? [] : [{ id: 'use', label: edit ? COPY.saveChanges : COPY.use }]),
             ...(args.canDraw ? [{ id: 'again', label: COPY.tryAgain }] : []),
           ],
+          ...(untouched ? { quiet: true } : {}),
           describe: COPY.changeSomething,
         };
       }
@@ -474,7 +546,11 @@ function setTurns(T: Turn[], args: FlowArgs) {
   const { studio, edit, set, canDraw } = args;
   T.push({ kind: 'you', id: 'use', text: edit ? COPY.saveChanges : canDraw ? COPY.use : COPY.saveWords });
   if (!set) return;
-  const any = set.tiles.length > 0 || set.running;
+  // The hero that came with the place was shown with it, as the version the
+  // person judged: it is not said again, and saving it spent nothing.
+  const cameWith = heroCameWith(args);
+  const drawnHere = set.tiles.filter((t) => !(t.role === 'hero' && t.hash === cameWith));
+  const any = drawnHere.length > 0 || set.running;
   T.push({
     kind: 'scenri',
     id: 'saved',
@@ -493,7 +569,7 @@ function setTurns(T: Turn[], args: FlowArgs) {
     T.push({
       kind: 'you',
       id: 'set-start',
-      text: studio.setDrawn ? (set.stale ? COPY.drawThemAgain : COPY.drawThem) : COPY.notNow,
+      text: studio.setDrawn ? (set.stale ? COPY.drawThemAgain : cameWith ? COPY.drawIt : COPY.drawThem) : COPY.notNow,
     });
   // the answer to the three more stands where it was given: after the two
   // drawn by themselves, before any of the three
@@ -504,7 +580,7 @@ function setTurns(T: Turn[], args: FlowArgs) {
     answered = true;
     T.push({ kind: 'you', id: 'more', text: answer });
   };
-  for (const t of set.tiles) {
+  for (const t of drawnHere) {
     if (t.role !== 'hero' && t.role !== 'close') sayAnswer();
     if (t.state === 'shown' && t.hash)
       T.push({
@@ -516,13 +592,17 @@ function setTurns(T: Turn[], args: FlowArgs) {
         view: t.role,
         ...(set.running || studio.job ? {} : { retry: t.role }),
       });
-    else if (t.state === 'failed')
+    else if (t.state === 'failed') {
+      const words = t.error ? failureWords(t.error) : null;
       T.push({
         kind: 'scenri',
         id: `ex-failed-${t.role}`,
-        text: COPY.exampleFailed(EXAMPLE_LABEL[t.role], t.error ?? COPY.failed),
+        text: words
+          ? COPY.exampleFailedSaid(EXAMPLE_LABEL[t.role], words)
+          : COPY.exampleFailed(EXAMPLE_LABEL[t.role], t.error ?? COPY.failed),
         tone: 'alert',
       });
+    }
   }
   sayAnswer();
 }
@@ -536,23 +616,29 @@ function setQuestion(args: FlowArgs): Question | null {
   const name = studio.name.trim() || current(studio)?.reading.name || 'The scene';
   if (!set) return null;
   if (set.running || !set.read) return null;
-  if (args.canDraw && set.first.length && !studio.setDrawn && !studio.setDeclined)
+  const cameWith = heroCameWith(args);
+  if (args.canDraw && set.first.length && !studio.setDrawn && !studio.setDeclined) {
+    const labels = set.first.map((r) => EXAMPLE_LABEL[r]);
     return {
       id: 'set-start',
       kind: 'confirm',
       prompt: set.stale
         ? COPY.staleSet(set.first.length)
-        : COPY.showInUse(
-            set.who,
-            set.first.map((r) => EXAMPLE_LABEL[r]),
-          ),
+        : cameWith
+          ? COPY.moreViews(labels)
+          : COPY.showInUse(set.who, labels),
       options: [
-        { id: 'draw-set', label: set.stale ? COPY.drawThemAgain : COPY.drawThem },
+        {
+          id: 'draw-set',
+          label: set.stale ? COPY.drawThemAgain : set.first.length === 1 ? COPY.drawIt : COPY.drawThem,
+        },
         { id: 'not-now', label: COPY.notNow },
       ],
     };
+  }
   const hero = set.tiles.some((t) => t.role === 'hero' && t.state === 'shown');
-  if (args.canDraw && hero && set.missing.length && !studio.moreDeclined && !studio.moreAsked)
+  // More is asked after a set was drawn, never after the first offer was declined
+  if (args.canDraw && hero && set.missing.length && !studio.setDeclined && !studio.moreDeclined && !studio.moreAsked)
     return {
       id: 'set-more',
       kind: 'confirm',
@@ -572,6 +658,12 @@ function setQuestion(args: FlowArgs): Question | null {
       { id: 'done', label: set.finish },
     ],
   };
+}
+
+/** The hero the studio drew with the place the scene was saved with, when it is the one on the scene now. */
+function heroCameWith(args: FlowArgs): string | null {
+  const hero = current(args.studio)?.hero ?? null;
+  return hero && args.set?.tiles.some((t) => t.role === 'hero' && t.state === 'shown' && t.hash === hero) ? hero : null;
 }
 
 /** The name, once given: asked while the first picture draws, kept as its own exchange. */
@@ -614,8 +706,13 @@ export function composerFor(args: FlowArgs, open: Question | null): ComposerFor 
     working,
     attach: false,
   });
-  // once used, the place is decided; the pictures after it are asked for by tapping
-  if (studio.saved) return off('', !!studio.job || !!args.set?.running);
+  // Once used, the place is decided; the pictures after it are asked for by
+  // tapping, and the line says so. While they draw the stage says what is
+  // drawing, so the line says nothing.
+  if (studio.saved) {
+    const working = !!studio.job || !!args.set?.running;
+    return off(open && !working ? COPY.usedOff : '', working);
+  }
   // an answer open again from its pencil takes the sentence
   const reopened = setup.editing;
   if (reopened === 'source') return say({ kind: 'source' }, COPY.sourcePlaceholder, true);

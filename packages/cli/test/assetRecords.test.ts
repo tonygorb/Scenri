@@ -338,3 +338,78 @@ describe('sceneRecordFrom', () => {
     expect(smuggled.scene.examples).toBeUndefined();
   });
 });
+
+describe('a scene picture that is an anchor', () => {
+  const base = { name: 'Shore', prompt: 'A wet basalt shelf at the waterline.' };
+  const built = (input: Record<string, unknown>, prior?: any) => {
+    const r = sceneRecordFrom(input, prior);
+    if (!r.ok) throw new Error(r.error);
+    return r.scene;
+  };
+
+  it('is one only when the request that brings the picture says so', () => {
+    expect(built({ ...base, previewHash: H('a'), anchor: true }).anchor).toBe(true);
+    expect(built({ ...base, previewHash: H('a') }).anchor).toBeUndefined();
+    expect(built({ ...base, previewHash: H('a'), anchor: 'yes' }).anchor).toBeUndefined();
+    // no picture, nothing to be an anchor
+    expect(built({ ...base, anchor: true }).anchor).toBeUndefined();
+  });
+
+  it('stays with its picture through an edit that does not touch it, and goes with it', () => {
+    const saved = built({ ...base, previewHash: H('a'), anchor: true });
+    expect(built({ prompt: 'A dry basalt shelf.' }, saved).anchor).toBe(true);
+    expect(built({ previewHash: H('b') }, saved).anchor).toBeUndefined();
+    expect(built({ previewHash: H('b'), anchor: true }, saved).anchor).toBe(true);
+  });
+});
+
+describe('a scene’s cover and the hero the studio drew', () => {
+  const base = { name: 'Shore', prompt: 'A wet basalt shelf at the waterline.' };
+  const built = (input: Record<string, unknown>, prior?: any) => {
+    const r = sceneRecordFrom(input, prior);
+    if (!r.ok) throw new Error(r.error);
+    return r.scene;
+  };
+
+  it('keeps a cover that names a view, through edits that do not mention it, and refuses one that does not', () => {
+    const saved = built({ ...base, previewHash: H('a'), cover: 'hero' });
+    expect(saved.cover).toBe('hero');
+    expect(built({ prompt: 'A dry basalt shelf.' }, saved).cover).toBe('hero');
+    expect(built({ cover: 'angle' }, saved).cover).toBe('angle');
+    expect(built({ cover: 'place' }, saved).cover).toBe('place');
+    expect(built({ cover: 'example-4' }, saved).cover).toBeUndefined();
+    // a scene made before covers keeps showing its place
+    expect(built({ ...base, previewHash: H('a') }).cover).toBeUndefined();
+  });
+
+  it('writes the studio’s hero as drawn from the picture it came with, and only then', () => {
+    const scene = built({
+      ...base,
+      previewHash: H('a'),
+      heroHash: H('b'),
+      heroWith: { product: 'vial', presenter: 'Not An Id!' },
+    });
+    expect(scene.examples).toEqual([
+      { role: 'hero', file: `asset:${H('b')}`, from: `asset:${H('a')}`, product: 'vial' },
+    ]);
+    // the hero it came with stands for a scene that has no cover yet
+    expect(scene.cover).toBe('hero');
+    // an edit that keeps that hero keeps how the scene is shown, whatever was chosen since
+    const chosen = built({ cover: 'place' }, scene);
+    expect(built({ prompt: 'A dry shelf.', previewHash: H('a'), heroHash: H('b') }, chosen).cover).toBe('place');
+    // and a new hero never takes a cover someone chose
+    expect(built({ previewHash: H('f'), heroHash: H('g') }, chosen).cover).toBe('place');
+    // no place, nothing for a hero to be drawn from
+    expect(built({ ...base, heroHash: H('b') }).examples).toBeUndefined();
+    // a new hero replaces the old one and keeps the rest of the set
+    const set = {
+      ...scene,
+      examples: [...(scene.examples ?? []), { role: 'close', file: `asset:${H('c')}`, from: `asset:${H('a')}` }],
+    };
+    const next = built({ previewHash: H('d'), heroHash: H('e'), heroWith: { presenter: 'amara' } }, set);
+    expect(next.examples?.map((e) => [e.role, e.file, e.from, e.presenter])).toEqual([
+      ['hero', `asset:${H('e')}`, `asset:${H('d')}`, 'amara'],
+      ['close', `asset:${H('c')}`, `asset:${H('a')}`, undefined],
+    ]);
+  });
+});

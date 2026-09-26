@@ -55,6 +55,8 @@ export type {
   MeasureRequest,
   PresenterDraft,
   SceneDraft,
+  SceneHeroMode,
+  SceneHold,
   SizeRead,
 } from './analyzer.js';
 export { createRunner, type CodexRunner } from './run.js';

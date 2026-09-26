@@ -1,0 +1,15 @@
+{
+  "id": "block-tower",
+  "name": "Block Tower",
+  "promptName": "Block Tower",
+  "keywords": ["building blocks", "toy", "primary colours", "lacquer", "wood", "playful", "sculptural", "tower"],
+  "description": "A human-scale tower of lacquered wooden building blocks in primary colours.",
+  "lighting": "Soft top light, crisp contact shadows, glossy lacquer highlights",
+  "subject": "either",
+  "collections": ["Colored backgrounds", "Studio"],
+  "verticals": ["Footwear", "Accessories", "Beverage", "Electronics", "Apparel", "Furniture"],
+  "prompt": "A tower of giant lacquered wooden building blocks rises from a pale maple floor against a warm white wall, arches, cylinders, cubes and triangles in primary red, cobalt blue, sunflower yellow and bare beech, stacked from knee to head height the way a child would build it but at human scale. Every piece bears on the one below: the arches stand on both legs, the cylinders sit upright, and one flat plank bridges two columns to make a ledge. The wood grain shows through the gloss and runs on across each face. Soft top light gives every block a crisp contact shadow. The palette is red, cobalt, yellow and natural beech, playful, bold and architectural.",
+  "width": 1024,
+  "height": 1280,
+  "cover": "angle"
+}

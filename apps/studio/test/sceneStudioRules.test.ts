@@ -17,6 +17,7 @@ import {
   repeatsLastAsk,
   seeded,
   serialize,
+  shownOf,
   stale,
   type StudioState,
   takesOf,
@@ -416,6 +417,64 @@ describe('the words, by hand', () => {
   });
 });
 
+describe('the anchor', () => {
+  it('lands with the picture the server called an anchor, and stays with words written over it', () => {
+    const started = run(
+      EMPTY,
+      { type: 'inputs', place: 'a shore', pictures: [] },
+      { type: 'started', id: 'j1', kind: 'make', since: 't0' },
+    );
+    const landed = reduce(started, { type: 'finished', job: job({ anchor: true }) });
+    expect(current(landed)?.anchor).toBe(true);
+    const older = reduce(started, { type: 'finished', job: job({}) });
+    expect(current(older)?.anchor).toBeUndefined();
+    const written = reduce(landed, { type: 'edit-words', reading: R({ prompt: 'A dry basalt shelf.' }) });
+    expect(current(written)?.anchor).toBe(true);
+  });
+
+  it('opens a saved scene with its flag, and keeps the pictures past the four it reads', () => {
+    const six = ['a', 'b', 'c', 'd', 'e', 'f'].map(H);
+    const opened = seeded({ place: '', pictures: six, reading: R(), hash: H('9'), anchor: true, name: 'Shore' });
+    expect(opened.pictures).toEqual(six.slice(0, 4));
+    expect(opened.heldPictures).toEqual(six.slice(4));
+    expect(current(opened)?.anchor).toBe(true);
+    const back = deserialize(serialize(opened));
+    expect(back?.heldPictures).toEqual(six.slice(4));
+    expect(back?.versions[0].anchor).toBe(true);
+  });
+});
+
+describe('the hero', () => {
+  it('lands with the place it came with, is what the version shows, and stays with words written over it', () => {
+    const started = run(
+      EMPTY,
+      { type: 'inputs', place: 'a shore', pictures: [] },
+      { type: 'started', id: 'j1', kind: 'make', since: 't0' },
+    );
+    const landed = reduce(started, {
+      type: 'finished',
+      job: job({ anchor: true, hero: H('e'), heroWith: { product: 'vial' } }),
+    });
+    const v = current(landed);
+    expect(v?.hero).toBe(H('e'));
+    expect(v?.heroWith).toEqual({ product: 'vial' });
+    expect(shownOf(v)).toBe(H('e'));
+    const written = reduce(landed, { type: 'edit-words', reading: R({ prompt: 'A dry basalt shelf.' }) });
+    expect(current(written)?.hero).toBe(H('e'));
+    const back = deserialize(serialize(landed));
+    expect(back?.versions.at(-1)?.hero).toBe(H('e'));
+    // a place alone is shown by the place
+    const alone = reduce(started, { type: 'finished', job: job({}) });
+    expect(current(alone)?.hero).toBeUndefined();
+    expect(shownOf(current(alone))).toBe(current(alone)?.hash);
+  });
+
+  it('opens a saved scene with the hero drawn from its picture', () => {
+    const opened = seeded({ place: '', pictures: [], reading: R(), hash: H('9'), hero: H('8'), name: 'Shore' });
+    expect(shownOf(current(opened))).toBe(H('8'));
+  });
+});
+
 describe('editing a saved scene', () => {
   const opened = seeded({ place: 'a shore', pictures: [H('a')], reading: R(), hash: H('b'), name: 'Shore' });
 
@@ -565,5 +624,20 @@ describe('a draft the wall keeps', () => {
     expect(keptAsDraft(failed)).toBe(true);
     const read = reduce(reading, { type: 'finished', job: job({ hash: null }) });
     expect(keptAsDraft(read)).toBe(true);
+  });
+});
+
+describe('a poll that says nothing new', () => {
+  it('leaves the state as it was, so nothing renders or is stored again (SC-H18)', () => {
+    const running = () =>
+      job({ kind: 'again', status: 'running', phase: 'drawing', finishedAt: null, hash: null, phaseAt: 't1' });
+    const drawing = run(
+      EMPTY,
+      { type: 'inputs', place: 'a wet basalt shelf', pictures: [] },
+      { type: 'started', id: 'j1', kind: 'again', since: 't1' },
+      { type: 'progress', job: running() },
+    );
+    // the same answer again, as the next tick brings it back
+    expect(reduce(drawing, { type: 'progress', job: running() })).toBe(drawing);
   });
 });

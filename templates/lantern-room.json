@@ -1,0 +1,15 @@
+{
+  "id": "lantern-room",
+  "name": "Lantern Room",
+  "promptName": "Lantern Room",
+  "keywords": ["paper lanterns", "washi", "tatami", "glow", "japanese", "calm", "interior", "warm"],
+  "description": "A dim washi room hung with glowing paper lanterns of every shape.",
+  "lighting": "Many soft glowing paper lanterns, warm and dim",
+  "subject": "either",
+  "collections": ["Interiors", "Furniture"],
+  "verticals": ["Furniture", "Home", "Fragrance", "Beauty", "Apparel", "Jewelry"],
+  "prompt": "A dim room with washi-white walls is hung with a dozen glowing paper lanterns of different sizes and shapes, globes, tall cylinders and flattened ovals, floating at varying heights, their fine helical bamboo ribs showing through the warm lit paper. Each lantern is its own soft light, so the room glows from many gentle sources, with soft overlapping shadows across a pale straw-toned tatami floor. The palette is warm paper white, straw and soft amber, calm, meditative and handmade.",
+  "width": 1024,
+  "height": 1280,
+  "cover": "hero"
+}

@@ -1,0 +1,35 @@
+{
+  "id": "chug-waterline",
+  "title": "Chug Bottle at the waterline",
+  "category": "social",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "carrick-stead-chug-710"
+      },
+      {
+        "t": "template",
+        "id": "waterline-caustics",
+        "view": "bold",
+        "viewName": "Bold"
+      },
+      {
+        "t": "text",
+        "v": " The bottle stands on the stone block in the clear pool, the water surface crossing just below its lid: the coral lid and the carry loop dry above the line, the navy body seen through the water below, with small bubbles clinging to it and caustics sliding across the stone."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 74,
+  "family": "fluid"
+}

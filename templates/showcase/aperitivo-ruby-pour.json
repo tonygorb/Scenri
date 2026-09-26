@@ -1,0 +1,33 @@
+{
+  "id": "aperitivo-ruby-pour",
+  "title": "Aperitivo under a ruby pour",
+  "category": "food-drink",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "fenner-ross-aperitivo"
+      },
+      {
+        "t": "template",
+        "id": "ruby-syrup-pour"
+      },
+      {
+        "t": "text",
+        "v": " The square-shouldered bottle stands on the blush ledge beside a short glass over ice, and the falling ribbon of ruby liquid pours from above straight into the glass, splashing over the ice, the liquid in the bottle and in the glass glowing the same red. The bottle stands clear of the pour, its label square to camera. 85mm at ledge height, the bottle tall, the label crisp."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 78,
+  "family": "fluid"
+}

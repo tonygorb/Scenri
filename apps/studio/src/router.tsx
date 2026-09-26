@@ -164,10 +164,13 @@ function SceneRoute() {
 
 function PresenterRoute() {
   const { presenterId } = useParams();
+  // The editor is keyed too: moving from one presenter's editor to another's
+  // inside the app (a task's Open) is a new editor, not the last one's state
+  // and its redirect back to the presenter it opened on.
   return (
     <>
       <PresenterPage key={presenterId} />
-      <Outlet />
+      <Outlet key={presenterId} />
     </>
   );
 }

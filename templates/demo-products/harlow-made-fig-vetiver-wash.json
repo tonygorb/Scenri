@@ -1,0 +1,19 @@
+{
+  "id": "harlow-made-fig-vetiver-wash",
+  "name": "Fig & Vetiver Wash",
+  "promptName": "Olive-Green Pump Bottle of Fig and Vetiver Body Wash",
+  "brand": "Harlow Made",
+  "format": "500 ml body wash",
+  "legacyNames": ["Olive-Green Pump Bottle of Fig and Vetiver Body Wash"],
+  "keywords": ["body wash", "shower gel", "pump bottle", "bath", "fig", "vetiver", "beauty"],
+  "category": "beauty",
+  "description": "A 500 ml tall cylindrical bottle in matte olive-green plastic with a black pump; a cream vertical wordmark HARLOW MADE running up the left side of the front, and to its right in small cream type Body Wash, Fig & Vetiver and 500 ml.",
+  "dimensions": "about 22 cm tall with its pump and 7 cm across",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "body wash in a pump bottle",
+  "materials": "matte olive-green plastic bottle, black plastic pump, cream print",
+  "primaryColors": "matte olive green, black, cream",
+  "negativeConstraints": "Never invent any text, logo, wordmark or mark beyond the ones this record names, never misspell or rearrange those, and never add a second label.",
+  "preservationNotes": "Keep the cream print exactly: HARLOW MADE running vertically up the left side, and Body Wash, Fig & Vetiver and 500 ml in small type to its right. Keep the matte olive-green cylinder and the black pump facing the same way in every shot."
+}

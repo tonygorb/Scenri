@@ -13,7 +13,7 @@ import { P, presenterEditPath, presenterPath, presenterStudioPath } from '../rou
 import { PresenterCard, PresenterCardSkeleton } from '../layout/PresenterCard.js';
 import { PresenterDraftCard } from '../layout/PresenterDraftCard.js';
 import { CatalogPickedBar } from '../layout/CatalogPickedBar.js';
-import { catalogPickVerb, keepersLine, settlePicked } from '../layout/catalogPick.js';
+import { catalogPickVerb, deleteLeaves, keepersLine, settlePicked } from '../layout/catalogPick.js';
 import { useCatalogPick } from '../layout/useCatalogPick.js';
 import { Confirm } from '../Confirm.js';
 import { DuplicatePresenterDialog } from './DuplicatePresenterDialog.js';
@@ -375,6 +375,34 @@ export function PresentersView() {
   const showDrafts = !onlyMarked || keepersBrowse;
   const mineShown = minePlusBuilds.filter((p) => !onlyMarked || keepersBrowse || marks.includes(p.id));
   const showMine = (showDrafts && drafts.length > 0) || mineShown.length > 0;
+  /**
+   * Your half pages the way Products pages it. It mounted every card, so a
+   * thousand people of your own were all in the DOM, and opening the studio
+   * over the wall re-rendered each one. Drafts stay whole: they are few, and
+   * they are the way back to unfinished work. Your people are newest first,
+   * so a copy just made lands on the first page.
+   */
+  const {
+    visible: mineVisible,
+    remaining: mineRemaining,
+    showMore: showMoreMine,
+  } = useLibraryPage(
+    mineShown,
+    `${brand.id}|${category ?? ''}|${onlyMarked ? 'keepers' : ''}|${keepersBrowse ? 'browse' : ''}|${q}`,
+  );
+  // Grown before the bottom arrives, against the page's own scroller, as Products does.
+  const [mineEnd, setMineEnd] = useState<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!mineEnd || mineRemaining <= 0) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) showMoreMine();
+      },
+      { root: mineEnd.closest('.sc-home'), rootMargin: '200% 0px' },
+    );
+    io.observe(mineEnd);
+    return () => io.disconnect();
+  }, [mineEnd, mineRemaining, showMoreMine]);
   const librarySource = useMemo(() => {
     if (!onlyMarked || keepersBrowse) return filtered;
     return filtered.filter((p) => marks.includes(p.id));
@@ -534,7 +562,7 @@ export function PresentersView() {
                     }}
                   />
                 )}
-                {mineShown.map((p) => (
+                {mineVisible.map((p) => (
                   <PresenterCard
                     key={p.id}
                     presenter={p}
@@ -596,7 +624,7 @@ export function PresentersView() {
                   <Confirm
                     label="Delete presenter"
                     title={`Delete ${removing.name}?`}
-                    body="Shots already made with them keep their images and their recipe. Only future shots lose them."
+                    body={deleteLeaves('presenter', 1)}
                     open
                     busy={acting}
                     onOpenChange={(o) => {
@@ -609,7 +637,7 @@ export function PresentersView() {
                   <Confirm
                     label={catalogPickVerb('presenter', pick.ids.size).menu}
                     title={`${catalogPickVerb('presenter', pick.ids.size).menu}?`}
-                    body="Shots already made with them keep their images and their recipe. Only future shots lose them."
+                    body={deleteLeaves('presenter', pick.ids.size)}
                     open
                     busy={acting}
                     onOpenChange={(o) => {
@@ -636,6 +664,14 @@ export function PresentersView() {
                   />
                 )}
               </div>
+              {mineRemaining > 0 && <div ref={setMineEnd} aria-hidden />}
+              {mineRemaining > 0 && (
+                <div className="sc-lib-more">
+                  <button type="button" className="sc-btn sc-btn-ghost" onClick={showMoreMine}>
+                    Show {Math.min(mineRemaining, 60)} more
+                  </button>
+                </div>
+              )}
             </section>
           )}
 
@@ -749,7 +785,7 @@ export function PresentersView() {
         <div className="sc-wall-dock">
           <CatalogPickedBar
             count={pick.ids.size}
-            loaded={pick.kind === 'draft' ? drafts.length : mineShown.length}
+            loaded={pick.kind === 'draft' ? drafts.length : mineVisible.length}
             tool={catalogPickVerb(pick.kind, pick.ids.size).tool}
             icon={catalogPickVerb(pick.kind, pick.ids.size).icon}
             danger={catalogPickVerb(pick.kind, pick.ids.size).danger}
@@ -763,7 +799,7 @@ export function PresentersView() {
             onSelectAll={() =>
               pick.selectAll(
                 pick.kind === 'draft' ? 'draft' : 'presenter',
-                (pick.kind === 'draft' ? drafts : mineShown).map((row) => row.id),
+                (pick.kind === 'draft' ? drafts : mineVisible).map((row) => row.id),
               )
             }
           />

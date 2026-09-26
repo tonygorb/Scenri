@@ -7,16 +7,16 @@ import { loadScenes, sceneResolver, defaultScenesDir } from './scenes.js';
 import { brandJsonWithResolvedPresenters, loadPresenters, presenterAvatarPath } from './presenters.js';
 import {
   brandJsonWithResolvedDemoProducts,
-  demoProductRefPath,
+  demoProductAngleFiles,
   demoProductResolver,
   loadDemoProducts,
-  PRODUCT_ANGLES_BY_CATEGORY,
 } from './demoProducts.js';
 import { compileBrief, validateBrief, FORMATS, type Attachment, type Brief, type BriefToken } from './brief.js';
 import { mergeEditAttachments } from './attachmentBudget.js';
 import { shotWordsFor } from './shotWords.js';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import type {
   Core,
   EngineAdapter,
@@ -45,8 +45,12 @@ import {
   brandJsonWithIdentityCrops,
   brandSceneById,
   brandScenes,
+  cancelAssetBuild,
+  listAssetBuilds,
   runningAssetBuildCount,
+  settleAssetBuilds,
   type Analyzer,
+  type AssetBuildDeps,
 } from './customAssets.js';
 import type { CodexSetup } from '@scenri/engine-codex';
 import { fromThisComputer, registerAccessGuard, type AccessOptions } from './access.js';
@@ -103,11 +107,13 @@ import { registerPresenterRoutes } from './routes/presenters.js';
 import { registerAssetBuildRoutes } from './routes/assetBuilds.js';
 import { registerPresenterDraftRoutes } from './routes/presenterDrafts.js';
 import { registerSceneStudioRoutes } from './routes/sceneStudio.js';
-import { runningSceneStudioCount, settleSceneStudio } from './sceneStudio.js';
+import { cancelSceneStudioFor, runningSceneStudioCount, settleSceneStudio } from './sceneStudio.js';
 import { createSceneExamples, type SceneExamples } from './sceneExamples.js';
 import { registerSceneExampleRoutes } from './routes/sceneExamples.js';
 import type { SceneExample } from './assetRecords.js';
 import {
+  discardPresenterDraft,
+  listPresenterDrafts,
   removeUnreferenced,
   runningDraftJobCount,
   settlePresenterDrafts,
@@ -195,6 +201,15 @@ function seedFor(sourceHash: string, width: number, height: number): number {
 const SECRET_KEYS = ['openrouter_api_key', 'replicate_api_token', 'fal_key'];
 
 export function buildServer(opts: ServerOptions): FastifyInstance {
+  // libvips keeps an operation cache and a thread pool per operation, and on a
+  // long session both held memory the process never gave back: a 45 minute
+  // soak grew the server's footprint by about 176 MB every ten minutes with a
+  // flat JS heap. Off and one: 60 scene draws went from 132 to 376 MB with the
+  // defaults and from 128 to 153 MB with these, and a 48 MP photo's decode
+  // costs 7% more (2.7 s to 2.9 s). Requests still run side by side on the
+  // libuv pool.
+  sharp.cache(false);
+  sharp.concurrency(1);
   const { core, engines } = opts;
   const meta = readMeta();
   const app = Fastify({ logger: false });
@@ -317,6 +332,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     if (body.keepAssets === true && json && typeof json === 'object') {
       const stored = core.store.getBrand((req.params as any).id);
       if (stored) json = withStoredAssets(json, stored.json);
+      // It may also say what it read (`base`), and then it is a change to
+      // that copy rather than the whole kit: see withOwnChanges.
+      if (stored && body.base && typeof body.base === 'object') json = withOwnChanges(json, body.base, stored.json);
     }
     const v = validateBrand(json);
     if (!v.valid) return reply.status(400).send({ error: 'invalid .brand', details: v.errors });
@@ -324,7 +342,33 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     return row ?? reply.status(404).send({ error: 'brand not found' });
   });
   app.delete('/api/brands/:id', async (req) => {
-    core.store.deleteBrand((req.params as any).id);
+    const id = String((req.params as any).id);
+    const brand = core.store.getBrand(id);
+    const hooks = { evict: (hash: string) => thumbs.evict(hash) };
+    if (brand) {
+      // Its work stops first, so nothing is drawn or read for a brand that is
+      // gone: studio draws, example runs, scene reads and presenter drafts. A
+      // draft goes the way a discard takes it, with the pictures only it held.
+      cancelSceneStudioFor(id);
+      for (const s of brandScenes(brand.json)) sceneExamples?.sceneGone(id, s.id, []);
+      for (const b of listAssetBuilds(id)) cancelAssetBuild(b.id);
+      // Nothing is drawn while a brand goes: a discard only reads the library.
+      const quiet: AssetBuildDeps = {
+        core,
+        engine: null,
+        analyzer: null,
+        brandContext: (brandId) => brandContext(core, brandId),
+        vocabulary: { collections: [], verticals: [], categories: [] },
+      };
+      for (const d of listPresenterDrafts(core, id)) await discardPresenterDraft(quiet, d.id, hooks);
+    }
+    core.store.deleteBrand(id);
+    // Then the pictures its document held (scenes, presenters, products, logos),
+    // unless another brand or a shot still holds them.
+    if (brand) {
+      const held = [...JSON.stringify(brand.json).matchAll(/asset:([a-f0-9]{32})/g)].map((m) => m[1]);
+      removeUnreferenced(core, held, hooks);
+    }
     return { ok: true };
   });
 
@@ -576,7 +620,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
 
   // ---- scenes (+ their preview imagery when generated)
   const templatesRoot = opts.templatesDir ?? defaultScenesDir();
-  registerSceneRoutes(app, { templatesRoot, scenes, thumbs });
+  registerSceneRoutes(app, { templatesRoot, scenes, thumbs, core });
 
   // ---- presenters (curated identity catalog). A presenter attaches straight
   // into a brief like a Scene does — see brandJsonWithResolvedPresenters below.
@@ -613,6 +657,15 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   // it is drawing. Put those back before anyone reads them.
   sweepPresenterDrafts(core);
   sweepAbandonedPresenterDrafts(core, { evict: (hash) => thumbs.evict(hash) });
+  // A turn of the loop after boot, so starting never waits on a walk of the
+  // whole store. Whatever an error leaves behind, the next start looks at again.
+  setImmediate(() => {
+    try {
+      sweepUnreferencedImages(core, (hash) => thumbs.evict(hash));
+    } catch {
+      /* not worth failing a start over */
+    }
+  });
   registerPresenterDraftRoutes(app, { core, engines, analyzer: opts.analyzer, scenes, presenters, thumbs });
   registerSceneStudioRoutes(app, {
     core,
@@ -622,6 +675,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     presenters,
     thumbs,
     onPlaceChanged: exampleHooks.onPlaceChanged,
+    // Made further down, with the demo products and sizes it draws with; a
+    // studio draw asks for it only once a place is drawn, long after boot.
+    hero: (req) => sceneExamples?.drawHero(req) ?? Promise.resolve(null),
   });
 
   // ---- demo products (curated, fictional-but-premium product catalog). A
@@ -676,7 +732,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     brandContext: (brandId) => brandContext(core, brandId),
     demoProducts,
     presenters,
-    compile: async (brandId, tokens, engine) => {
+    compile: async (brandId, tokens, engine, draft) => {
       const brand = await brandJsonWithIdentityCrops(
         core,
         await brandJsonWithResolvedPresenters(
@@ -704,7 +760,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
           images: core.images,
           wordsFor: shotWordsFor(core, brandId),
           engineCaps: engine.capabilities(),
-          templateById: sceneFor(brand),
+          // The studio's hero is drawn before its scene is saved: the scene it
+          // names is the reading, not a record.
+          templateById: draft ? (id: string) => (id === draft.id ? draft : sceneFor(brand)(id)) : sceneFor(brand),
         },
       );
       return { compiled, brand };
@@ -715,8 +773,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     ready: (subject) => {
       if (subject.kind === 'presenter') return existsSync(presenterAvatarPath(templatesRoot, subject.id));
       const product = demoProducts.find((p) => p.id === subject.id);
-      const angles = PRODUCT_ANGLES_BY_CATEGORY[product?.category ?? ''] ?? PRODUCT_ANGLES_BY_CATEGORY.other;
-      return angles.some((angle) => existsSync(demoProductRefPath(templatesRoot, subject.id, angle)));
+      return demoProductAngleFiles(templatesRoot, subject.id, product?.category ?? '').length > 0;
     },
     log: (obj, msg) => app.log.warn(obj, msg),
   });
@@ -2778,6 +2835,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       await settleCatalogImports();
       // a studio draw writes an image when it lands: never into a home being torn down
       await settleSceneStudio();
+      await settleAssetBuilds();
       await sceneExamples?.settle();
       await settlePresenterDrafts();
       await thumbs.settle();
@@ -2828,6 +2886,37 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   return app;
 }
 
+/**
+ * How old an unreferenced picture must be before boot lets it go. Past every
+ * window a client holds a picture nothing on the server names yet: a scene
+ * conversation keeps its versions for seven days, and the Composer keeps a
+ * half-written brief, uploads included, for thirty days after its last edit,
+ * which can itself be weeks after the upload.
+ */
+const UNREFERENCED_IMAGE_MS = 60 * 24 * 60 * 60 * 1000;
+
+/**
+ * Remove stored pictures nothing names that are older than the window above:
+ * a scene studio's unused versions (its jobs live in memory and a restart
+ * forgets them), an upload never filed, a likeness photo taken off before
+ * Continue. The references are the ones removeUnreferenced trusts, read once
+ * each rather than once per file; if any read throws, nothing is removed.
+ */
+function sweepUnreferencedImages(core: Core, evict: (hash: string) => void): void {
+  const referenced = core.store.referencedHashes();
+  const dir = join(core.home, 'images');
+  const now = Date.now();
+  for (const name of readdirSync(dir)) {
+    const hash = /^([a-f0-9]{32})\.[a-z0-9]{2,5}$/.exec(name)?.[1];
+    if (!hash || referenced.has(hash)) continue;
+    const file = join(dir, name);
+    const stat = statSync(file, { throwIfNoEntry: false });
+    if (!stat || now - stat.mtimeMs < UNREFERENCED_IMAGE_MS) continue;
+    rmSync(file, { force: true });
+    evict(hash);
+  }
+}
+
 /** The brand collections their own routes own, carried over from the stored document. */
 const ASSET_COLLECTIONS = ['products', 'scenes', 'characters'] as const;
 function withStoredAssets(sent: Record<string, unknown>, stored: unknown): Record<string, unknown> {
@@ -2839,3 +2928,46 @@ function withStoredAssets(sent: Record<string, unknown>, stored: unknown): Recor
   }
   return out;
 }
+
+/**
+ * A kit save, read as the change it makes to the copy it started from.
+ *
+ * Two windows on one brand each hold a copy of the kit, and a save sent its
+ * whole copy: a tagline typed on a phone put back the name the desktop had
+ * just changed, and nothing said so. `base` is what the saving window read,
+ * for each key it edited. A key it does not name, or left as it read it, stays
+ * as stored. `meta` is compared field by field, because its fields are
+ * separate rows in the kit, each edited on its own.
+ */
+function withOwnChanges(sent: Record<string, unknown>, base: object, stored: unknown): Record<string, unknown> {
+  const out = { ...fieldsOf(stored) };
+  const read = base as Record<string, unknown>;
+  for (const key of Object.keys(read)) {
+    if ((ASSET_COLLECTIONS as readonly string[]).includes(key)) continue;
+    const next =
+      key === 'meta'
+        ? changedFields(sent.meta, read.meta, out.meta)
+        : isDeepStrictEqual(sent[key], read[key])
+          ? out[key]
+          : sent[key];
+    if (next === undefined) delete out[key];
+    else out[key] = next;
+  }
+  return out;
+}
+
+/** The stored fields, with the ones this save changed from what it read laid over them. */
+function changedFields(sent: unknown, read: unknown, stored: unknown): Record<string, unknown> {
+  const now = fieldsOf(sent);
+  const was = fieldsOf(read);
+  const out = { ...fieldsOf(stored) };
+  for (const field of new Set([...Object.keys(now), ...Object.keys(was)])) {
+    if (isDeepStrictEqual(now[field], was[field])) continue;
+    if (field in now) out[field] = now[field];
+    else delete out[field];
+  }
+  return out;
+}
+
+const fieldsOf = (v: unknown): Record<string, unknown> =>
+  v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};

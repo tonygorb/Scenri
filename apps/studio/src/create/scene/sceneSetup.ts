@@ -258,6 +258,13 @@ export function picturesOf(a: Answers): string[] {
   return a.source?.door === 'photos' && a.photos?.done ? a.photos.hashes : [];
 }
 
+/**
+ * HEIC, the iPhone's own format. Scenri cannot decode it yet, so a HEIC file
+ * is said to the person rather than uploaded and refused.
+ */
+export const isHeic = (f: { type: string; name: string }): boolean =>
+  /^image\/hei[cf]/i.test(f.type) || /\.hei[cf]$/i.test(f.name);
+
 /* ------------------------------------------------------------ the state */
 
 export interface SetupState {
@@ -278,6 +285,8 @@ export type SetupAction =
   | { type: 'answer'; patch: Partial<Answers> }
   /** The pictures being chosen at the open question, before they are handed over. */
   | { type: 'photos'; hashes: string[] }
+  /** One more picture uploaded, added to those standing when it lands (two uploads can land together). */
+  | { type: 'photo'; hash: string }
   | { type: 'edit'; id: Qid }
   | { type: 'cancel-edit' }
   | { type: 'aside'; aside: Aside };
@@ -296,6 +305,8 @@ export function reduceSetup(s: SetupState, act: SetupAction): SetupState {
       const done = s.editing === 'photos';
       return { ...s, answers: { ...s.answers, photos: { hashes, done } }, revision: s.revision + 1 };
     }
+    case 'photo':
+      return reduceSetup(s, { type: 'photos', hashes: [...(s.answers.photos?.hashes ?? []), act.hash] });
     case 'edit':
       return answered(act.id, s.answers) ? { ...s, editing: act.id, held: s.answers } : s;
     case 'cancel-edit':
@@ -306,8 +317,12 @@ export function reduceSetup(s: SetupState, act: SetupAction): SetupState {
   }
 }
 
+/**
+ * An answer open again is kept as it stood before it was opened: a reload in
+ * the middle of a change is the same as Cancel, and nothing half-given is read.
+ */
 export const serializeSetup = (s: SetupState): unknown => ({
-  answers: s.answers,
+  answers: s.held ?? s.answers,
   revision: s.revision,
   asides: s.asides,
 });

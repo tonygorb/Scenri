@@ -57,7 +57,7 @@ import { useResolvedNode } from './create/useResolvedNode.js';
  * not an empty state but the ordinary one.
  */
 export function CreateView({ set }: { set: ShotSet | null }) {
-  const { engines, scenes: templates, presenters, demoProducts, showcase, showcaseLoaded } = useAppData();
+  const { engines, scenes: catalogScenes, presenters, demoProducts, showcase, showcaseLoaded } = useAppData();
   const {
     brand,
     workspace,
@@ -75,6 +75,8 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     subscribeActivity,
     products,
   } = useBrand();
+  // the catalog as this brand shows it: a cover it chose is on every chip
+  const templates = catalogScenes;
   // The rail offers what a brief can resolve, so the brand's own assets lead
   // it exactly as they do in the composer's own attach panel.
   // One assembled catalog for this screen. The rail builds its own from the
@@ -444,7 +446,10 @@ export function CreateView({ set }: { set: ShotSet | null }) {
    */
   // `setup` rides with `scene`, so it leaves with it: a spent seed left in the
   // address is a seed that applies itself again on the next mount
-  const spendSeeds = useCallback(() => dropParams('scene', 'setup', 'presenter', 'product'), [dropParams]);
+  const spendSeeds = useCallback(
+    () => dropParams('scene', 'setup', 'presenter', 'product', 'ref', 'view'),
+    [dropParams],
+  );
 
   // a target that has stopped being one is dropped, and said so: a chip that
   // silently stops meaning anything is worse than no chip. The server is asked
@@ -1309,6 +1314,8 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           startSetup={params.get('setup') ?? undefined}
           startPresenter={params.get('presenter') ?? undefined}
           startProduct={params.get('product') ?? undefined}
+          startRef={params.get('ref') ?? undefined}
+          startView={params.get('view') ?? undefined}
           onSeedsSpent={spendSeeds}
           openAttachTab={
             params.get('attach') === 'scenes' ? 'Scenes' : params.get('attach') === 'products' ? 'Products' : undefined

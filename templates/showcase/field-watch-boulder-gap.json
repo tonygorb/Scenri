@@ -1,0 +1,37 @@
+{
+  "id": "field-watch-boulder-gap",
+  "title": "Field 38 at the top of a scramble",
+  "category": "lifestyle",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "aldergate-field-38"
+      },
+      {
+        "t": "character",
+        "id": "anton"
+      },
+      {
+        "t": "template",
+        "id": "studio-boulder-gap"
+      },
+      {
+        "t": "text",
+        "v": " At the top of a scramble he rests his forearm on the lichened granite, the field watch on his left wrist turned to the light, catching his breath and looking out at the far mountains. He wears a short-sleeved slate-grey tee, olive climbing trousers and grey approach shoes. 50mm, close on the forearm, the watch and his profile, the granite sharp and the mountains soft."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 108,
+  "family": "human"
+}

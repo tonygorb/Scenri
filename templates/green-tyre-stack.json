@@ -1,0 +1,15 @@
+{
+  "id": "green-tyre-stack",
+  "name": "Tyre Stack",
+  "promptName": "Tyre Stack",
+  "keywords": ["green", "tyres", "color matched", "sculptural", "streetwear", "playful", "monochrome", "graphic"],
+  "description": "A stack of old tyres painted glossy kelly green on a kelly green sweep.",
+  "lighting": "Soft even front light, one soft pooled shadow",
+  "subject": "either",
+  "collections": ["Colored backgrounds", "Social"],
+  "verticals": ["Footwear", "Sport", "Apparel", "Electronics"],
+  "prompt": "A seamless paper sweep in bright saturated kelly green fills the frame, floor and wall alike. In the middle ground stands a loose stack of old car tyres, every one painted the same glossy kelly green so they read as sculpture, their treads catching thin highlights. The light is soft and even from a large source in front, with one soft shadow pooling beneath the stack. Nothing else is in the set, only green paper, green tyres and clean light. The palette is one saturated green in three values, playful and graphic.",
+  "width": 1024,
+  "height": 1280,
+  "cover": "hero"
+}

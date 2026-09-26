@@ -11,6 +11,9 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
   const [draft, setDraft] = useState<PresenterDraft | null>(null);
   const [gone, setGone] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // The view a failed draw was for, beside its words: a failure is said about
+  // what did not draw. Null for anything else, and only read while `err` stands.
+  const [errView, setErrView] = useState<PresenterDraftView | null>(null);
   const [busy, setBusy] = useState(false);
   const alive = useRef(true);
 
@@ -35,11 +38,22 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
     setDraft((cur) => (acceptsDraft(cur, next, want.current) ? next : cur));
   }, []);
 
+  /**
+   * Whether the error standing is one a read left. A read is asked again every
+   * second and a half while anything draws, so its failure is a moment, not
+   * the conversation's: one lost poll used to latch "That did not go through:
+   * Failed to fetch" with a Retry over a face that had landed fine, and stop
+   * the set there. The next read that lands takes it back. An action's own
+   * failure is left alone.
+   */
+  const readErr = useRef(false);
+
   // A different address is a different draft: nothing of the last one carries over.
   useEffect(() => {
     setDraft(null);
     setGone(false);
     setErr(null);
+    readErr.current = false;
     setBusy(false);
   }, [draftId]);
 
@@ -48,6 +62,10 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
     const asked = draftId;
     try {
       take(await api.presenterDraft(brandId, asked));
+      if (readErr.current && alive.current && want.current === asked) {
+        readErr.current = false;
+        setErr(null);
+      }
     } catch (e: any) {
       if (!alive.current) return;
       // A failure belongs to the draft it was asked about. A 404 for a draft
@@ -55,7 +73,11 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
       // on, and its error would be shown against somebody else's conversation.
       if (want.current !== asked) return;
       if (/HTTP 404|not found/i.test(String(e?.message ?? e))) setGone(true);
-      else setErr(String(e?.message ?? e));
+      else {
+        readErr.current = true;
+        setErrView(null);
+        setErr(String(e?.message ?? e));
+      }
     }
   }, [brandId, draftId, take]);
 
@@ -72,10 +94,11 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
 
   /** One action at a time, its answer taken as the new truth, its failure said once. */
   const act = useCallback(
-    async (work: () => Promise<PresenterDraft>) => {
+    async (work: () => Promise<PresenterDraft>, view: PresenterDraftView | null = null) => {
       const asked = want.current;
       setBusy(true);
       setErr(null);
+      readErr.current = false;
       try {
         take(await work());
         return true;
@@ -92,6 +115,8 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
           void load();
           return false;
         }
+        readErr.current = false;
+        setErrView(view);
         setErr(String(e?.message ?? e));
         return false;
       } finally {
@@ -121,6 +146,7 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
               ...(decide ? { decide } : {}),
             })
           ).draft,
+        view,
       ),
     [act, brandId, draftId],
   );
@@ -132,9 +158,29 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
     (view: PresenterDraftView) => act(() => api.redoDraftView(brandId, draftId ?? '', view)),
     [act, brandId, draftId],
   );
+  /**
+   * One press is one act for the two that put a picture back. `busy` is state
+   * and does not change inside a tick, so a double click on Keep previous sent
+   * two reverts: the second found nothing previous to keep, and its 400 stood
+   * as the conversation's error, with a Retry that could only fail again and
+   * every step the flow takes on its own held behind it.
+   */
+  const puttingBack = useRef(false);
+  const putBack = useCallback(
+    async (work: () => Promise<PresenterDraft>) => {
+      if (puttingBack.current) return false;
+      puttingBack.current = true;
+      try {
+        return await act(work);
+      } finally {
+        puttingBack.current = false;
+      }
+    },
+    [act],
+  );
   const revert = useCallback(
-    (view: PresenterDraftView) => act(() => api.revertDraftView(brandId, draftId ?? '', view)),
-    [act, brandId, draftId],
+    (view: PresenterDraftView) => putBack(() => api.revertDraftView(brandId, draftId ?? '', view)),
+    [putBack, brandId, draftId],
   );
   /** Stop answers once the work has let go, which can take a moment: the pill says so meanwhile. */
   const [stopping, setStopping] = useState(false);
@@ -147,8 +193,8 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
     }
   }, [act, brandId, draftId]);
   const restore = useCallback(
-    (view: PresenterDraftView, hash: string) => act(() => api.restoreDraftView(brandId, draftId ?? '', view, hash)),
-    [act, brandId, draftId],
+    (view: PresenterDraftView, hash: string) => putBack(() => api.restoreDraftView(brandId, draftId ?? '', view, hash)),
+    [putBack, brandId, draftId],
   );
   const placePhoto = useCallback(
     (view: PresenterDraftView, hash: string) => act(() => api.placeDraftPhoto(brandId, draftId ?? '', view, hash)),
@@ -165,12 +211,16 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
     }) => act(() => api.updatePresenterDraft(brandId, draftId ?? '', patch)),
     [act, brandId, draftId],
   );
-  const clearErr = useCallback(() => setErr(null), []);
+  const clearErr = useCallback(() => {
+    readErr.current = false;
+    setErr(null);
+  }, []);
 
   return {
     draft,
     gone,
     err,
+    errView,
     busy,
     drawing,
     reload: load,

@@ -404,7 +404,7 @@ test.describe('the conversation in motion', () => {
     await expect(answer(page, 'Nothing to add')).toBeVisible({ timeout: 20_000 });
     await settle(page);
     await answer(page, 'Nothing to add').click();
-    await expect(log(page)).toContainText('what should we call them?', { timeout: 20_000 });
+    await expect(log(page)).toContainText('What should we call them?', { timeout: 20_000 });
     await settle(page);
     await send(page, 'Noor');
     // the face read off the photographs is a candidate too, decided before the

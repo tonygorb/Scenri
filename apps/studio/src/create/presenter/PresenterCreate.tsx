@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { publishStudio } from '../../guideFacts.js';
 import { Confirm } from '../../Confirm.js';
+import { useToasts } from '../../toasts.js';
 import { StudioShell } from './StudioShell.js';
 import { type CreationFlowArgs, useCreationFlow } from './useCreationFlow.js';
 import { REDRAW_BODY, REDRAW_BODY_PHOTOS, REDRAW_TITLE } from './presenterCopy.js';
@@ -18,6 +19,7 @@ import { VIEW_NAME, worthKeeping } from './presenterStudioRules.js';
 export function PresenterCreate({ onClose, ...args }: CreationFlowArgs & { onClose: () => void }) {
   const f = useCreationFlow(args);
   const d = f.d;
+  const { push } = useToasts();
   // The question on the floor, for the first-use guide (DESIGN.md, "First use").
   useEffect(() => publishStudio({ open: f.open }), [f.open]);
   useEffect(() => () => publishStudio(null), []);
@@ -27,11 +29,21 @@ export function PresenterCreate({ onClose, ...args }: CreationFlowArgs & { onClo
    * record, offered back on the presenters page, and closing costs nothing.
    */
   const [leaving, setLeaving] = useState(false);
+  // The draft can land while the question stands (the answers were already on
+  // their way to it): then nothing would be lost by closing, and a dialog still
+  // saying so over a face being drawn was wrong. It stands down.
+  useEffect(() => {
+    if (leaving && !f.unsaved) setLeaving(false);
+  }, [leaving, f.unsaved]);
   const close = () => {
     if (f.unsaved) {
       setLeaving(true);
       return;
     }
+    // A draft closed over stays on the wall, a draw on it still running, and
+    // that is said once: the card used to be the only way to learn it. Not
+    // while it is being saved, when it is becoming a presenter instead.
+    if (d && !f.saving) push({ kind: 'info', title: 'Kept on Presenters', detail: 'Continue it from its card.' });
     onClose();
   };
   /**

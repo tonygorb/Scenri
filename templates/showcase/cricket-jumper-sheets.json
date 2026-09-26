@@ -1,0 +1,37 @@
+{
+  "id": "cricket-jumper-sheets",
+  "title": "Cricket jumper among the sheets",
+  "category": "lifestyle",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "dunmore-kerr-cricket-jumper"
+      },
+      {
+        "t": "character",
+        "id": "maeve"
+      },
+      {
+        "t": "template",
+        "id": "laundry-line"
+      },
+      {
+        "t": "text",
+        "v": " She walks between the billowing sheets, the cream cricket jumper worn loose over a white shirt, with pale high-waisted jeans and white canvas plimsolls, copper hair blowing across her face. 50mm from low in the grass, full length, bright sun and blue sky."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 99,
+  "family": "human"
+}

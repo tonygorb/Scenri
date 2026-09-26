@@ -1,0 +1,33 @@
+{
+  "id": "noir-cedar-smoke",
+  "title": "Noir Cedar at the jaw",
+  "category": "editorial",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "marrow-vale-noir-cedar"
+      },
+      {
+        "t": "character",
+        "id": "soren"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. Low-key portrait: he holds the black parfum against his jaw, eyes to camera, a curl of smoke drifting across the frame, one hard rim light from behind and a soft key. He wears a black silk shirt open at the collar. 85mm, framed from crown to chest, deep blacks."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 93,
+  "family": "human"
+}

@@ -130,7 +130,30 @@ export interface SceneDraft {
   figureTreatment?: string;
   /** Non-blocking notes on what another reference would buy. Mirrors PresenterDraft. */
   coverage: string[];
+  /**
+   * What the reference pictures themselves show that a scene never keeps as it
+   * is: a real person, a real product, readable words or marks. Not the scene's
+   * words (those leave identity out already) but a note for the one draw that
+   * sees the pictures: the scene's picture is drawn beside them, and anything
+   * named here is then taken out of it (`sceneClearInstruction`). Absent
+   * when the reader did not say, which is treated as "may hold all three".
+   */
+  holds?: SceneHold[];
+  /**
+   * What the scene's first picture, its hero, shows in the place: a product
+   * staged in it, a person, a person with a product, or the place alone when
+   * anything added would make this world worse. Decided with the reading,
+   * before anything is drawn, from what the words and pictures say the world is
+   * for. Absent when the reader did not say; the studio then decides from the
+   * figure and `holds` (sceneExamples.ts `heroModeOf`).
+   */
+  hero?: SceneHeroMode;
 }
+
+export type SceneHold = 'person' | 'product' | 'lettering';
+const HOLDS: readonly SceneHold[] = ['person', 'product', 'lettering'];
+export type SceneHeroMode = 'product' | 'presenter' | 'both' | 'place';
+const HERO_MODES: readonly SceneHeroMode[] = ['product', 'presenter', 'both', 'place'];
 
 /** One product photograph, read for how large the real object is. */
 export interface MeasureRequest {
@@ -494,6 +517,16 @@ function sceneBody(req: AnalyzeRequest, refCount: number): string {
     ' "coverage": an array of at most two short sentences naming what another reference would buy, such as' +
     ' "A wider frame would pin down how the room is laid out." Say so here if these references look like different places,' +
     ' or if they are mostly a person or a packshot with too little environment to build a world from. Use an empty array when they are good;' +
+    ' "holds": an array naming what the reference pictures themselves show, from exactly these words:' +
+    ' "person" if any real person, face or body part appears in any of them, however small;' +
+    ' "product" if any product, package, garment or object is staged or held as the thing being shown;' +
+    ' "lettering" if any readable words, logo or brand mark appears anywhere.' +
+    ' An empty array when none of these appear, and an empty array when no reference image is attached;' +
+    ' "hero": what the scene\'s hero picture shows in it, the one picture that sells this world as a finished campaign:' +
+    ' "product" when it is a world for staging an object (a surface, a set, a still life),' +
+    ' "presenter" when it is a world built around a person (a portrait, editorial or fashion place),' +
+    ' "both" when it is a person living with a product in it (a lifestyle moment),' +
+    ' or "place" only when anything added would make this world worse (a vast landscape, an architectural space that is the whole point);' +
     ` "collections": one or two themed groupings;${collections}` +
     ` "verticals": the industries this world flatters.${verticals}`
   );
@@ -605,6 +638,13 @@ function parseScene(req: AnalyzeRequest, o: Record<string, unknown>): ParseResul
   // A treatment without a figure describes nothing, so it never survives alone.
   // Longer than the figure's role, because the treatment's detail is the point.
   const figureTreatment = figure ? oneLine(o.figureTreatment, 240) : '';
+  // Non-blocking too. Unreadable means unknown, never "holds nothing": an
+  // unknown picture is scrubbed, a known-clean one is not.
+  const holds = Array.isArray(o.holds)
+    ? HOLDS.filter((h) => (o.holds as unknown[]).some((x) => str(x).toLowerCase() === h))
+    : undefined;
+  // Non-blocking: an unreadable answer is no answer, and the studio decides.
+  const hero = HERO_MODES.find((m) => m === str(o.hero).toLowerCase());
   return {
     ok: true,
     draft: {
@@ -621,6 +661,8 @@ function parseScene(req: AnalyzeRequest, o: Record<string, unknown>): ParseResul
       figure: figure || undefined,
       figureTreatment: figureTreatment || undefined,
       coverage: sentences(o.coverage, 2, 240),
+      ...(holds ? { holds } : {}),
+      ...(hero ? { hero } : {}),
     },
   };
 }

@@ -1,0 +1,24 @@
+{
+  "id": "chalk-steps",
+  "name": "Chalk Steps",
+  "promptName": "Chalk Steps",
+  "keywords": [
+    "limestone",
+    "white steps",
+    "navy sky",
+    "wildflowers",
+    "mediterranean",
+    "sculptural",
+    "hard light",
+    "summer"
+  ],
+  "description": "Chalk-white limestone steps with periwinkle wildflowers under a deep navy sky.",
+  "lighting": "Bright hard daylight, bleached whites, crisp shadow planes",
+  "subject": "either",
+  "collections": ["Editorial", "Social"],
+  "verticals": ["Accessories", "Fragrance", "Jewelry", "Apparel", "Footwear"],
+  "prompt": "Stepped blocks of chalk-white limestone rise in broad, clean-edged tiers, weathered and faintly pitted, with small periwinkle wildflowers growing from the cracks between them. Above them the sky is a deep saturated navy blue without a cloud. Bright, hard daylight bleaches the whites and cuts crisp shadow planes under every step. The camera is slightly low, so the top step meets the sky in one clean line. The palette is chalk white, navy and periwinkle, sculptural and bright.",
+  "width": 1024,
+  "height": 1280,
+  "cover": "hero"
+}

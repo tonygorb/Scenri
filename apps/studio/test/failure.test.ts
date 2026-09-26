@@ -242,6 +242,8 @@ describe('describeFailure', () => {
     expect(f.kind).toBe('server');
     expect(f.title).toBe('fal.ai had a problem on its end.');
     expect(f.retryable).toBe(true);
+    // the scene and presenter studios say this too, and neither has a brief
+    expect(f.fix).toBe('Nothing wrong on your side. Try again shortly.');
   });
 
   it('reads the node-level network errors', () => {

@@ -1,0 +1,37 @@
+{
+  "id": "field-watch-corner",
+  "title": "Field watch in a tight corner",
+  "category": "lifestyle",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "aldergate-field-38"
+      },
+      {
+        "t": "character",
+        "id": "kwame"
+      },
+      {
+        "t": "template",
+        "id": "tight-corner"
+      },
+      {
+        "t": "text",
+        "v": " He sits on the worn carpet in the corner, one knee up, forearm resting on it with the field watch turned to camera, looking down at the dial. He wears an olive utility overshirt over a white T-shirt, ecru chinos and white canvas sneakers. 50mm, full length, the soft light raking down the grey flats."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 86,
+  "family": "studio"
+}

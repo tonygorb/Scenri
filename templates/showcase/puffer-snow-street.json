@@ -1,0 +1,33 @@
+{
+  "id": "puffer-snow-street",
+  "title": "Puffer in a city snowfall",
+  "category": "seasonal",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "slate-harbor-cropped-puffer"
+      },
+      {
+        "t": "character",
+        "id": "zuri"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. Snow is falling on a quiet city street at dusk and she laughs up into it, snowflakes caught in the flash and in her afro. She wears the tangerine cropped puffer zipped to the chin, wide black trousers and black snow boots. Warm shop windows glow out of focus behind her, the street lamps just on. 50mm at f/2, framed from the knees up, a direct fill flash freezing the flakes."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 67,
+  "family": "human"
+}

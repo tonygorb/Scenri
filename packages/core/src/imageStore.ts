@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, writeFileSync, existsSync, readFileSync, renameSync, rmSync, statSync } from 'node:fs';
+import { mkdirSync, writeFileSync, existsSync, readFileSync, renameSync, rmSync, statSync, utimesSync } from 'node:fs';
 import { join } from 'node:path';
 
 export interface ImageStore {
@@ -61,6 +61,12 @@ export function createImageStore(homeDir: string): ImageStore {
         } finally {
           rmSync(tmp, { force: true });
         }
+      } else {
+        // The same bytes saved again are new again: the boot sweep of pictures
+        // nothing references goes by age, and a photo first saved long ago and
+        // attached again today must not look abandoned.
+        const now = new Date();
+        utimesSync(file, now, now);
       }
       return hash;
     },

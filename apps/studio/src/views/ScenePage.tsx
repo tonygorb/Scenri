@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { api, type Scene, type SceneSetup, thumbOf } from '../api.js';
+import { api, type Scene, type SceneSetup, type SceneView, thumbOf, tileSrcSet } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useMadeWith } from './useMadeWith.js';
@@ -18,6 +18,7 @@ import { FRAMINGS, SETUPS_MAX } from '../create/scene/sceneSetups.js';
 import { sceneTailLine } from './sceneFacts.js';
 import { RecordCrumb } from '../layout/RecordCrumb.js';
 import { RecordKeep } from '../layout/RecordKeep.js';
+import { deleteLeaves } from '../layout/catalogPick.js';
 import { Tip } from '../layout/Tip.js';
 import { AssetDetailsDialog } from './AssetDetailsDialog.js';
 import { EmptyRefFrame, ShotThumb, Shown, Slider } from '../layout/ReferenceGallery.js';
@@ -27,6 +28,11 @@ import { bookmarkedFirst } from '../layout/library/libraryRules.js';
 import { useStillHere } from '../useStillHere.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
 import { SceneExamples } from './SceneExamples.js';
+import { SceneViewActions, SceneViewCaption } from '../layout/SceneViewActions.js';
+import { EXAMPLE_LABEL } from '../sceneExampleRules.js';
+
+/** A scene's pictures in the order of what they are: the hero, the place, then the rest of the set. */
+const VIEW_ORDER: readonly SceneView[] = ['hero', 'place', 'close', 'hands', 'angle', 'bold'];
 
 /**
  * One scene, as a record: the same page a presenter and a product have.
@@ -45,16 +51,20 @@ import { SceneExamples } from './SceneExamples.js';
  */
 export function ScenePage() {
   const { sceneId } = useParams();
-  const { scenes, loaded, error, refetch, applyBrand, refreshBrands } = useAppData();
+  const { scenes: catalog, loaded, error, refetch, applyBrand, refreshBrands } = useAppData();
   // one ask upstairs holds the whole brand now, so this page no longer walks
   // twenty project trees to answer "what did this scene actually produce"
   const { brand } = useBrand();
+  const scenes = catalog;
   const navigate = useNavigate();
   const applyScene = useApplyScene();
   const brandId = brand.id;
   const [refs, setRefs] = useState<string[]>([]);
-  /** The picture opened at full size, and what to call it there. */
-  const [open, setOpen] = useState<{ src: string; label: string } | null>(null);
+  /** A curated scene's frames by what they show, when its library names them. */
+  const [views, setViews] = useState<{ view: SceneView; url: string }[]>([]);
+  const [viewBusy, setViewBusy] = useState(false);
+  /** The picture opened at full size, what to call it there, and which view it is. */
+  const [open, setOpen] = useState<{ src: string; label: string; view?: SceneView } | null>(null);
 
   const openScene = (id: string) => navigate(scenePath(brand, id));
 
@@ -75,13 +85,16 @@ export function ScenePage() {
   useEffect(() => {
     let alive = true;
     setRefs([]);
+    setViews([]);
     // A scene built here carries its own images; only a curated one has a
     // reference set sitting on disk to go and ask about.
     if (isOwned) return;
     void api
       .sceneFrames(sceneId ?? '')
       .then((r) => {
-        if (alive) setRefs(r.frames);
+        if (!alive) return;
+        setRefs(r.frames);
+        setViews(r.views ?? []);
       })
       .catch(() => {
         if (alive) setRefs([]);
@@ -275,17 +288,37 @@ export function ScenePage() {
    * carries a set shot in it, and one older than its set has only its card.
    * Your own scene's pictures are SceneExamples: the place, then the place in use.
    */
-  const frames: { src: string; label: string }[] = refs.length
-    ? refs.map((src, i) => ({ src, label: `Example ${i + 1}` }))
-    : scene.previewUrl
-      ? [{ src: scene.previewUrl, label: 'The place' }]
-      : [];
-
-  /** A curated set is photographed with a demo product standing in for the art direction. */
-  const caption =
-    scene.subject !== 'person' && frames.length > 0
-      ? 'Shown with a demo product for reference. Yours replaces it.'
-      : '';
+  const frames: { src: string; label: string; view?: SceneView }[] = views.length
+    ? // by role, never by file: the hero first, then the place, then the rest
+      [...views]
+        .sort((a, b) => VIEW_ORDER.indexOf(a.view) - VIEW_ORDER.indexOf(b.view))
+        .map((v) => ({ src: v.url, label: v.view === 'place' ? 'The place' : EXAMPLE_LABEL[v.view], view: v.view }))
+    : refs.length
+      ? refs.map((src, i) => ({ src, label: `Example ${i + 1}` }))
+      : scene.previewUrl
+        ? [
+            {
+              src: scene.previewUrl,
+              label: scene.cover && scene.cover !== 'place' ? EXAMPLE_LABEL[scene.cover] : 'The place',
+            },
+          ]
+        : [];
+  /** A catalog view handed to one shot: copied into the store first, then the same road a made scene's takes. */
+  const shootCatalogView = async (view: SceneView) => {
+    if (viewBusy) return;
+    const here = stillHere();
+    setViewBusy(true);
+    setErr(null);
+    try {
+      const { hash } = await api.pickSceneView(scene.id, view);
+      if (!here()) return;
+      applyScene(scene.id, undefined, hash, view);
+    } catch (e: any) {
+      setErr(String(e?.message ?? e));
+    } finally {
+      setViewBusy(false);
+    }
+  };
 
   const ways = owned?.setups ?? [];
   /**
@@ -293,26 +326,30 @@ export function ScenePage() {
    * the place: a scene saved before its picture was drawn falls back to its
    * first upload for the preview, which showed the same photograph twice.
    */
-  const sources = (owned?.refs ?? []).filter((src) => src !== owned?.previewUrl);
+  const sources = (owned?.refs ?? []).filter((src) => src !== owned?.placeUrl);
   /**
    * What its pictures are, said once, in the footnote the presenter page keeps
    * for what is true about a record. Under the rail it read as a caption to
    * the middle picture.
    */
   const shownWith = owned?.examples?.find((e) => !e.earlier)?.with ?? owned?.examples?.[0]?.with;
+  // What a shot is given, as brief.ts decides it: an anchor goes with every new
+  // shot (one with a person in it, only beside a presenter); an older picture
+  // only when its figure wears a treatment. Any picture can be picked to shoot
+  // like, from its lightbox.
+  const rides = !!owned && (owned.anchor === true || !!(owned.figure && owned.figureTreatment));
+  const pick = owned?.previewHash || owned?.examples?.length ? ' Use a view to shoot like it.' : '';
   const about = !owned
     ? ''
-    : owned.figure
-      ? 'The person in it is a stand-in: with a presenter attached, the picture goes with the shot and they take the role.'
-      : shownWith
-        ? `Shown in use with a Scenri demo ${shownWith}. Shots are told the words, never handed these pictures.`
-        : owned.previewUrl
-          ? // Measured 2026-09-22: a shot handed this picture reproduces its
-            // framing (5 of 9 near copies), while a shot told the words is
-            // still clearly this place. So the words travel and the picture
-            // is the proof of them.
-            'Shots are told the words, never handed this picture.'
-          : '';
+    : owned.figure && rides
+      ? `The person in it is a stand-in: with a presenter attached, the picture goes with the shot and they take the role.${pick}`
+      : rides
+        ? `${shownWith ? `Shown in use with a Scenri demo ${shownWith}. ` : ''}Shots are given its picture as their world and find their own frame in it.${pick}`
+        : shownWith
+          ? `Shown in use with a Scenri demo ${shownWith}. Shots are told the words.${pick}`
+          : owned.placeUrl
+            ? `Shots are told the words.${pick}`
+            : '';
   const tail = owned ? sceneTailLine({ refs: sources, setups: owned.setups }, about) : '';
 
   return (
@@ -402,30 +439,44 @@ export function ScenePage() {
           >
             {frames.map((f) => (
               <li key={f.src}>
-                <button
-                  type="button"
-                  className="sc-refset-tile"
-                  aria-label={`${f.label}, open`}
-                  onClick={() => setOpen(f)}
-                >
-                  <Shown src={thumbOf(f.src, 'small')} />
-                </button>
-                <span className="sc-refset-lb" aria-hidden>
-                  {f.label}
+                <span className="sc-sceneview-frame">
+                  <button
+                    type="button"
+                    className="sc-refset-tile"
+                    aria-label={`${f.label}, open`}
+                    onClick={() => setOpen(f)}
+                  >
+                    <Shown src={thumbOf(f.src, 'tile')} srcSet={tileSrcSet(f.src)} />
+                  </button>
+                  {f.view && (
+                    <SceneViewActions
+                      variant="tile"
+                      label={f.label}
+                      isCover={false}
+                      onOpen={() => setOpen(f)}
+                      onUse={() => void shootCatalogView(f.view as SceneView)}
+                      busy={viewBusy}
+                    />
+                  )}
                 </span>
+                <SceneViewCaption label={f.label} isCover={false} />
               </li>
             ))}
           </Rail>
         ) : frames.length === 1 ? (
           <div className="sc-scenepage-place">
-            <button type="button" aria-label={`${frames[0].label}, open`} onClick={() => setOpen(frames[0])}>
-              <Shown src={thumbOf(frames[0].src, 'tile')} />
+            <button
+              type="button"
+              className="sc-scenepage-open"
+              aria-label={`${frames[0].label}, open`}
+              onClick={() => setOpen(frames[0])}
+            >
+              <Shown src={thumbOf(frames[0].src, 'tile')} srcSet={tileSrcSet(frames[0].src)} />
             </button>
           </div>
         ) : (
           <EmptyRefFrame />
         )}
-        {!owned && caption && <p className="sc-lookpage-note">{caption}</p>}
 
         {/* What a shot made here is told, in the three keys that are real. The
             set prose behind them is the studio's, and Edit scene is the way to
@@ -481,7 +532,7 @@ export function ScenePage() {
             <Confirm
               label="Delete scene"
               title={`Delete ${owned.name}?`}
-              body="Shots already made here keep their images. Their recipe will say this scene is gone, and building from one again will miss it."
+              body={deleteLeaves('owned-scene', 1)}
               busy={busy}
               onConfirm={() => void remove()}
             />
@@ -536,6 +587,17 @@ export function ScenePage() {
             label={open.label}
             noun={scene.name}
             onClose={() => setOpen(null)}
+            actions={
+              open.view ? (
+                <SceneViewActions
+                  variant="sheet"
+                  label={open.label}
+                  isCover={false}
+                  onUse={() => void shootCatalogView(open.view as SceneView)}
+                  busy={viewBusy}
+                />
+              ) : undefined
+            }
           />
         )}
       </main>

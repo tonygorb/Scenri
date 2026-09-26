@@ -297,6 +297,49 @@ describe('brands API', () => {
     expect(plain.json().json.scenes ?? []).toEqual([]);
   });
 
+  // Two windows each hold a copy of the kit, and a save sent its whole copy:
+  // a tagline typed in one put back the name the other had just changed, and
+  // neither window said so (S4-01). A save that names the copy it started
+  // from writes only what it changed there.
+  it('a kit save that names the copy it started from writes only what it changed', async () => {
+    const created = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: {
+          brand: {
+            specVersion: '0.1',
+            meta: { name: 'Two Windows', tagline: 'Old line' },
+            palette: { primary: { hex: '#111111', name: 'Ink' } },
+          },
+        },
+      })
+    ).json();
+    const copy = created.json;
+    const put = (brand: unknown, base?: unknown) =>
+      app.inject({ method: 'PUT', url: `/api/brands/${created.id}`, payload: { brand, keepAssets: true, base } });
+
+    // window A renames and recolours
+    const a = await put({ ...copy, meta: { ...copy.meta, name: 'Renamed In A' } }, { meta: copy.meta });
+    expect(a.json().json.meta.name).toBe('Renamed In A');
+    await put(
+      { ...a.json().json, palette: { primary: { hex: '#222222', name: 'Coal' } } },
+      { palette: a.json().json.palette },
+    );
+
+    // window B never saw either, and clears the tagline for a new one
+    const b = await put({ ...copy, meta: { name: copy.meta.name, website: 'https://b.example' } }, { meta: copy.meta });
+    expect(b.statusCode).toBe(200);
+    expect(b.json().json.meta).toEqual({ name: 'Renamed In A', website: 'https://b.example' });
+    // a key B's save did not change stays as stored, though B's copy carried an older one
+    expect(b.json().json.palette.primary.hex).toBe('#222222');
+
+    // without a copy named, the save is the whole kit, as it has always been
+    const plain = await put({ ...copy, meta: { name: 'Whole Kit' } });
+    expect(plain.json().json.meta).toEqual({ name: 'Whole Kit' });
+    expect(plain.json().json.palette.primary.hex).toBe('#111111');
+  });
+
   it('rejects invalid brand json', async () => {
     const res = await app.inject({
       method: 'POST',
@@ -4029,5 +4072,13 @@ describe('progressive delivery', () => {
     } finally {
       await local.close();
     }
+  });
+});
+
+describe('image memory on a long session', () => {
+  // the server under every test here is built in the top-level beforeEach
+  it('keeps no libvips operation cache and one libvips thread per operation', () => {
+    expect(sharp.cache().memory.max).toBe(0);
+    expect(sharp.concurrency()).toBe(1);
   });
 });

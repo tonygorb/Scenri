@@ -315,7 +315,7 @@ const RULES: Rule[] = [
     re: /HTTP 5\d\d\b|internal server error|bad gateway|service unavailable|overloaded|upstream/i,
     kind: 'server',
     title: (e) => `${cap(e)} had a problem on its end.`,
-    fix: 'Nothing wrong with your brief. Try again shortly.',
+    fix: 'Nothing wrong on your side. Try again shortly.',
     retryable: true,
   },
 

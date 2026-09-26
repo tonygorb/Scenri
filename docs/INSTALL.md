@@ -88,7 +88,7 @@ Two things worth knowing from day one:
 - **Keep the terminal window open.** That window is Scenri running. Closing it stops Scenri;
   nothing is lost, and the same command starts it again.
 - **The first launch downloads the Scenri library** of example imagery in the background, about
-  95 MB, once. On a slow connection the home wall fills in as it arrives.
+  155 MB, once. On a slow connection the home wall fills in as it arrives.
 
 ## First launch
 

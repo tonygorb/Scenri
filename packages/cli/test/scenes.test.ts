@@ -22,9 +22,9 @@ const base = {
 };
 
 describe('scene loader + composer', () => {
-  it('loads the 72 shipped scenes, all valid, none naming a product', () => {
+  it('loads the 42 shipped scenes, all valid, none naming a product', () => {
     const { scenes, warnings } = loadScenes(defaultScenesDir());
-    expect(scenes).toHaveLength(72);
+    expect(scenes).toHaveLength(42);
     expect(warnings).toEqual([]);
     for (const s of scenes) {
       expect(s.prompt).not.toContain('{product_name}');
@@ -326,13 +326,13 @@ describe('product uploads + scene generation via API', () => {
   it('GET /api/scenes carries the facets; the deprecated alias still returns a bare list', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/scenes' });
     const body = res.json();
-    expect(body.scenes).toHaveLength(72);
+    expect(body.scenes).toHaveLength(42);
     expect(body.collections).toContain('Interiors');
     expect(body.verticals).toContain('Beauty');
 
     const legacy = (await app.inject({ method: 'GET', url: '/api/templates' })).json();
     expect(Array.isArray(legacy)).toBe(true);
-    expect(legacy).toHaveLength(72);
+    expect(legacy).toHaveLength(42);
   });
 
   it('a scene id resolves through the generate route', async () => {
@@ -350,7 +350,7 @@ describe('product uploads + scene generation via API', () => {
         projectId: proj.project.id,
         kind: 'generation',
         engineId: 'spy',
-        templateId: 'studio-polished-pedestal',
+        templateId: 'white-glove-tray',
         productId,
         prompt: 'keep it airy',
       },
@@ -363,7 +363,7 @@ describe('product uploads + scene generation via API', () => {
     expect(res.statusCode).toBe(202);
     await new Promise((r) => setTimeout(r, 50));
     expect(lastGen!.prompt).toContain('House Blend');
-    expect(lastGen!.prompt).toContain('monumental quarry scale dwarfing the subject');
+    expect(lastGen!.prompt).toContain('moss-green velvet');
     expect(lastGen!.prompt).toContain('keep it airy');
     expect(lastGen!.prompt).toMatch(/preserve its label, shape[^.]*colors/i);
     expect(lastGen!.width).toBe(1024);
@@ -383,7 +383,7 @@ describe('product uploads + scene generation via API', () => {
         projectId: proj.project.id,
         kind: 'generation',
         engineId: 'spy',
-        templateId: 'studio-polished-pedestal',
+        templateId: 'white-glove-tray',
       },
     });
     // Scene-only is a legitimate state: the user may want the environment on
@@ -404,9 +404,9 @@ describe('product uploads + scene generation via API', () => {
   });
 
   it("lists a scene's reference frames, and answers empty rather than 404 when there is no set", async () => {
-    const withSet = (await app.inject({ method: 'GET', url: '/api/scene-previews/morning-tabletop' })).json();
+    const withSet = (await app.inject({ method: 'GET', url: '/api/scene-previews/waterline-caustics' })).json();
     expect(withSet.frames.length).toBeGreaterThan(0);
-    expect(withSet.frames[0]).toMatch(/^\/api\/scene-previews\/morning-tabletop\/ref-\d\d\.jpg\?v=\d+$/);
+    expect(withSet.frames[0]).toMatch(/^\/api\/scene-previews\/waterline-caustics\/ref-\d\d\.jpg\?v=\d+$/);
 
     const without = await app.inject({ method: 'GET', url: '/api/scene-previews/no-such-scene' });
     expect(without.statusCode).toBe(200);
@@ -416,6 +416,42 @@ describe('product uploads + scene generation via API', () => {
     // refused earlier still, by the router itself
     expect((await app.inject({ method: 'GET', url: '/api/scene-previews/Not_An_Id' })).statusCode).toBe(400);
     expect((await app.inject({ method: 'GET', url: '/api/scene-previews/../../etc' })).statusCode).toBe(404);
+  });
+
+  it("sizes a scene's card from its full-size cover past the card's own width, and keeps the card for the rest", async () => {
+    const scene = (await app.inject({ method: 'GET', url: '/api/scenes' }))
+      .json()
+      .scenes.find((s: any) => s.id === 'waterline-caustics');
+    const { views } = (await app.inject({ method: 'GET', url: '/api/scene-previews/waterline-caustics' })).json();
+    const cover = views.find((v: any) => v.view === (scene.cover ?? 'place'));
+    const slot = /(ref-\d\d)\.jpg/.exec(cover.url)?.[1];
+    // the card and the cover's own frame are one derivative, cut from the full-size picture
+    const sized = await app.inject({ method: 'GET', url: '/api/scene-thumbnails/waterline-caustics.jpg?w=960' });
+    expect(sized.statusCode).toBe(200);
+    expect(sized.headers.etag).toMatch(new RegExp(`^"scene-frame-waterline-caustics-${slot}-\\d+-w960"$`));
+    expect((await sharp(sized.rawPayload).metadata()).width).toBe(960);
+    // a width the 720 card already covers is cut from the card, the cheaper file
+    const narrow = await app.inject({ method: 'GET', url: '/api/scene-thumbnails/waterline-caustics.jpg?w=640' });
+    expect(narrow.headers.etag).toMatch(/^"scene-waterline-caustics-\d+-w640"$/);
+    const full = await app.inject({ method: 'GET', url: '/api/scene-thumbnails/waterline-caustics.jpg' });
+    expect(full.headers['content-type']).toBe('image/jpeg');
+    expect((await sharp(full.rawPayload).metadata()).width).toBe(720);
+  });
+
+  it('names each frame by what it shows, and hands one to a shot as a picture in the store', async () => {
+    const { views } = (await app.inject({ method: 'GET', url: '/api/scene-previews/waterline-caustics' })).json();
+    expect(views.map((v: any) => v.view)).toEqual(['place', 'hero', 'close', 'angle', 'bold']);
+    expect(views[1].url).toMatch(/^\/api\/scene-previews\/waterline-caustics\/ref-02\.jpg/);
+    const picked = await app.inject({ method: 'POST', url: '/api/scenes/waterline-caustics/views/hero/pick' });
+    expect(picked.statusCode).toBe(200);
+    expect(core.images.has(picked.json().hash)).toBe(true);
+    // asking twice keeps one picture
+    const again = await app.inject({ method: 'POST', url: '/api/scenes/waterline-caustics/views/hero/pick' });
+    expect(again.json().hash).toBe(picked.json().hash);
+    expect(
+      (await app.inject({ method: 'POST', url: '/api/scenes/waterline-caustics/views/hands/pick' })).statusCode,
+    ).toBe(404);
+    expect((await app.inject({ method: 'POST', url: '/api/scenes/nope/views/hero/pick' })).statusCode).toBe(404);
   });
 
   it('reports where the library lives and how big it is', async () => {

@@ -1,4 +1,4 @@
-import type { SceneReading, SceneStudioJob, SceneStudioJobKind } from '../../apiTypes.js';
+import type { HeroWith, ScenePatch, SceneReading, SceneStudioJob, SceneStudioJobKind } from '../../apiTypes.js';
 import { COPY } from './sceneCopy.js';
 
 /**
@@ -44,6 +44,14 @@ export interface Version {
   reading: SceneReading;
   /** None when nothing could draw, or the draw was stopped or failed after the words landed. */
   hash: string | null;
+  /** The picture is an anchor: drawn beside the references and made nobody's, so it may go with a shot. */
+  anchor?: boolean;
+  /**
+   * The hero drawn from that picture: the place in use, and the picture shown
+   * first. The place (`hash`) stays what a shot is given.
+   */
+  hero?: string;
+  heroWith?: HeroWith;
   /** The sentence that made it, for a change. */
   ask?: string;
   coverage: string[];
@@ -71,6 +79,12 @@ export interface StudioState {
   /** The person's own words about the place. The deciding word, stored as `instruction`. */
   place: string;
   pictures: string[];
+  /**
+   * A saved scene's pictures past the four the studio reads (the record keeps
+   * eight). Not read and not drawn beside, only kept, so saving an edit does
+   * not drop them.
+   */
+  heldPictures: string[];
   /** Bumps whenever the place or the pictures change. */
   inputsRev: number;
   /** The inputs' revision the standing words were read from; null before any reading. */
@@ -109,6 +123,7 @@ export interface StudioState {
 export const EMPTY: StudioState = {
   place: '',
   pictures: [],
+  heldPictures: [],
   inputsRev: 0,
   readRev: null,
   readTried: null,
@@ -131,14 +146,30 @@ export function seeded(input: {
   pictures: string[];
   reading: SceneReading;
   hash: string | null;
+  anchor?: boolean;
+  /** Its hero, when it has one drawn from this picture. */
+  hero?: string;
+  heroWith?: HeroWith;
   name: string;
 }): StudioState {
   return {
     ...EMPTY,
     place: input.place,
-    pictures: input.pictures,
+    pictures: input.pictures.slice(0, PICTURES_MAX),
+    heldPictures: input.pictures.slice(PICTURES_MAX),
     readRev: 0,
-    versions: [{ reading: input.reading, hash: input.hash, coverage: [], how: 'read' }],
+    versions: [
+      {
+        reading: input.reading,
+        hash: input.hash,
+        ...(input.anchor ? { anchor: true } : {}),
+        ...(input.hash && input.hero
+          ? { hero: input.hero, ...(input.heroWith ? { heroWith: input.heroWith } : {}) }
+          : {}),
+        coverage: [],
+        how: 'read',
+      },
+    ],
     current: 0,
     name: input.name,
     named: true,
@@ -152,6 +183,8 @@ export type Action =
   | { type: 'started'; id: string; kind: SceneStudioJobKind; ask?: string; since: string }
   /** Stop was pressed for this job; its answer is on the way. */
   | { type: 'stopping'; id: string }
+  /** That Stop never reached the server: the pill is Stop again, so it can be pressed again. */
+  | { type: 'stop-failed'; id: string }
   | { type: 'progress'; job: SceneStudioJob }
   | { type: 'finished'; job: SceneStudioJob }
   | { type: 'lost'; id: string; error: string }
@@ -166,7 +199,9 @@ export type Action =
   | { type: 'decline-more' }
   | { type: 'ask-more' }
   | { type: 'set-drawn' }
-  | { type: 'set-declined' };
+  | { type: 'set-declined' }
+  /** The press for the place in use (or the three more) never started a run: its offer is made again. */
+  | { type: 'set-failed'; more: boolean };
 
 export const current = (s: StudioState): Version | null => s.versions[s.current] ?? null;
 
@@ -232,6 +267,11 @@ export function reduce(s: StudioState, a: Action): StudioState {
     case 'stopping':
       if (!s.job || s.job.id !== a.id || s.job.stopping) return s;
       return { ...s, job: { ...s.job, stopping: true } };
+    case 'stop-failed': {
+      if (!s.job || s.job.id !== a.id || !s.job.stopping) return s;
+      const { stopping: _, ...job } = s.job;
+      return { ...s, job };
+    }
     case 'progress': {
       if (!s.job || s.job.id !== a.job.id) return s;
       const job = {
@@ -241,6 +281,15 @@ export function reduce(s: StudioState, a: Action): StudioState {
         phase: a.job.phase,
         since: a.job.phaseAt ?? s.job.since,
       };
+      // A tick that says nothing new leaves the state as it was: a new object
+      // re-ran the transcript and wrote the whole session again, once a second.
+      if (
+        job.phase === s.job.phase &&
+        job.since === s.job.since &&
+        job.coverage.join('\n') === s.job.coverage.join('\n') &&
+        JSON.stringify(job.pending) === JSON.stringify(s.job.pending)
+      )
+        return s;
       return suggestName({ ...s, job }, job.pending);
     }
     case 'finished': {
@@ -279,6 +328,8 @@ export function reduce(s: StudioState, a: Action): StudioState {
       const version: Version = {
         reading,
         hash: j.hash,
+        ...(j.hash && j.anchor ? { anchor: true } : {}),
+        ...(j.hash && j.hero ? { hero: j.hero, ...(j.heroWith ? { heroWith: j.heroWith } : {}) } : {}),
         ask: ref.kind === 'change' ? ref.ask : undefined,
         coverage: j.coverage?.length ? j.coverage : ref.kind === 'again' ? (current(s)?.coverage ?? []) : [],
         how,
@@ -313,7 +364,14 @@ export function reduce(s: StudioState, a: Action): StudioState {
       if (JSON.stringify(a.reading) === JSON.stringify(v.reading)) return s;
       const versions = [
         ...s.versions,
-        { reading: a.reading, hash: v.hash, coverage: v.coverage, how: 'edit' as const },
+        {
+          reading: a.reading,
+          hash: v.hash,
+          ...(v.anchor ? { anchor: true } : {}),
+          ...(v.hero ? { hero: v.hero, ...(v.heroWith ? { heroWith: v.heroWith } : {}) } : {}),
+          coverage: v.coverage,
+          how: 'edit' as const,
+        },
       ];
       return { ...s, versions, current: versions.length - 1 };
     }
@@ -329,6 +387,8 @@ export function reduce(s: StudioState, a: Action): StudioState {
       return { ...s, setDrawn: true, setDeclined: false };
     case 'set-declined':
       return { ...s, setDeclined: true };
+    case 'set-failed':
+      return a.more ? { ...s, moreAsked: false } : { ...s, setDrawn: false };
   }
 }
 
@@ -388,6 +448,10 @@ export function takesOf(s: StudioState): { n: number; hash: string; current: boo
   const at = current(s)?.hash ?? null;
   return [...last.entries()].sort((a, b) => a[1] - b[1]).map(([hash], k) => ({ n: k + 1, hash, current: hash === at }));
 }
+
+/** The picture a version is shown by: its hero, else its place. */
+export const shownOf = (v: Pick<Version, 'hash' | 'hero'> | null | undefined): string | null =>
+  v?.hero ?? v?.hash ?? null;
 
 /** A picture's number among the pictures, which is how a person counts them. */
 export const pictureNumber = (s: StudioState, index: number): number =>
@@ -489,6 +553,21 @@ export const unsaved = (s: StudioState, seededFrom: StudioState | null): boolean
   return !!(s.place.trim() || s.pictures.length || s.versions.length || s.job);
 };
 
+/**
+ * What an edit changed, against the record it was opened on. Only that is
+ * sent, so a rename or a refiling made elsewhere while the editor was open is
+ * not written back over by the editor's opening snapshot. A picture goes with
+ * what it is: whether it is an anchor, and who stands in its hero.
+ */
+export function changedFrom(next: ScenePatch, was: ScenePatch): ScenePatch {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(next))
+    if (JSON.stringify(v) !== JSON.stringify(was[k as keyof ScenePatch])) out[k] = v;
+  if ('previewHash' in out) out.anchor = next.anchor;
+  if ('heroHash' in out && next.heroWith) out.heroWith = next.heroWith;
+  return out as ScenePatch;
+}
+
 /* ------------------------------------------------------------ the session */
 
 const STORED = 1;
@@ -519,6 +598,10 @@ export function deserialize(raw: string | null): StudioState | null {
         .map((v: any) => ({
           reading: v.reading,
           hash: typeof v.hash === 'string' ? v.hash : null,
+          ...(v.anchor === true && typeof v.hash === 'string' ? { anchor: true } : {}),
+          ...(typeof v.hero === 'string' && typeof v.hash === 'string'
+            ? { hero: v.hero, ...(v.heroWith && typeof v.heroWith === 'object' ? { heroWith: v.heroWith } : {}) }
+            : {}),
           ask: typeof v.ask === 'string' ? v.ask : undefined,
           coverage: strs(v.coverage),
           how: ['read', 'draw', 'again', 'change', 'edit'].includes(v.how) ? v.how : v.hash ? 'draw' : 'read',
@@ -543,6 +626,7 @@ export function deserialize(raw: string | null): StudioState | null {
   return {
     place: typeof o.place === 'string' ? o.place.slice(0, PLACE_MAX) : '',
     pictures: strs(o.pictures).slice(0, PICTURES_MAX),
+    heldPictures: strs(o.heldPictures).slice(0, 4),
     inputsRev: Number(o.inputsRev) || 0,
     readRev: o.readRev === null || o.readRev === undefined ? null : Number(o.readRev),
     readTried: o.readTried === null || o.readTried === undefined ? null : Number(o.readTried),

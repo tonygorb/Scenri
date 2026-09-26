@@ -1,0 +1,15 @@
+{
+  "id": "white-glove-tray",
+  "name": "White Glove",
+  "promptName": "White Glove",
+  "keywords": ["white glove", "silver tray", "velvet", "moss green", "butler", "luxury", "formal", "presentation"],
+  "description": "A white-gloved hand offers a silver tray against a moss velvet curtain.",
+  "lighting": "Warm soft side light, sheen on velvet, silver and cotton",
+  "subject": "product",
+  "collections": ["Studio", "Editorial"],
+  "verticals": ["Accessories", "Jewelry", "Fragrance", "Food & drink"],
+  "prompt": "A heavy pleated curtain of moss-green velvet fills the background, its folds catching a soft sheen. From the right of the frame a white-gloved hand in the sleeve of a black tailcoat holds out a polished silver octagonal tray at chest height, level and steady, the rest of the figure out of frame. The tray is empty and mirror-bright, reflecting a blur of green velvet. Warm soft side light models the glove's cotton, the silver's bevelled edge and the velvet pile. The palette is moss green, silver, white and black, formal and quietly witty.",
+  "width": 1024,
+  "height": 1280,
+  "cover": "hero"
+}

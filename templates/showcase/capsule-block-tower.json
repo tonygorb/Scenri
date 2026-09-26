@@ -1,0 +1,33 @@
+{
+  "id": "capsule-block-tower",
+  "title": "Capsule speaker in the block tower",
+  "category": "social",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "ossett-hume-capsule"
+      },
+      {
+        "t": "template",
+        "id": "block-tower"
+      },
+      {
+        "t": "text",
+        "v": " The chartreuse capsule speaker sits in an arch of the block tower like one more block, its fabric the only chartreuse among the primaries. 50mm at arch height, the speaker centred."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 51,
+  "family": "studio"
+}

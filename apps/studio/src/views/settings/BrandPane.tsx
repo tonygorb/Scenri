@@ -8,7 +8,7 @@ import { Group } from './Group.js';
 import { BrandNever } from './BrandNever.js';
 import { BrandIdentity } from './BrandIdentity.js';
 import { BrandPalette } from './BrandPalette.js';
-import { type SaveState, useBrandDoc } from './useBrandDoc.js';
+import { type SaveState, useBrandDoc, useCommitOnLeave } from './useBrandDoc.js';
 import { failureToast } from '../../failure.js';
 
 /**
@@ -52,6 +52,9 @@ export function BrandPane({ onSaveState }: { onSaveState: (state: SaveState) => 
     else delete meta.website;
     doc.patch({ meta });
   };
+  useCommitOnLeave(() => {
+    if (site.trim() !== website) commitSite();
+  });
 
   const refreshFromUrl = async () => {
     setRefreshing(true);

@@ -1,0 +1,33 @@
+{
+  "id": "capsule-model-village",
+  "title": "Capsule speaker in the model village",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "ossett-hume-capsule"
+      },
+      {
+        "t": "template",
+        "id": "model-village"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. The capsule speaker lies in the grass of the lawn at the very edge of the model village, at its true size beside a daisy, while a model steam train crosses the little stone bridge just behind it and the knee-high cottages and church spire stand beyond; nothing of the speaker stands in the village lanes or squares. Low evening sun. 85mm from grass level, the speaker large and sharp, the village soft behind."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 12,
+  "family": "place"
+}

@@ -40,6 +40,31 @@ export function catalogPickVerb(kind: CatalogPickKind, count: number): CatalogPi
   };
 }
 
+/**
+ * What a delete leaves behind, said the same way on the card, the page and the
+ * bulk bar.
+ *
+ * A shot's recipe names what it was made with by id, and nothing keeps a copy:
+ * once the thing is gone the recipe cannot show it, open it or build with it
+ * again, while the pictures stay. The confirmations used to promise that the
+ * recipe survived too, and a person found out otherwise only after the
+ * delete, which has no undo.
+ */
+export function deleteLeaves(kind: Exclude<CatalogPickKind, 'draft'>, count: number): string {
+  const many = count > 1;
+  if (kind === 'owned-scene')
+    return many
+      ? 'Shots already made here keep their images. Their recipe will say these scenes are gone, and building from one again will miss them.'
+      : 'Shots already made here keep their images. Their recipe will say this scene is gone, and building from one again will miss it.';
+  if (kind === 'product')
+    return many
+      ? 'Shots already made with them keep their images. Their recipe loses these products, and building from one again will miss them.'
+      : 'Shots already made with it keep their images. Their recipe loses this product, and building from one again will miss it.';
+  return many
+    ? 'Shots already made with them keep their images. Their recipe loses these people, and building from one again will miss them.'
+    : 'Shots already made with them keep their images. Their recipe loses this person, and building from one again will miss them.';
+}
+
 /** The dock tooltip and the menu line for Keepers, in the shot's words. */
 export function keepersLine(
   count: number,

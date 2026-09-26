@@ -1,6 +1,7 @@
 import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { productLabel, sceneLabel } from '../displayName.js';
 import {
+  api,
   imgUrl,
   type Brand,
   type Scene,
@@ -39,6 +40,7 @@ import {
 } from './ingredientOptions.js';
 import { useIngredientCatalog } from './useIngredientCatalog.js';
 import { applySceneTint } from './sceneTint.js';
+import { type SceneViewOption, useSceneViews } from './useSceneViews.js';
 import { keyboardFocus } from '../inputModality.js';
 import { CEILING_SENTENCE, IDENTITY_CAP, IDENTITY_KINDS } from './attachRoom.js';
 import {
@@ -57,6 +59,7 @@ import {
   unitsOfPosition,
   stepAcrossChip,
   chipToDelete,
+  chipPastCaret,
   deletionAtLineEdge,
   syncEmpty,
   decode,
@@ -293,7 +296,12 @@ export const BriefInput = forwardRef<
       if (found?.kind === 'scene') {
         const t = found.scene;
         label = t ? sceneLabel(t, 'chip') : 'missing template';
-        thumb = t?.previewUrl ?? null;
+        thumb = thumbOf(t?.previewUrl ?? null, 'micro');
+        // A picked view: the scene's chip shows that picture and names it.
+        if (t && token.t === 'template' && token.view) {
+          thumb = thumbUrl(token.view, 'micro');
+          if (token.viewName) label = `${label} · ${token.viewName}`;
+        }
         const tint = normalizeTint(t?.previewColor);
         if (tint) {
           el.dataset.tinted = 'true';
@@ -309,7 +317,7 @@ export const BriefInput = forwardRef<
         label = attached ? productLabel(attached, 'chip') : 'missing product';
         thumb = found.product
           ? assetThumbUrl(found.product.shots?.[0]?.file, 'micro')
-          : (found.demo?.previewUrl ?? null);
+          : thumbOf(found.demo?.previewUrl ?? null, 'micro');
       } else if (found?.kind === 'presenter') {
         const { character: c, presenter: p } = found;
         label = c?.name ?? p?.name ?? 'missing person';
@@ -370,13 +378,17 @@ export const BriefInput = forwardRef<
        *
        * It was a bare span with no tabIndex and a remove button at -1, so the
        * only keyboard route to a chip was to backspace over it: there was no
-       * way to reach one, and no way to change one. Tab is intercepted in
-       * `onKeyDown` so six chips do not become six tab stops on the way out.
+       * way to reach one, and no way to change one. It is reached from the
+       * line, not from the page's Tab order: Tab in the line goes to the next
+       * chip after the caret, Shift+Tab to the one before (`onKeyDown`). In
+       * the page's order a chip sat inside the line, so every Tab out of the
+       * line landed on the first chip, and the chip's own Tab put the caret
+       * back: forward Tab never left a brief that held one.
        */
       const pk = chipOpensPicker(token);
       if (pk) {
         const noun = pk === 'color' ? 'colour' : NOUN[pk];
-        el.tabIndex = 0;
+        el.tabIndex = -1;
         el.setAttribute('role', 'button');
         el.setAttribute('aria-haspopup', 'dialog');
         el.setAttribute('aria-expanded', 'false');
@@ -385,7 +397,7 @@ export const BriefInput = forwardRef<
         // A reference or a mark has no catalog to swap from, but its identity
         // IS a picture: hovering peeks at it and opening shows it full size.
         // Same button, same popup, a different verb.
-        el.tabIndex = 0;
+        el.tabIndex = -1;
         el.setAttribute('role', 'button');
         el.setAttribute('aria-haspopup', 'dialog');
         el.setAttribute('aria-expanded', 'false');
@@ -1060,8 +1072,8 @@ export const BriefInput = forwardRef<
       }
       if (e.key === 'Tab') {
         e.preventDefault();
-        // Step off the chip into the line rather than into the next chip: one
-        // more Tab then leaves the composer the way it always did.
+        // Step off the chip into the line beside it. The next Tab goes on from
+        // there, to the next chip, and past the last one it leaves the composer.
         caretBeside(root, focused, e.shiftKey ? 'before' : 'after');
         root?.focus({ preventScroll: true });
         return;
@@ -1105,6 +1117,17 @@ export const BriefInput = forwardRef<
     }
     if (menu || picker) return;
     if (composingEvent(e)) return;
+    // Tab walks the chips from the caret, one at a time, each by way of the
+    // line; with none left that way the browser's Tab leaves the line, and
+    // since no chip is in the page's order it lands on the next control.
+    if (e.key === 'Tab' && !e.altKey && !e.metaKey && !e.ctrlKey) {
+      const chip = chipPastCaret(root, e.shiftKey ? 'back' : 'forward');
+      if (chip) {
+        e.preventDefault();
+        chip.focus({ preventScroll: true });
+      }
+      return;
+    }
     // A chip and the space after it are one thing to the keyboard: one press
     // crosses both, one press removes both. Prose beside a chip still steps a
     // character at a time. Modifiers are left alone: Shift extends a selection
@@ -1411,6 +1434,40 @@ export const BriefInput = forwardRef<
    */
   const anchorToken = picker ? decode(picker.anchor.dataset.tok ?? '') : null;
   const previewHash = previewHashOf(anchorToken);
+
+  // A scene chip's own pictures, to follow one of them from its picker.
+  const anchorScene =
+    picker?.kind === 'scene' && anchorToken?.t === 'template'
+      ? (templates.find((x) => x.id === anchorToken.id) ?? null)
+      : null;
+  const sceneViews = useSceneViews(anchorScene);
+  const pickedView =
+    anchorToken?.t === 'template' && anchorToken.view
+      ? ((
+          sceneViews.find((o) => o.hash === anchorToken.view) ?? sceneViews.find((o) => o.name === anchorToken.viewName)
+        )?.view ?? null)
+      : null;
+  /** The chip keeps its scene and takes the picture (a catalog frame is copied into the store first), or lets it go. */
+  const followView = async (o: SceneViewOption | null) => {
+    if (!picker || anchorToken?.t !== 'template') return;
+    const { uid } = picker;
+    const { id, setup } = anchorToken;
+    let hash = o?.hash ?? null;
+    if (o && !hash) {
+      try {
+        hash = (await api.pickSceneView(id, o.view)).hash;
+      } catch {
+        return;
+      }
+    }
+    replaceChip(uid, {
+      t: 'template',
+      id,
+      ...(setup ? { setup } : {}),
+      ...(o && hash ? { view: hash, viewName: o.name } : {}),
+    });
+    closePicker('pick');
+  };
   const anchorWarning = anchorToken ? (flag?.(anchorToken) ?? null) : null;
   const anchorNote = anchorToken && described?.(anchorToken) ? (describedNote ?? null) : null;
 
@@ -1630,6 +1687,7 @@ export const BriefInput = forwardRef<
           onRemove={removeFromPicker}
           onMove={(dir) => moveFromSheet(picker.uid, dir)}
           onClose={closePicker}
+          views={picker.kind === 'scene' ? { options: sceneViews, picked: pickedView, onPick: followView } : undefined}
         />
       ) : null}
     </div>
@@ -1656,7 +1714,10 @@ function sameColor(a: string | null | undefined, b: string | null | undefined): 
 }
 
 function labelFallback(t: SentenceToken, templates: Scene[], products: any[]): string {
-  if (t.t === 'template') return templates.find((x) => x.id === t.id)?.name ?? 'template';
+  if (t.t === 'template') {
+    const name = templates.find((x) => x.id === t.id)?.name ?? 'template';
+    return t.view && t.viewName ? `${name} · ${t.viewName}` : name;
+  }
   if (t.t === 'product') return products.find((x) => x.id === t.id)?.name ?? 'product';
   if (t.t === 'character') return 'someone';
   if (t.t === 'color') return t.name ?? t.hex;

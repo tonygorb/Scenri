@@ -25,7 +25,7 @@ import { type DraftLike, type StudioView, autoFor, nextToDraw } from './presente
  */
 export type Step =
   /** A page arrived at a draft with answers that cannot draw it: they are read off the draft. */
-  | { kind: 'seed'; answers: Answers; asides: Aside[] }
+  | { kind: 'seed'; answers: Answers; asides: Aside[]; extrasDeclined?: true }
   /** Nothing is left to ask of a described person: the draft is made. */
   | { kind: 'start' }
   /** The answers moved under a draft: it is told, and what was drawn from the old words is redrawn. */
@@ -186,8 +186,12 @@ export function stepKey(step: Step, i: StepInputs): string {
       return `seed:${d?.id}`;
     case 'start':
       return `start:${i.state.revision}`;
+    // What the draft is asked to hold, and nothing else. The redo used to be in
+    // it, and it turns from nothing to the face the moment a face lands, so a
+    // sync the draft could not take came back as a new step with a redraw
+    // attached: a second generation nobody asked for.
     case 'sync':
-      return `sync:${d?.id}:${JSON.stringify(step.patch)}:${step.redo ?? ''}`;
+      return `sync:${d?.id}:${JSON.stringify(step.patch)}`;
     case 'draw': {
       const slot = d?.views[step.view];
       return `draw:${d?.id}:${step.view}:${slot?.attempts ?? 0}:${d?.generations ?? 0}:${slot?.status ?? ''}`;

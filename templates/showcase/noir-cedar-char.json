@@ -1,0 +1,29 @@
+{
+  "id": "noir-cedar-char",
+  "title": "Parfum on charred cedar",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "marrow-vale-noir-cedar"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. The black parfum stands alone on a split slab of charred cedar, its alligatored black surface glinting silver at every ridge, the grain broken open along one edge to show raw amber wood. One hard low tungsten spot from the left rakes across the char and cuts a tall bright strip down the smoked glass, the rest of the bottle sinking into its own darkness, a thin rim of light tracing the cap. Shot at 100mm from table height, the background falling to pure black. A single curl of pale smoke rises behind the bottle."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 10,
+  "family": "material"
+}

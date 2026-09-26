@@ -35,6 +35,8 @@ describe('the scene studio', () => {
   let analyzed: any[];
   /** The next analyzer answer; figure-led when set. */
   let figure: string | undefined;
+  /** What the next analyzer answer says its pictures hold; unsaid when undefined. */
+  let holds: string[] | undefined;
   /** Held open until released, for the cases that need work in flight. */
   let gate: Promise<void> | null;
 
@@ -85,6 +87,7 @@ describe('the scene studio', () => {
         keywords: ['volcanic'],
         prompt: revising ? `${req.priorDraft.prompt} Warmer.` : READ.prompt,
         ...(figure ? { figure } : {}),
+        ...(holds ? { holds } : {}),
         coverage: ['A wider frame would pin down the bay.'],
       };
     },
@@ -114,6 +117,7 @@ describe('the scene studio', () => {
     edited = [];
     analyzed = [];
     figure = undefined;
+    holds = undefined;
     gate = null;
     templatesDir = mkdtempSync(join(tmpdir(), 'sc-studio-templates-'));
     mkdirSync(join(templatesDir, 'presenters'), { recursive: true });
@@ -175,18 +179,98 @@ describe('the scene studio', () => {
     expect((core.store.getBrand(brand.id)?.json as any)?.scenes ?? []).toEqual([]);
   });
 
-  // A scene is the vibe of its pictures, never a copy of one: drawn beside
-  // them, a preview came back as their photograph, the same person, pose and
-  // wardrobe (battery 2026-09-23).
-  it('reads the pictures for the place and draws it from the words alone', async () => {
+  // The anchor: drawn beside the pictures, so it keeps what words cannot, then
+  // made nobody's by an edit that never sees them. Drawn beside a person's
+  // photograph with a refusal alone, the same person came back (battery
+  // 2026-09-23, 11 of 11), so the refusal is not what is trusted.
+  it("reads the pictures, draws the place beside them, then makes it nobody's", async () => {
     const brand = await newBrand();
     const a = await photo('#112233');
     const b = await photo('#445566');
     const job = await run(brand.id, { kind: 'make', instruction: 'the shore', imageHashes: [a, b] });
     expect(job.status).toBe('done');
     expect(analyzed[0].imagePaths).toHaveLength(2);
+    expect(generated).toHaveLength(1);
     expect(generated[0].prompt).toContain(READ.prompt);
+    expect(generated[0].prompt).toContain('A photograph of the one world the attached images show');
+    expect(generated[0].referenceImages).toEqual([core.images.pathFor(a), core.images.pathFor(b)]);
+    expect(generated[0].referenceRoles).toEqual(['reference', 'reference']);
+    // the reader did not say what they hold, so the draw is emptied of its
+    // people, product and words, by an edit that sees the draw alone
+    expect(edited).toHaveLength(1);
+    expect(edited[0].instruction).toContain('Remove every person from this photograph');
+    expect(edited[0].instruction).toContain(READ.prompt.replace(/[.\s]+$/, ''));
+    expect(edited[0].referenceImages ?? []).toEqual([]);
+    expect(job.anchor).toBe(true);
+  });
+
+  it('keeps the picture as it lands when the reader says the pictures hold nobody, no product and no words', async () => {
+    holds = [];
+    const brand = await newBrand();
+    const a = await photo('#112233');
+    const job = await run(brand.id, { kind: 'make', imageHashes: [a] });
+    expect(job.status).toBe('done');
+    expect(job.reading.holds).toEqual([]);
+    expect(generated[0].referenceImages).toEqual([core.images.pathFor(a)]);
+    expect(edited).toHaveLength(0);
+    expect(job.anchor).toBe(true);
+  });
+
+  it('empties whatever the pictures hold, and only reads those three words', async () => {
+    holds = ['product', 'nonsense', 'person'];
+    const brand = await newBrand();
+    const job = await run(brand.id, { kind: 'make', imageHashes: [await photo()] });
+    expect(job.reading.holds).toEqual(['person', 'product']);
+    expect(edited).toHaveLength(1);
+  });
+
+  // Try again carries the words back, and with them what the pictures hold.
+  it('draws Try again beside the pictures, knowing from the words what they hold', async () => {
+    holds = [];
+    const brand = await newBrand();
+    const a = await photo('#112233');
+    const made = await run(brand.id, { kind: 'make', imageHashes: [a] });
+    generated = [];
+    const again = await run(brand.id, { kind: 'again', reading: made.reading, imageHashes: [a] });
+    expect(again.status).toBe('done');
+    expect(generated[0].referenceImages).toEqual([core.images.pathFor(a)]);
+    expect(edited).toHaveLength(0);
+    expect(again.anchor).toBe(true);
+  });
+
+  it('draws the words alone, as an anchor, when there are no pictures', async () => {
+    const brand = await newBrand();
+    const job = await run(brand.id, { kind: 'again', reading: READ });
     expect(generated[0].referenceImages ?? []).toEqual([]);
+    expect(generated[0].prompt).toContain('The set is empty');
+    expect(edited).toHaveLength(0);
+    expect(job.anchor).toBe(true);
+  });
+
+  // Nothing can take the person back out, so their photograph is never kept.
+  it('draws from the words where the engine cannot edit, unless the pictures hold nobody', async () => {
+    await restart({ engine: engine({ edit: false }) });
+    const brand = await newBrand();
+    const a = await photo();
+    const unsure = await run(brand.id, { kind: 'make', imageHashes: [a] });
+    expect(generated[0].referenceImages ?? []).toEqual([]);
+    expect(unsure.anchor).toBe(true);
+    holds = [];
+    await run(brand.id, { kind: 'make', imageHashes: [a] });
+    expect(generated[1].referenceImages).toEqual([core.images.pathFor(a)]);
+    expect(edited).toHaveLength(0);
+  });
+
+  // A change is an edit of the picture on the stage: an anchor if that was one.
+  it('calls a change an anchor only when the picture it changed was one', async () => {
+    const brand = await newBrand();
+    const before = await photo('#223344');
+    const of = await run(brand.id, { kind: 'change', reading: READ, ask: 'darker', from: before, fromAnchor: true });
+    expect(of.anchor).toBe(true);
+    const older = await run(brand.id, { kind: 'change', reading: READ, ask: 'darker', from: before });
+    expect(older.anchor).toBe(false);
+    // neither sees the pictures the scene was read from
+    for (const e of edited) expect(e.referenceImages ?? []).toEqual([]);
   });
 
   // Traced on real Codex (2026-09-23): every picture reaches the reader in the
@@ -200,7 +284,8 @@ describe('the scene studio', () => {
     expect(job.status).toBe('done');
     const four = hashes.slice(0, 4).map((h) => core.images.pathFor(h));
     expect(analyzed[0].imagePaths).toEqual(four);
-    expect(generated[0].referenceImages ?? []).toEqual([]);
+    // the same four, in the same order, are what the place is drawn beside
+    expect(generated[0].referenceImages).toEqual(four);
     // none is singled out by position
     expect(generated[0].prompt).not.toMatch(/first (reference|image|picture)/i);
   });
@@ -225,16 +310,22 @@ describe('the scene studio', () => {
     expect((await sharp(core.images.pathFor(big)).metadata()).width).toBe(4000);
   });
 
-  // The preview is the plate a figure-led shot conditions on, so its person
-  // and pose are invented, never the photograph's.
-  it('draws a figure-led scene from its words, with somebody new in the role', async () => {
+  // The picture a figure-led shot conditions on, so its person is somebody
+  // new: said beside the pictures, and made true by the scrub.
+  it('draws a figure-led scene beside its pictures, with somebody new in the role', async () => {
     figure = 'one person at close portrait range, squared to camera';
     const brand = await newBrand();
     const a = await photo();
     const job = await run(brand.id, { kind: 'make', imageHashes: [a] });
     expect(job.reading.figure).toBe(figure);
-    expect(generated[0].prompt).toContain('nobody in particular, with no recognisable identity');
-    expect(generated[0].referenceImages ?? []).toEqual([]);
+    expect(generated[0].prompt).toContain('nobody in particular, never a person from the attached images');
+    expect(generated[0].referenceImages).toEqual([core.images.pathFor(a)]);
+    // emptied, then the figure put back from its words: never a face from a picture
+    expect(edited).toHaveLength(2);
+    expect(edited[0].instruction).toContain('Remove every person from this photograph');
+    expect(edited[1].instruction).toContain(`Add one person to it: ${figure}`);
+    expect(edited[1].sourceImage).not.toBe(edited[0].sourceImage);
+    for (const e of edited) expect(e.referenceImages ?? []).toEqual([]);
   });
 
   it('reads only the place in a shot the brand made, and never makes its cast the figure', async () => {
@@ -251,9 +342,11 @@ describe('the scene studio', () => {
     expect(job.reading.prompt).not.toContain('their own product shots');
     // Activity names it as it names any picture, never from the clause
     expect(job.label).toBe('New scene');
-    // so the picture is drawn as an empty set, from the words alone
-    expect(generated[0].prompt).toContain('The set is empty');
-    expect(generated[0].referenceImages ?? []).toEqual([]);
+    // so the place is drawn beside the shot with nobody in it, and any cast
+    // that came through anyway is taken out by the scrub
+    expect(generated[0].prompt).toContain('No person from the attached images is in it.');
+    expect(generated[0].referenceImages).toEqual([core.images.pathFor(shot)]);
+    expect(edited[0].instruction).toContain('Remove every person');
   });
 
   it('keeps the words a person typed first when a shot is read with them', async () => {

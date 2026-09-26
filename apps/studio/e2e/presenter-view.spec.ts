@@ -60,6 +60,9 @@ test('the page is the record: tiles by role that open at full size, two actions,
   await expect(page.locator('.sc-refset-tile[data-role="three-quarter"]')).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Use in a shot' }).first()).toBeVisible();
   await expect(page.getByRole('link', { name: 'Edit presenter' })).toBeVisible();
+  // Keepers, the same star a scene and a product page carry
+  await page.getByRole('button', { name: 'Add to Keepers' }).click();
+  await expect(page.getByRole('button', { name: 'Remove from Keepers' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('textbox', { name: 'What must stay the same' })).toHaveCount(0);
   await expect(page.getByText('Used in shots')).toHaveCount(0);
   await expect(page.locator('.sc-convo-card')).toHaveCount(0);

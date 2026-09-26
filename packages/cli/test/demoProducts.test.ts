@@ -8,9 +8,11 @@ import {
   loadDemoProducts,
   demoProductResolver,
   demoProductFacetsOf,
+  demoProductAngleFiles,
   resolveDemoProductImages,
   type DemoProduct,
 } from '../src/demoProducts.js';
+import { sizeFromWords } from '../src/productScale.js';
 import { buildServer } from '../src/server.js';
 import type { FastifyInstance } from 'fastify';
 
@@ -30,7 +32,7 @@ describe('shipped demo product catalog', () => {
   it('every shipped product carries a frozen promptName', () => {
     const { demoProducts, warnings } = loadDemoProducts();
     expect(warnings).toEqual([]);
-    expect(demoProducts).toHaveLength(44);
+    expect(demoProducts).toHaveLength(30);
     for (const p of demoProducts) {
       expect(p.promptName, `${p.id} has no promptName`).toBeTruthy();
     }
@@ -57,6 +59,45 @@ describe('shipped demo product catalog', () => {
         expect(p.legacyNames ?? [], `${p.id} renamed without a legacy alias`).toContain(p.promptName);
       }
       expect((p.keywords ?? []).length, `${p.id} has no keywords`).toBeGreaterThanOrEqual(5);
+    }
+  });
+
+  // A written size is only worth carrying if the scale reader understands it:
+  // an unreadable one would silently fall back to a photo estimate.
+  it('every written size is one the scale reader can read', () => {
+    const { demoProducts } = loadDemoProducts();
+    for (const p of demoProducts) {
+      if (p.dimensions === undefined) continue;
+      expect(sizeFromWords(p.dimensions), `${p.id} dimensions "${p.dimensions}" carry no readable unit`).not.toBeNull();
+    }
+  });
+});
+
+describe('demoProductAngleFiles', () => {
+  it('shows every view whole, and lets an older close-up stand in under its own key', () => {
+    const root = mkdtempSync(join(tmpdir(), 'sc-demoproduct-angles-'));
+    try {
+      const put = (id: string, angle: string) => {
+        mkdirSync(join(root, 'previews', 'demo-products', id), { recursive: true });
+        writeFileSync(join(root, 'previews', 'demo-products', id, `${angle}.jpg`), 'x');
+      };
+      for (const a of ['three-quarter', 'front', 'side']) put('new', a);
+      for (const a of ['three-quarter', 'front', 'label']) put('old', a);
+      put('both', 'label');
+      put('both', 'side');
+      expect(demoProductAngleFiles(root, 'new', 'beauty').map((f) => f.angle)).toEqual([
+        'three-quarter',
+        'front',
+        'side',
+      ]);
+      expect(demoProductAngleFiles(root, 'old', 'beauty').map((f) => f.angle)).toEqual([
+        'three-quarter',
+        'front',
+        'label',
+      ]);
+      expect(demoProductAngleFiles(root, 'both', 'beauty').map((f) => f.angle)).toEqual(['side']);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
     }
   });
 });
@@ -129,6 +170,23 @@ describe('resolveDemoProductImages', () => {
     const resolved = await resolveDemoProductImages(core, templatesDir, base);
     expect(resolved?.description).toBe('d');
     expect(resolved?.category).toBe('beauty');
+  });
+
+  it('forwards the written size, and only when there is one', async () => {
+    const sized = await resolveDemoProductImages(core, templatesDir, { ...base, dimensions: 'about 3 cm tall' });
+    expect(sized?.dimensions).toBe('about 3 cm tall');
+    const plain = await resolveDemoProductImages(core, templatesDir, base);
+    expect(plain && 'dimensions' in plain).toBe(false);
+  });
+
+  it('reads a picture again when the library replaces it under the same name', async () => {
+    const first = await resolveDemoProductImages(core, templatesDir, base);
+    const bigger = await sharp({ create: { width: 8, height: 8, channels: 3, background: '#102030' } })
+      .jpeg()
+      .toBuffer();
+    writeFileSync(join(templatesDir, 'previews', 'demo-products', 'ok', 'front.jpg'), bigger);
+    const second = await resolveDemoProductImages(core, templatesDir, base);
+    expect(second?.shots[0].file).not.toBe(first?.shots[0].file);
   });
 });
 
@@ -244,6 +302,37 @@ describe('demo product catalog + brief resolution', () => {
     const brands = await app.inject({ method: 'GET', url: '/api/brands' });
     const brandNow = brands.json().find((b: any) => b.id === brand.id);
     expect(brandNow.json.products ?? []).toHaveLength(0);
+  });
+
+  it("a demo product's written size is the size its shots are told", async () => {
+    writeFileSync(
+      join(templatesDir, 'demo-products', 'aurelia.json'),
+      JSON.stringify({ ...base, id: 'aurelia', name: 'Aurelia Serum', dimensions: 'about 11 cm tall' }),
+    );
+    const sized = buildServer({
+      core,
+      engines: { all: () => [spy], get: (id) => (id === 'spy' ? spy : null) },
+      templatesDir,
+    });
+    try {
+      const brand = (
+        await sized.inject({
+          method: 'POST',
+          url: '/api/brands',
+          payload: { brand: { specVersion: '0.1', meta: { name: 'Acme' } } },
+        })
+      ).json();
+      const res = await sized.inject({
+        method: 'POST',
+        url: '/api/brief/preview',
+        payload: { brandId: brand.id, engineId: 'spy', brief: { tokens: [{ t: 'product', id: 'aurelia' }] } },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().prompt).toContain('Its real-world size is about 11 cm tall');
+      expect(res.json().prompt).not.toContain('What this object physically is');
+    } finally {
+      await sized.drain();
+    }
   });
 
   it('a brief naming an unknown demo product warns instead of failing', async () => {

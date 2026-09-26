@@ -12,6 +12,11 @@ import type { Attachment } from './brief.js';
  * in the brief, a presenter sent as one portrait wore the other person's
  * glasses in 3 of 4 shots and lost which arm their tattoo is on in 2 of 4;
  * with their full body beside the portrait, 0 of 4 and 11 of 11 right.
+ *
+ * A hand-attached reference and a scene's picture sit in the same tier: the
+ * chip placed first in the brief takes the seat (below), and a scene picture
+ * that loses it degrades to the scene's words. Neither is ever essential, so
+ * both give way to every identity picture.
  */
 /**
  * How a seat is handed out when attachments outnumber seats: in the brief's

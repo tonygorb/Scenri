@@ -1,0 +1,33 @@
+{
+  "id": "c15-apricot-ledge",
+  "title": "Vitamin C serum on the apricot ledge",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "calder-vane-c15-serum"
+      },
+      {
+        "t": "template",
+        "id": "tonal-apricot-ledge"
+      },
+      {
+        "t": "text",
+        "v": " The frosted apricot dropper bottle stands on the matte ledge in front of the acrylic fin, the halved fruit beside it, the fin throwing a soft band of refracted light across the glass. 85mm at ledge height, the bottle large and centred."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 75,
+  "family": "studio"
+}

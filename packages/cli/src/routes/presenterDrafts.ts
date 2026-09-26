@@ -81,6 +81,7 @@ export function registerPresenterDraftRoutes(
         name: body.name == null ? undefined : String(body.name),
         facets: Array.isArray(body.facets) ? body.facets.map((f: unknown) => String(f)) : [],
         extras: body.extras === true,
+        clientKey: body.clientKey == null ? undefined : String(body.clientKey),
       }),
     );
   });
@@ -207,13 +208,15 @@ export function registerPresenterDraftRoutes(
   app.post('/api/brands/:id/presenter-drafts/:draftId/stop', async (req, reply) => {
     const draft = draftOr404(req, reply);
     if (!draft) return;
-    return answer(reply, async () => stopPresenterDraft(await buildDeps(), draft.id));
+    // Stop and Discard need no engine: probing one first made a Stop pressed
+    // mid-draw wait on a cold availability check, up to ten seconds.
+    return answer(reply, async () => stopPresenterDraft({ core }, draft.id));
   });
   app.delete('/api/brands/:id/presenter-drafts/:draftId', async (req, reply) => {
     const draft = draftOr404(req, reply);
     if (!draft) return;
     return answer(reply, async () => {
-      await discardPresenterDraft(await buildDeps(), draft.id, hooks);
+      await discardPresenterDraft({ core }, draft.id, hooks);
       return { ok: true };
     });
   });

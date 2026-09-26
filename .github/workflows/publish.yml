@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     # Only version tags publish. The content archive lives on a non-version
-    # release tag (content-latest) and must never trigger a package publish.
+    # release tag (content-v3) and must never trigger a package publish.
     if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'v') }}
     permissions:
       contents: write # gh release edit, to put the written notes on the page
@@ -79,7 +79,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release download content-latest --repo "$GITHUB_REPOSITORY" --pattern scenri-content.zip --dir "$RUNNER_TEMP"
+          gh release download content-v3 --repo "$GITHUB_REPOSITORY" --pattern scenri-content.zip --dir "$RUNNER_TEMP"
           pnpm exec tsx packages/cli/scripts/pull-content.mts "$RUNNER_TEMP/scenri-content.zip"
 
       - name: Build the studio into the CLI bundle

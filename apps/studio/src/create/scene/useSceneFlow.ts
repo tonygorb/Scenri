@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import { api, uploadImage } from '../../api.js';
 import type { Brand, FeedNode, SceneExampleRole } from '../../apiTypes.js';
 import { useAppData } from '../../app/AppShell.js';
+import { useOpenSettings, useOpenSetup } from '../../app/dialogs.js';
 import { customSceneById } from '../../brandAssets.js';
 import { useBrand } from '../../app/BrandLayout.js';
 import { useShotPages } from '../../composer/attach/useShotPages.js';
@@ -12,6 +13,7 @@ import { type Answer, nowIso } from '../../conversation/question.js';
 import { forgetSaid } from '../../conversation/Transcript.js';
 import { local } from '../../storage.js';
 import { COPY } from './sceneCopy.js';
+import { markSceneFinished } from './sceneDrafts.js';
 import {
   asideReply,
   composerFor,
@@ -34,6 +36,7 @@ import {
   commit,
   compileDirection,
   EMPTY_SETUP,
+  isHeic,
   isQid,
   isRow,
   type Qid,
@@ -53,6 +56,7 @@ import {
   readDue,
   reduce,
   repeatsLastAsk,
+  shownOf,
   stale,
   type StudioState,
   takesOf,
@@ -68,15 +72,20 @@ import { type SavedScene, useSceneStudio } from './useSceneStudio.js';
 const KEPT = 'scenri:scene-studio:';
 const KEEP_MS = 7 * 24 * 60 * 60 * 1000;
 
-function load(key: string) {
+/** The record kept under a conversation's address, as stored; null when there is none. */
+function readKept(key: string): { sceneId?: unknown; done?: unknown; session?: unknown } | null {
   const raw = local.get(key);
   if (!raw) return null;
   try {
-    const o = JSON.parse(raw);
-    return unpackSession(typeof o?.session === 'string' ? o.session : null);
+    return JSON.parse(raw);
   } catch {
     return null;
   }
+}
+
+function load(key: string) {
+  const o = readKept(key);
+  return unpackSession(typeof o?.session === 'string' ? o.session : null);
 }
 
 /** Kept with the scene it edits, so the Scenes wall can tell a new scene's draft from an edit. */
@@ -186,22 +195,44 @@ export function useSceneFlow(args: {
     brandId: brand.id,
     sceneId,
     conversation,
+    seed,
     applyBrand,
     onSaved: (made, asNew) => onSavedRef.current(made, sceneId && !asNew ? 'updated' : 'created'),
   });
 
   // Kept under the scene it saved, once it saved one, so the Scenes wall never
-  // shows a used conversation as a draft.
+  // shows a used conversation as a draft. Another tab on the same address
+  // writes the same key: a scene saved there stays saved here, and a record
+  // let go there since this wrote it (Discard on the wall, or the last press)
+  // stays let go rather than being written back by this tab's next change.
+  const wrote = useRef(false);
   useEffect(() => {
-    if (!gone.current) store(storageKey, packSession(setup, studio), sceneId ?? studio.saved);
+    if (gone.current) return;
+    const prev = readKept(storageKey);
+    if (prev?.done === true || (wrote.current && !prev)) {
+      gone.current = true;
+      return;
+    }
+    const kept = typeof prev?.sceneId === 'string' ? prev.sceneId : null;
+    store(storageKey, packSession(setup, studio), sceneId ?? studio.saved ?? kept);
+    wrote.current = true;
   }, [setup, studio, storageKey, sceneId]);
 
   /* ---- after Use: the place in use */
 
   const savedId = studio.saved;
   const savedScene = savedId ? customSceneById(brand, savedId) : undefined;
-  const ex = useSceneExamples(brand.id, savedId, savedScene?.previewUrl ?? null);
+  const ex = useSceneExamples(brand.id, savedId, savedScene?.placeUrl ?? null);
   const setRunning = ex.job?.status === 'running';
+  /**
+   * A press for the place in use on its way to the server. Until the run it
+   * started is read back, the conversation waits as it does while a run
+   * draws: the next offer used to be live before the one just answered had
+   * even started.
+   */
+  const [asking, setAsking] = useState(false);
+  /** Set requests that failed before anything ran (see `attempt` on the questions). */
+  const [setFailures, setSetFailures] = useState(0);
   const [stoppingSet, setStoppingSet] = useState(false);
   useEffect(() => {
     if (!setRunning) setStoppingSet(false);
@@ -214,7 +245,7 @@ export function useSceneFlow(args: {
     const kept = savedScene?.examples ?? [];
     return {
       tiles,
-      running: setRunning,
+      running: setRunning || asking || ex.waiting,
       read: ex.read,
       who:
         kept[0]?.with ??
@@ -223,34 +254,53 @@ export function useSceneFlow(args: {
       noSubject: ex.read && !ex.job && !kept.length && ex.more.length === 0,
       missing: missingMore(ex.more, kept, ex.job),
       first: ex.first,
-      stale: ex.first.length > 0 && kept.length > 0,
+      // what the place moved under, said by the examples themselves: a hero that
+      // came with the place is not stale because the close-up is still to come
+      stale: ex.first.length > 0 && kept.some((e) => e.earlier),
       finish: args.finish,
     };
-  }, [savedId, savedScene, tiles, setRunning, ex.read, ex.job, ex.first, ex.more, args.finish]);
+  }, [savedId, savedScene, tiles, setRunning, asking, ex.waiting, ex.read, ex.job, ex.first, ex.more, args.finish]);
 
   const drawSet = useCallback(
     (ask: { first: true } | { more: true } | { roles: SceneExampleRole[] }) => {
       if (!savedId) return;
       setNote(null);
+      setAsking(true);
       void api
         .drawSceneExamples(brand.id, savedId, ask)
-        .then(() => ex.again())
-        .catch((e: any) => setNote(String(e?.message ?? e)));
+        .then(() => {
+          setAsking(false);
+          ex.again();
+        })
+        .catch((e: any) => {
+          setAsking(false);
+          setSetFailures((n) => n + 1);
+          // nothing started: the offer this press answered is made again
+          if (!('roles' in ask)) dispatch({ type: 'set-failed', more: 'more' in ask });
+          setNote(String(e?.message ?? e));
+        });
     },
     [brand.id, savedId, ex.again],
   );
 
-  /** The last press: the conversation is over, and what it made is where it goes. */
+  /**
+   * The last press: the conversation is over, and what it made is where it
+   * goes. Its address keeps the scene's name, so a link to it later leads
+   * there (`markSceneFinished`).
+   */
   const finish = useCallback(() => {
     if (!savedId) return;
     gone.current = true;
-    forget(storageKey);
+    markSceneFinished(storageKey, savedId);
     forgetSaid(storageKey);
     onDoneRef.current(savedId);
   }, [savedId, storageKey]);
 
   /** Which picture of the set is on the stage: the one pressed, else the newest. */
   const [picked, setPicked] = useState<string | null>(null);
+  // A new version is judged by its own hero first, not by whatever was pressed on the last one.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the version is what resets it
+  useEffect(() => setPicked(null), [studio.current]);
 
   // The place as the setup gives it, handed to the work once the setup is whole,
   // and not while an answer is open again: it is given when that answer is.
@@ -263,14 +313,16 @@ export function useSceneFlow(args: {
   // revision of what was given, so a failure or a Stop asks rather than
   // retrying on its own. The revision tried is kept with the session
   // (`readTried`), so a reload or a Back does not start it again either; the
-  // ref is only the guard against a double effect inside one mount.
+  // ref is only the guard against a double effect inside one mount. A start
+  // still on its way holds it: the read would be refused, and then never due
+  // again in this mount, so it waits and goes once that work is known.
   const fired = useRef(new Set<number>());
   const readKey = readDue(studio, !edit && setupDone(setup.answers));
   useEffect(() => {
-    if (readKey === null || fired.current.has(readKey)) return;
+    if (readKey === null || work.starting || fired.current.has(readKey)) return;
     fired.current.add(readKey);
     void work.start('make', { draw: false, shot: setupRef.current.answers.source?.door === 'shot' });
-  }, [readKey, work.start]);
+  }, [readKey, work.starting, work.start]);
 
   /* ---- a place started from a shot */
 
@@ -357,55 +409,30 @@ export function useSceneFlow(args: {
     studio,
     canDraw,
     uploading,
-    edit,
+    // the same test leaving uses: Save is offered once something differs from the record
+    edit: edit && { ...edit, changed: unsavedOf(studio, seed) },
     editingName,
     note: shown,
     stale: stale(studio),
     shots,
     set,
   };
+  // A press whose request failed at once left its question latched: the same
+  // id was asked again, so the block never went and never handed its answer
+  // back. The count of such failures rides on the questions (`attempt`).
+  const attempt = work.failed + setFailures;
   const turns = useMemo(
-    () => turnsFor(flow),
-    [setup, studio, canDraw, uploading, editingName, shown, edit, shots, set],
+    () =>
+      turnsFor(flow).map((t) =>
+        t.kind === 'question' && attempt ? { ...t, question: { ...t.question, attempt } } : t,
+      ),
+    [setup, studio, canDraw, uploading, editingName, shown, edit, shots, set, attempt],
   );
   const open = (() => {
     const last = turns[turns.length - 1];
     return last?.kind === 'question' ? last.question : null;
   })();
   const composer = composerFor(flow, open);
-
-  /* ---- pictures */
-
-  const addPictures = useCallback(async (files: File[]) => {
-    const images = files.filter((f) => f.type.startsWith('image/') || /\.(heic|heif)$/i.test(f.name));
-    if (!images.length) {
-      setNote(COPY.onlyPictures);
-      return;
-    }
-    const a = setupRef.current.answers;
-    if (a.source?.door !== 'photos') setupDispatch({ type: 'answer', patch: { source: { door: 'photos' } } });
-    const have = setupRef.current.answers.photos?.hashes ?? [];
-    const room = 4 - have.length;
-    if (room <= 0) {
-      setNote(COPY.fourPictures);
-      return;
-    }
-    setNote(images.length > room ? COPY.fourPictures : null);
-    setUploading((n) => n + 1);
-    try {
-      for (const f of images.slice(0, room)) {
-        try {
-          const hash = await uploadImage(f);
-          const now = setupRef.current.answers.photos?.hashes ?? [];
-          setupDispatch({ type: 'photos', hashes: [...now, hash] });
-        } catch (e: any) {
-          setNote(`${f.name} could not be added: ${String(e?.message ?? e)}`);
-        }
-      }
-    } finally {
-      setUploading((n) => n - 1);
-    }
-  }, []);
 
   /* ---- what was said */
 
@@ -425,11 +452,66 @@ export function useSceneFlow(args: {
     setupDispatch({ type: 'answer', patch });
   }, []);
 
+  /* ---- pictures */
+
+  /** Pictures on their way up, counted against the four so two quick adds cannot pass it together. */
+  const reserved = useRef(0);
+  const addPictures = useCallback(
+    async (files: File[]) => {
+      const heic = files.some(isHeic);
+      const images = files.filter((f) => f.type.startsWith('image/') && !isHeic(f));
+      if (!images.length) {
+        setNote(heic ? COPY.heicNotYet : COPY.onlyPictures);
+        return;
+      }
+      // Pictures dropped or pasted choose the pictures, the same answer Add
+      // pictures is, so a record drawn from other answers goes the same way.
+      if (setupRef.current.answers.source?.door !== 'photos') answerSetup({ source: { door: 'photos' } });
+      const have = setupRef.current.answers.photos?.hashes ?? [];
+      const room = 4 - have.length - reserved.current;
+      if (room <= 0) {
+        setNote(COPY.fourPictures);
+        return;
+      }
+      const taken = images.slice(0, room);
+      setNote(images.length > room ? COPY.fourPictures : heic ? COPY.heicNotYet : null);
+      reserved.current += taken.length;
+      setUploading((n) => n + 1);
+      try {
+        for (const f of taken) {
+          try {
+            setupDispatch({ type: 'photo', hash: await uploadImage(f) });
+          } catch (e: any) {
+            setNote(`${f.name} could not be added: ${String(e?.message ?? e)}`);
+          } finally {
+            reserved.current -= 1;
+          }
+        }
+      } finally {
+        setUploading((n) => n - 1);
+      }
+    },
+    [answerSetup],
+  );
+
   const tilesRef = useRef(tiles);
   tilesRef.current = tiles;
+  const openSettings = useOpenSettings();
+  const openSetup = useOpenSetup();
   const onAnswer = useCallback(
     (qid: string, ans: Answer) => {
       setNote(null);
+      // a failure's own fix, where it lives (failure.ts), and the line for one nothing here fixes
+      if (ans.kind === 'confirm' && ans.id.startsWith('remedy:')) {
+        const opens = ans.id.slice('remedy:'.length);
+        if (opens === 'setup') openSetup();
+        else if (opens === 'engines' || opens === 'budget') openSettings(opens);
+        return;
+      }
+      if (ans.kind === 'confirm' && ans.id === 'reword') {
+        setFocusKey(String(Date.now()));
+        return;
+      }
       if (qid === 'photos' && ans.kind === 'photos') {
         const act = ans.action;
         const hashes = setupRef.current.answers.photos?.hashes ?? [];
@@ -491,7 +573,7 @@ export function useSceneFlow(args: {
       else if (ans.id === 'use') void work.use();
       else if (ans.id === 'another-shot') onEditRef.current('shot');
     },
-    [addPictures, answerSetup, work.start, work.use, drawSet, finish, pickShot, takeMadeIn],
+    [addPictures, answerSetup, work.start, work.use, drawSet, finish, pickShot, takeMadeIn, openSettings, openSetup],
   );
 
   /** A sentence taken is gone from the line, the way every message box works. */
@@ -552,8 +634,8 @@ export function useSceneFlow(args: {
         return true;
       }
       if (target.kind === 'add' || target.kind === 'change') {
-        // work already running takes no second instruction: the words wait in the line
-        if (studio.job) return false;
+        // work already running, or on its way, takes no second instruction: the words wait in the line
+        if (studio.job || work.starting) return false;
         const read = readAsk(t);
         const q = recordQid(studio);
         if (read.kind === 'rename') {
@@ -615,25 +697,28 @@ export function useSceneFlow(args: {
       : undefined;
   const working = studio.job ? doingLine(studio) : work.saving ? 'Saving' : setLine;
 
-  // The stage after Use: the place and its examples in the strip, the one
-  // pressed on the stage, else the one being drawn, else the newest.
+  // The stage after Use: the place and its examples in the strip, the hero
+  // first (it came with the place), the one pressed on the stage, else the one
+  // being drawn, else the newest.
   const strip: StageStripItem[] = [];
   let onStage: { hash?: string; drawing: boolean } | null = null;
+  const placeItem = (sel: string): StageStripItem => ({
+    view: 'place',
+    label: 'The place',
+    state: sel === 'place' ? 'current' : 'approved',
+    hash: v?.hash ?? undefined,
+    photo: false,
+    drawing: false,
+    approved: true,
+    error: false,
+  });
   if (savedId) {
     const drawingNow = setRunning ? ex.job?.current : null;
     const newest = [...tiles].reverse().find((t) => t.state === 'shown')?.role ?? null;
     const sel = picked ?? drawingNow ?? newest ?? 'place';
-    strip.push({
-      view: 'place',
-      label: 'The place',
-      state: sel === 'place' ? 'current' : 'approved',
-      hash: v?.hash ?? undefined,
-      photo: false,
-      drawing: false,
-      approved: true,
-      error: false,
-    });
-    for (const t of tiles)
+    const heroFirst = tiles[0]?.role === 'hero' && tiles[0].state === 'shown';
+    if (!heroFirst) strip.push(placeItem(sel));
+    for (const [i, t] of tiles.entries()) {
       strip.push({
         view: t.role,
         label: EXAMPLE_LABEL[t.role],
@@ -644,8 +729,27 @@ export function useSceneFlow(args: {
         approved: t.state === 'shown',
         error: t.state === 'failed',
       });
+      if (heroFirst && i === 0) strip.push(placeItem(sel));
+    }
     const chosen = strip.find((x) => x.view === sel) ?? strip[0];
     onStage = { hash: chosen.hash, drawing: chosen.drawing };
+  } else if (v?.hash && v.hero) {
+    // Before Use: the hero is what is judged, and the place it came with sits
+    // beside it, the picture a shot is given.
+    const sel = picked === 'place' ? 'place' : 'hero';
+    strip.push(
+      {
+        view: 'hero',
+        label: EXAMPLE_LABEL.hero,
+        state: sel === 'hero' ? 'current' : 'approved',
+        hash: v.hero,
+        photo: false,
+        drawing: false,
+        approved: true,
+        error: false,
+      },
+      placeItem(sel),
+    );
   }
   const begun = !edit && (!!setup.answers.source || studio.versions.length > 0);
 
@@ -666,14 +770,15 @@ export function useSceneFlow(args: {
           onPick: (view: string) => setPicked(view),
         }
       : {
-          hash: v?.hash ?? undefined,
+          hash: (picked === 'place' ? v?.hash : shownOf(v)) ?? undefined,
           alt: `Preview of ${studio.name.trim() || v?.reading.name || 'the scene'}`,
           drawing: !!studio.job && studio.job.phase === 'drawing',
           since: studio.job?.since ?? undefined,
           doing: doingLine(studio),
           takes: studio.job ? undefined : takesOf(studio),
           onTake: work.putBack,
-          items: [],
+          items: strip,
+          onPick: (view: string) => setPicked(view),
         },
     composer: {
       placeholder: composer.placeholder,
@@ -684,15 +789,24 @@ export function useSceneFlow(args: {
       working: composer.working,
       // Whatever runs can be stopped, whichever question holds the line: the
       // place, or the pictures of it in use (what landed stays).
+      // A Stop that never reached the server is said, and the pill is Stop again.
       onStop: studio.job
-        ? work.stop
+        ? () => {
+            setNote(null);
+            void work.stop().then((ok) => {
+              if (!ok) setNote(COPY.stopLost);
+            });
+          }
         : setRunning && savedId
           ? () => {
               setStoppingSet(true);
               void api
                 .stopSceneExamples(brand.id, savedId)
                 .then(() => ex.again())
-                .catch(() => undefined);
+                .catch(() => {
+                  setStoppingSet(false);
+                  setNote(COPY.stopLost);
+                });
             }
           : undefined,
       stopping: !!studio.job?.stopping || stoppingSet,
@@ -733,7 +847,7 @@ export function useSceneFlow(args: {
     /** A new scene with something in it: it stays on the Scenes wall when the studio closes. */
     keptAsDraft: !edit && keptAsDraft(studio),
     leave: () => {
-      work.stop();
+      void work.stop();
       gone.current = true;
       forget(storageKey);
       forgetSaid(storageKey);

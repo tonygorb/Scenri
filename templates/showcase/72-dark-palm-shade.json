@@ -1,0 +1,33 @@
+{
+  "id": "72-dark-palm-shade",
+  "title": "Dark chocolate in palm shade",
+  "category": "food-drink",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "ottery-lane-72-dark"
+      },
+      {
+        "t": "template",
+        "id": "palm-shade-garden"
+      },
+      {
+        "t": "text",
+        "v": " The bar lies on the teal plaster ledge, the teal sleeve slid back to show the gold foil and dark squares, the palm-frond shadows crossing it. Teal on teal. 70mm from above at a steep angle."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 92,
+  "family": "optical"
+}

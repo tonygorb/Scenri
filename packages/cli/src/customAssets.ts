@@ -20,7 +20,9 @@
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import type { BrandContext, Core, EngineAdapter, ReferenceRole } from '@scenri/core';
-import type { PresenterDraft, SceneDraft } from '@scenri/engine-codex';
+import type { PresenterDraft, SceneDraft, SceneHold } from '@scenri/engine-codex';
+import { capReferenceEdge } from './routes/shared.js';
+import type { HeroDrawn, HeroRequest } from './sceneExamples.js';
 
 /* --------------------------------------------------------------- records */
 
@@ -57,6 +59,7 @@ import {
   commit,
   lintSceneProse,
   presenterRecordFrom,
+  SCENE_INSTRUCTION_MAX,
   sceneRecordFrom,
   type CustomScene,
 } from './assetRecords.js';
@@ -125,6 +128,14 @@ export interface AssetBuildDeps {
   vocabulary: { collections: string[]; verticals: string[]; categories: string[] };
   /** A saved scene has its place picture: its examples may start (sceneExamples.ts). */
   onPlaceChanged?: (brandId: string, sceneId: string) => void;
+  /** The scene studio's hero, the place in use, drawn with the place (sceneExamples.ts `drawHero`). */
+  hero?: (req: HeroRequest) => Promise<HeroDrawn | null>;
+  /**
+   * Let go of pictures a draw made on its way and nothing holds: a step of the
+   * anchor once the next exists, an untrimmed original, a picture a Stop left
+   * behind. Optional, so a caller that keeps everything simply keeps it.
+   */
+  release?: (hashes: string[]) => void;
 }
 
 export interface StartBuildInput {
@@ -152,6 +163,8 @@ export interface StartBuildInput {
 
 const builds = new Map<string, AssetBuild>();
 const running = new Map<string, AbortController>();
+/** Each running build's work, so a server going away can wait for it (`settleAssetBuilds`). */
+const tasks = new Map<string, Promise<void>>();
 /** Enough history for the library page to show what just happened, not a log. */
 const KEEP_PER_BRAND = 12;
 
@@ -185,7 +198,18 @@ export function forgetAssetBuild(id: string): boolean {
 export function resetAssetBuilds(): void {
   for (const ctrl of running.values()) ctrl.abort();
   running.clear();
+  tasks.clear();
   builds.clear();
+}
+
+/**
+ * Stop every build and wait for it to settle: a server going away, which then
+ * closes the library a build would otherwise write into. A codex child runs in
+ * its own process group, so only an abort reaches it before the process exits.
+ */
+export async function settleAssetBuilds(): Promise<void> {
+  for (const ctrl of running.values()) ctrl.abort();
+  await Promise.allSettled([...tasks.values()]);
 }
 
 export function startAssetBuild(deps: AssetBuildDeps, input: StartBuildInput): { jobId: string } {
@@ -199,7 +223,8 @@ export function startAssetBuild(deps: AssetBuildDeps, input: StartBuildInput): {
   const supplied = input.imageHashes.length
     ? input.imageHashes
     : ((prior as CustomScene | undefined)?.refs ?? []).map((r) => String(r?.file ?? '').replace(/^asset:/, ''));
-  const hashes = supplied.filter((h) => /^[a-f0-9]{32}$/.test(h) && core.images.has(h));
+  // No more than a scene keeps (`sceneRecordFrom`): every one is a picture the reader is handed.
+  const hashes = [...new Set(supplied)].filter((h) => /^[a-f0-9]{32}$/.test(h) && core.images.has(h)).slice(0, 8);
   if (!hashes.length && !input.instruction?.trim()) {
     throw Object.assign(new Error('add a reference image, or describe the place in a sentence'), { statusCode: 400 });
   }
@@ -228,7 +253,12 @@ export function startAssetBuild(deps: AssetBuildDeps, input: StartBuildInput): {
 
   const ctrl = new AbortController();
   running.set(job.id, ctrl);
-  void runBuild(deps, job, hashes, str(input.instruction, 400), ctrl.signal).finally(() => running.delete(job.id));
+  // The direction as long as the studio lets a person write it and the record keeps it.
+  const task = runBuild(deps, job, hashes, str(input.instruction, SCENE_INSTRUCTION_MAX), ctrl.signal).finally(() => {
+    running.delete(job.id);
+    tasks.delete(job.id);
+  });
+  tasks.set(job.id, task);
   return { jobId: job.id };
 }
 
@@ -255,7 +285,7 @@ async function runBuild(
       patch(job, { stage: 'cancelled', message: null, finished: true });
       return;
     }
-    patch(job, { stage: 'failed', error: err?.message ?? 'build failed', message: null, finished: true });
+    patch(job, { stage: 'failed', error: personError(err, 'build failed'), message: null, finished: true });
   }
 }
 
@@ -331,7 +361,13 @@ async function edgeBarGeometry(buf: Buffer) {
  * asks to throw away half the picture, is kept exactly as it arrived. A worse
  * crop is a bigger failure than a visible band.
  */
-export async function trimEdgeBars(core: Core, hash: string): Promise<string> {
+export async function trimEdgeBars(
+  core: Core,
+  hash: string,
+  /** Given, the untrimmed original is let go of once the trimmed copy is saved: nothing holds it. */
+  release?: (hashes: string[]) => void,
+): Promise<string> {
+  let trimmed: string;
   try {
     const buf = core.images.read(hash);
     const g = await edgeBarGeometry(buf);
@@ -340,10 +376,12 @@ export async function trimEdgeBars(core: Core, hash: string): Promise<string> {
     const height = g.bottom - g.top + 1;
     if (width < g.W * 0.6 || height < g.H * 0.6) return hash;
     const png = await sharp(buf).extract({ left: g.left, top: g.top, width, height }).png().toBuffer();
-    return core.images.save(png);
+    trimmed = core.images.save(png);
   } catch {
     return hash;
   }
+  if (trimmed !== hash) release?.([hash]);
+  return trimmed;
 }
 
 /**
@@ -808,17 +846,16 @@ async function runSceneBuild(
   if (deps.engine) {
     patch(job, { stage: 'building', steps: 1, message: 'Drawing the place' });
     try {
-      // Drawn from its words alone (scenePreviewPrompt): the references were
-      // read for the vibe and are never drawn from. What it produces is the
-      // card thumbnail AND, for a figure-led scene, the plate a generation
-      // conditions on, so it has to be original: drawn beside the references,
-      // it came back as their photograph, the same person, pose and wardrobe
-      // (battery 2026-09-23).
+      // The scene's anchor, the same picture the studio draws: beside its
+      // references, then made nobody's (drawSceneAnchor). It is the card and
+      // the world's picture a shot is given, so it rides as `anchor`.
       previewHash = await trimEdgeBars(
         core,
-        await draw(deps, { prompt: scenePreviewPrompt(scene), brandId: job.brandId, signal }),
+        await drawSceneAnchor(deps, { scene, hashes, holds: draft?.holds, brandId: job.brandId, signal }),
+        deps.release,
       );
       scene.preview = `asset:${previewHash}`;
+      scene.anchor = true;
       patch(job, { step: 1, previewHash });
     } catch (err: any) {
       if (signal.aborted) throw err;
@@ -865,9 +902,10 @@ export function scenePreviewPrompt(scene: CustomScene): string {
   // scene, it is a different one. So when the concept needs a figure, the card
   // shows one. Anonymity is the thing to protect, not absence.
   //
-  // It is drawn from these words alone: a scene is the vibe of its pictures,
-  // never a copy of one (`scenePreviewRefs`). The figure is invented, with empty
-  // hands, so a shot's own presenter and product take its place.
+  // This is the picture of a scene written in words: one with reference
+  // pictures is drawn beside them (`sceneAnchorPrompt`). The figure is
+  // invented, with empty hands, so a shot's own presenter and product take its
+  // place.
   //
   // The word ban is scoped to what the treatment needs. The plate is the
   // conditioning image for a figure-led generation now, and a blanket "no
@@ -902,7 +940,212 @@ export function scenePreviewPrompt(scene: CustomScene): string {
   );
 }
 
+/* ------------------------------------------------------------ the anchor */
+
+/**
+ * How a scene's picture is drawn when it has reference pictures.
+ *
+ * - `clear`: drawn beside them, then emptied of their people, the product on
+ *   show and their words (`sceneClearInstruction`), then given the scene's
+ *   figure back, invented from its words (`sceneCastInstruction`).
+ * - `attach`: drawn beside them and kept as it lands (the old dialog).
+ * - `words`: drawn from the words alone (v0.15 to v0.17).
+ *
+ * `SCENRI_SCENE_ANCHOR` picks an arm for a battery and is never set in the
+ * product. Measured 2026-09-24 on GPT Image 2 (Codex's model), five sets of
+ * Scenri-made references, two seeds, 75 pictures:
+ * - drawn beside them, the picture kept their light, palette, materials and
+ *   composition, and their person and product too, in 10 of 10. Asking for
+ *   someone new, for a new camera, or for the pictures as style only changed
+ *   none of it; an edit asked to give the person a new face kept it in 5 of 8.
+ * - emptied by an edit, 8 of 8 lost every person, product and word and kept
+ *   the place; the figure then drawn back from words was somebody new in 5 of 5.
+ * - drawn from the words alone, the place was right and its detail was not:
+ *   an artwork, a palette's strength, the way the frame was built.
+ */
+export type SceneAnchorMethod = 'clear' | 'attach' | 'words';
+export function sceneAnchorMethod(): SceneAnchorMethod {
+  const v = process.env.SCENRI_SCENE_ANCHOR;
+  return v === 'attach' || v === 'words' ? v : 'clear';
+}
+
+const quotedIn = (prompt: string): string[] =>
+  [...prompt.matchAll(/“([^”]{1,80})”|"([^"]{1,80})"/g)].map((m) => m[1] ?? m[2]);
+
+/**
+ * A scene's picture drawn beside its reference pictures.
+ *
+ * The references carry what the words cannot: the light, the palette and how
+ * strong it is, the materials, the atmosphere, the camera's feel and how the
+ * space is composed and staged. The words were read from them and still decide
+ * where the pictures disagree. Who and what stands in them is not the scene's,
+ * and this prompt says so, but it is the edits after it that make it true
+ * (`drawSceneAnchor`): a drawing beside a person's photograph keeps the person
+ * whatever it is told.
+ */
+export function sceneAnchorPrompt(scene: CustomScene): string {
+  const quotes = quotedIn(scene.prompt);
+  const cast = scene.figure
+    ? `A figure is in this photograph: ${scene.figure.replace(/[.\s]+$/, '')}. ` +
+      (scene.figureTreatment
+        ? `The art direction is what has been done to them: ${scene.figureTreatment.replace(/[.\s]+$/, '')}, rendered as a real physical treatment that follows the shape it sits on. `
+        : '') +
+      'They are nobody in particular, never a person from the attached images. '
+    : 'No person from the attached images is in it. ';
+  return (
+    'Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. ' +
+    'A photograph of the one world the attached images show: keep their light, their palette and how strong its colour is, ' +
+    'their materials and textures, their atmosphere and depth, their lens and camera feel, and the way the space is composed and staged, ' +
+    'so it reads as the same art direction. ' +
+    `${scene.prompt} ${scene.lighting ? `${scene.lighting}. ` : ''}` +
+    'Where the attached images disagree with each other or with these words, these words decide. ' +
+    cast +
+    'No product from the attached images is in it. ' +
+    (quotes.length
+      ? `Lettering built into the set reads only ${quotes.map((q) => `“${q}”`).join(' and ')}. `
+      : 'No readable words in the set. ') +
+    'No logos, no brand marks, no watermarks, and nothing laid over the picture: a headline, caption or price over a reference is its advertisement, not its world.'
+  );
+}
+
+/**
+ * The edit that empties a picture drawn beside the references of everyone and
+ * everything that is not the place: people, the product being shown off,
+ * words and marks. Taking something out is the edit an image model does
+ * reliably; giving a face a new identity is not (gate 2026-09-24: asked to
+ * make the person "a different person", the edit kept the same face in 5 of 8).
+ *
+ * The scene's own words ride with it, because the model cannot tell a product
+ * on show from the set it stands in: told only to keep "the furniture", it took
+ * a cobalt room's cube seat out with the person on it. What the words name is
+ * the place, and stays (8 of 8 once they were said).
+ */
+export function sceneClearInstruction(scene: CustomScene): string {
+  return (
+    'Remove every person from this photograph, with every trace of them: their hands, their reflections and their shadows. ' +
+    'Remove the product the picture is showing off, and any package, label, logo, readable words or brand mark. ' +
+    'Rebuild what was behind each of them so the place continues naturally. Keep everything else exactly as it is: ' +
+    'the camera, the framing, the light, the colours, the materials, and every part of the place this describes: ' +
+    scene.prompt.replace(/[.\s]+$/, '')
+  );
+}
+
+/**
+ * The edit that puts the scene's figure back, invented from its words: the
+ * only way a person enters an anchor drawn beside pictures, so no face from a
+ * reference can (5 of 5 somebody new, gate 2026-09-24).
+ */
+export function sceneCastInstruction(scene: CustomScene): string {
+  const role = (scene.figure ?? '').replace(/[.\s]+$/, '');
+  return (
+    'Keep this photograph exactly as it is: the place, the camera, the framing, the light, the colours and the materials. ' +
+    `Add one person to it: ${role}. ` +
+    (scene.figureTreatment
+      ? `What has been done to them is the art direction: ${scene.figureTreatment.replace(/[.\s]+$/, '')}, rendered as a real physical treatment that follows the shape it sits on. `
+      : '') +
+    'They are nobody in particular, with a face and a look of their own, dressed for this world with nothing branded, ' +
+    'at true human scale, in the same light, with true contact and shadow. Their hands are empty. Add nothing else'
+  );
+}
+
+/**
+ * The picture a scene is: drawn beside its reference pictures when it has
+ * them, from its words when it has none.
+ *
+ * Beside them it keeps their look, and then everything that is not the place
+ * goes: one edit empties it, and for a scene built around a figure a second
+ * puts somebody new in the role, from its words. `holds` is what the reader
+ * said the pictures show (`SceneDraft.holds`); known to show nobody, no
+ * product and no words, the first picture is kept as it lands, and unknown is
+ * treated as all three. An engine that cannot edit cannot empty a picture, so
+ * it draws from the words rather than keep someone's photograph.
+ */
+export async function drawSceneAnchor(
+  deps: AssetBuildDeps,
+  req: { scene: CustomScene; hashes: string[]; holds?: SceneHold[]; brandId: string; signal: AbortSignal },
+): Promise<string> {
+  const engine = deps.engine;
+  if (!engine) throw new Error('no engine available');
+  const caps = engine.capabilities();
+  const method = sceneAnchorMethod();
+  // Never bigger than the engine reads (`maxReferenceEdge`), as a presenter's
+  // references are: a phone photo at full size only slows the upload.
+  const refs = await Promise.all(
+    [...new Set(req.hashes)]
+      .filter((h) => deps.core.images.has(h))
+      .slice(0, Math.min(4, caps.maxReferenceImages))
+      .map((h) => deps.core.images.pathFor(h))
+      .map((p) => (caps.maxReferenceEdge ? capReferenceEdge(deps.core, p, caps.maxReferenceEdge) : p)),
+  );
+  const clean = Array.isArray(req.holds) && req.holds.length === 0;
+  if (!refs.length || method === 'words' || (method === 'clear' && !clean && !caps.supportsEdit)) {
+    return draw(deps, { prompt: scenePreviewPrompt(req.scene), brandId: req.brandId, signal: req.signal });
+  }
+  const drawn = await draw(deps, {
+    prompt: sceneAnchorPrompt(req.scene),
+    brandId: req.brandId,
+    referenceImages: refs,
+    referenceRoles: refs.map(() => 'reference' as const),
+    signal: req.signal,
+  });
+  if (method === 'attach' || clean) return drawn;
+  // Each step's picture is nobody's once the next one exists, or once a Stop or
+  // a refusal ends the chain, so it is let go of: a Try again leaves one
+  // picture on disk, not three.
+  const step = async (source: string, instruction: string): Promise<string> => {
+    let out: string | null = null;
+    try {
+      out = await editOnce(deps, { instruction, source, brandId: req.brandId, signal: req.signal });
+      return out;
+    } finally {
+      if (out !== source) deps.release?.([source]);
+    }
+  };
+  const cleared = await step(drawn, sceneClearInstruction(req.scene));
+  if (!req.scene.figure) return cleared;
+  return step(cleared, sceneCastInstruction(req.scene));
+}
+
 /* ----------------------------------------------------------- shared parts */
+
+/** One edit of a picture in the store, through the brand's engine, on the same budget as a draw. */
+export async function editOnce(
+  deps: AssetBuildDeps,
+  req: {
+    instruction: string;
+    source: string;
+    referenceImages?: string[];
+    referenceRoles?: ReferenceRole[];
+    brandId: string;
+    signal: AbortSignal;
+  },
+): Promise<string> {
+  const engine = deps.engine;
+  if (!engine) throw new Error('no engine available');
+  const engineId = engine.capabilities().id;
+  const brand = deps.brandContext(req.brandId);
+  const estimate = await engine
+    .costEstimate({ prompt: req.instruction, brand, width: ASSET_WIDTH, height: ASSET_HEIGHT, count: 1 })
+    .catch(() => 0);
+  deps.core.ledger.assertUnderCap(engineId, estimate);
+  const result = await engine.edit(
+    {
+      instruction: req.instruction,
+      sourceImage: deps.core.images.pathFor(req.source),
+      brand,
+      width: ASSET_WIDTH,
+      height: ASSET_HEIGHT,
+      ...(req.referenceImages?.length
+        ? { referenceImages: req.referenceImages, referenceRoles: req.referenceRoles }
+        : {}),
+    },
+    req.signal,
+  );
+  deps.core.ledger.recordCost(engineId, null, result.costUsd);
+  const hash = result.images[0];
+  if (!hash) throw new Error('the engine returned no image');
+  return checkedPicture(deps.core, hash);
+}
 
 /**
  * One image, through whichever engine the brand builds with.
@@ -943,7 +1186,50 @@ export async function draw(
   deps.core.ledger.recordCost(engineId, null, result.costUsd);
   const hash = result.images[0];
   if (!hash) throw new Error('the engine returned no image');
-  return hash;
+  return checkedPicture(deps.core, hash);
+}
+
+/**
+ * What an engine handed back, decoded once before anything is built on it.
+ *
+ * An engine saves whatever file it was left with, and one that obeyed words
+ * inside a picture can leave a link to a local file, or text, where the picture
+ * should be. Bytes that are not a picture are taken back out of the store and
+ * never become a candidate, a reference or a card. `trimEdgeBars` cannot catch
+ * this: it keeps whatever it cannot measure, by design.
+ */
+export async function checkedPicture(core: Core, hash: string): Promise<string> {
+  try {
+    const meta = await sharp(core.images.read(hash)).metadata();
+    if (meta.width && meta.height) return hash;
+  } catch {
+    // not a picture: falls through
+  }
+  core.images.remove(hash);
+  throw new Error('the engine returned something that is not a picture');
+}
+
+const FS_CODES = /^(ENOENT|EACCES|EPERM|EISDIR|ENOTDIR)$/;
+/**
+ * An error as a sentence a person may be shown.
+ *
+ * A file-system error names absolute paths on this machine ("ENOENT: no such
+ * file or directory, copyfile '/Users/...'"). The HTTP error handler already
+ * keeps those in the terminal (server.ts); this is the same rule for a message
+ * kept on a job, which a tile's tooltip or a conversation shows as it is.
+ */
+export function personError(err: unknown, fallback: string): string {
+  const e = err as { message?: unknown; code?: unknown } | null | undefined;
+  const message = String(e?.message ?? err ?? '').trim();
+  const fsError = typeof e?.code === 'string' && FS_CODES.test(e.code);
+  const leaksPath =
+    FS_CODES.test(message.split(':')[0]) || /(?:^|[\s'"(=])(?:\/[^\s'"/]+){2,}|\b[A-Za-z]:\\[^\s\\'"]+\\/.test(message);
+  if (!message) return fallback;
+  if (fsError || leaksPath) {
+    console.error('unexpected error:', message);
+    return fallback;
+  }
+  return message;
 }
 
 /**

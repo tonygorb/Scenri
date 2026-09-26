@@ -1,0 +1,33 @@
+{
+  "id": "spf-shadow-hand",
+  "title": "SPF 50 and the reaching shadow",
+  "category": "social",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "halden-bay-spf-50"
+      },
+      {
+        "t": "template",
+        "id": "shadow-hand"
+      },
+      {
+        "t": "text",
+        "v": " The butter-yellow tube lies flat on the ochre floor right where the shadow fingers reach for it, cap toward camera, the long warm light raking across it. 50mm from floor height, the tube large in the lower third."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 41,
+  "family": "optical"
+}

@@ -1,0 +1,33 @@
+{
+  "id": "72-dark-bite",
+  "title": "The first square of 72%",
+  "category": "social",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "ottery-lane-72-dark"
+      },
+      {
+        "t": "character",
+        "id": "nico"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. Colour-pop portrait against a flat teal wall: he bites a square off the bar, eyes to camera, the teal sleeve and the 72% toward the lens. He wears a mustard crewneck T-shirt. Hard flash, 50mm, head and shoulders."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 70,
+  "family": "human"
+}

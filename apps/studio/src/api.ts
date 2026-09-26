@@ -8,6 +8,7 @@ export type * from './apiTypes.js';
 export * from './apiUploads.js';
 export * from './apiLabels.js';
 import { req } from './apiReq.js';
+import { brandKit } from './apiUploads.js';
 import { feedSearchParams } from './feedRules.js';
 import type {
   ActivityNode,
@@ -15,6 +16,8 @@ import type {
   AssetBuildCapabilities,
   Brand,
   BriefPreview,
+  HeroWith,
+  SceneView,
   CatalogImportJob,
   CatalogSource,
   CodexSetupResult,
@@ -73,7 +76,13 @@ export const api = {
    * built from the brand the studio holds, so it asks the server to keep the
    * products, scenes and presenters as stored rather than as that copy saw them.
    */
-  updateBrand: (id: string, brand: any) => req<Brand>('PUT', `/api/brands/${id}`, { brand, keepAssets: true }),
+  /**
+   * A kit save. `base` is the kit as it was read, for the keys being changed:
+   * the server then writes only what differs from it, so a rename made in
+   * another window since is not put back by this one.
+   */
+  updateBrand: (id: string, brand: any, base?: unknown) =>
+    req<Brand>('PUT', `/api/brands/${id}`, { brand: brandKit(brand), keepAssets: true, base: brandKit(base) }),
   deleteBrand: (id: string) => req<{ ok: true }>('DELETE', `/api/brands/${id}`),
   /** The install's first-use record: who is new, what is done, and the task in hand with what it has made. */
   guide: () => req<GuideView>('GET', '/api/guide'),
@@ -168,7 +177,8 @@ export const api = {
   scenes: () => req<{ scenes: Scene[]; collections: string[]; verticals: string[] }>('GET', '/api/scenes'),
   presenters: () => req<{ presenters: Presenter[]; categories: string[]; styles: string[] }>('GET', '/api/presenters'),
   /** The reference frames a presenter has on disk, if any. */
-  presenterFrames: (id: string) => req<{ frames: string[] }>('GET', `/api/presenter-previews/${id}`),
+  presenterFrames: (id: string) =>
+    req<{ frames: { url: string; angle: string }[] }>('GET', `/api/presenter-previews/${id}`),
   demoProducts: () => req<{ demoProducts: DemoProduct[]; categories: string[] }>('GET', '/api/demo-products'),
   /** A demo product's full angle set. Unlike a presenter's positional ref-0N slots,
    *  a product's angles are semantic, so each frame carries its key for labelling. */
@@ -208,7 +218,11 @@ export const api = {
   releaseNotes: () => req<ReleaseNotesResponse>('GET', '/api/release/notes'),
   releaseSeen: (version: string) => req<{ ok: true }>('POST', '/api/release/seen', { version }),
   /** The reference frames a scene has on disk, if any. */
-  sceneFrames: (id: string) => req<{ frames: string[] }>('GET', `/api/scene-previews/${id}`),
+  sceneFrames: (id: string) =>
+    req<{ frames: string[]; views: { view: SceneView; url: string }[] }>('GET', `/api/scene-previews/${id}`),
+  /** One of a catalog scene's views, copied into the image store so a shot can be handed it (Use this view). */
+  pickSceneView: (sceneId: string, view: SceneView) =>
+    req<{ hash: string }>('POST', `/api/scenes/${sceneId}/views/${view}/pick`),
   deleteData: (scope: 'shots' | 'all') => req<{ ok: true; scope: string }>('DELETE', `/api/data?scope=${scope}`),
   /** One product with all of its pictures; the library list carries only the first. */
   libraryProduct: (brandId: string, productId: string) =>
@@ -307,6 +321,8 @@ export const api = {
       name?: string;
       facets?: string[];
       extras?: boolean;
+      /** The conversation asking: a create asked again under it answers with the draft it made. */
+      clientKey?: string;
     },
   ) => req<PresenterDraft>('POST', `/api/brands/${brandId}/presenter-drafts`, p),
   presenterDrafts: (brandId: string) =>
@@ -439,6 +455,11 @@ export const api = {
       imageHashes?: string[];
       reading?: SceneReading;
       from?: string;
+      /** The picture being changed is an anchor. */
+      fromAnchor?: boolean;
+      /** Its hero, changed by the same sentence, and who stands in it. */
+      fromHero?: string;
+      heroWith?: HeroWith;
       ask?: string;
       draw?: boolean;
       reread?: boolean;

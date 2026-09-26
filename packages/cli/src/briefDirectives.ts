@@ -3,6 +3,35 @@
  * brand-document readers with no compile state. `compileBrief` itself stays in
  * `brief.ts`, where the order-sensitive assembly lives.
  */
+import { CAPTURE_UNIFORM } from './presenterPrompts.js';
+
+/**
+ * What a presenter wears when the direction says nothing: never the capture
+ * uniform, named as what it is.
+ *
+ * "Never the plain base layers" described the failure without naming it, and
+ * the uniform came back anyway, promoted to an outfit: a white tank with cream
+ * wide trousers, a white tee with white jeans, barefoot on a studio floor, in
+ * four of the eighteen catalog heroes and in two of three presenter shots of
+ * the 2026-09-24 gate. Named, with the look it turns into and a stylist's brief
+ * in its place, the model has something to dress them in rather than something
+ * to avoid. A direction that asks for whites still gets them.
+ *
+ * Measured the same day, first wording, 7 frames: 4 dressed well, but "colours
+ * taken from this set's palette" put cream on a white limestone set, and one
+ * hero stayed barefoot. So the colours stand out against the set, and shoes
+ * are said as a rule rather than "where the feet show".
+ */
+export function wardrobeRelease(): string {
+  return (
+    `The capture uniform in their reference photographs (${CAPTURE_UNIFORM}) is never their clothes: nothing like ` +
+    'it appears in this picture. Unless the direction asks for it, they never wear white or cream from head to toe, ' +
+    'never plain basics (a tank top, a tee, leggings, loose trousers) as a whole outfit, and they are never barefoot. ' +
+    'Where the direction names no clothes, a stylist dresses them for this place: a complete, real outfit with true ' +
+    'cut, fabric and structure, and shoes, in colours that stand out against this set while belonging to its world, ' +
+    'right for what they are doing here.'
+  );
+}
 /**
  * What the model is told about the product, keyed on how much of the object it
  * can actually see.
@@ -217,6 +246,12 @@ export function characterFactDirectives(c: any): string[] {
     out.push(
       `${c.promptName ?? c.name}'s own, in every shot and never capture context, as part of who they are: ${notes}${/[.!?]$/.test(notes) ? '' : '.'}`,
     );
+    // "Must survive every generation" made a forearm tattoo cut its own sleeve: the outfit came
+    // back with one arm bare (2026-09-25). A body mark obeys the clothes, never the other way.
+    if (/\b(tattoo|scar|birthmark)s?\b/i.test(notes))
+      out.push(
+        'A tattoo, scar or birthmark among these is still theirs when the clothes of this shot cover it: it shows, exactly where it is, only on skin the outfit already leaves bare. Never push up, roll, cut or shorten one sleeve or one side of a garment to reveal it; both sleeves and both sides of the outfit stay as the garment is made.',
+      );
   }
   if (c.negativeConstraints?.length) out.push(`Avoid: ${[].concat(c.negativeConstraints).join(', ')}`);
   return out;
@@ -246,7 +281,8 @@ export function characterEditIdentityDirective(name: string): string {
     `${name} is the person in this photograph: keep them present and clearly visible. Match their face, facial ` +
     "structure, skin, hair and build to the attached person reference exactly. The reference's plain outfit and " +
     'studio backdrop are capture conditions, not direction: keep the styling this photograph already has unless the ' +
-    'instruction itself changes it, and never return them to the plain base layers they were photographed in.'
+    'instruction itself changes it, and never return them to the capture uniform of their reference photographs ' +
+    `(${CAPTURE_UNIFORM}) or to all-white or all-cream plain basics like it.`
   );
 }
 
@@ -275,6 +311,22 @@ export function referenceIdentityGuard(): string {
     "The stand-in's clothes are not part of the pose: unless this shot's own words dress the presenter, dress them " +
     "for this place in clothes of their own that show their own build, never in the stand-in's outfit. " +
     'This holds even where the direction asks to use someone from a reference — the attached presenter is that someone.'
+  );
+}
+
+/**
+ * The product half of `referenceIdentityGuard`. A reference picked for a shot
+ * (a scene's picture, one of its examples, an old shot) often shows a product
+ * of its own, and the reference role says "match it". Nothing said the
+ * attached product outranked it, so the doctrine's "a reference never
+ * redefines which product" was written down and never spoken.
+ */
+export function referenceProductGuard(): string {
+  return (
+    'A reference shot lends its composition, lighting and treatment, never its product: the attached product photo is ' +
+    'the only source of product identity in this shot. Any product, package or object a reference shot features in ' +
+    'that place only marks where the attached product goes, and the attached product takes it at its own real size, ' +
+    'with its own shape, label and colours.'
   );
 }
 
@@ -471,6 +523,23 @@ export function editScreenDirective(): string {
  * focus follow distance, so this says that, for any size: the model knows how
  * big a ring or a chair is.
  */
+/**
+ * A product alone in a frame someone picked to follow (a scene's view, a
+ * reference with nothing said about it): the frame sets the camera, and the
+ * product keeps its own size in it. The product-scale framing moved the camera
+ * in to the product and threw the picked frame away (2026-09-24: three picked
+ * scene views came back as the same close-up the words alone drew); the size
+ * rule stays, so a small product in a wide frame reads small, never grown to
+ * fill it.
+ */
+export function productInFrameDirective(): string {
+  return (
+    "The attached reference sets this shot's camera: its distance, height, angle and crop. The product keeps its own " +
+    'real size in that frame, taking the place of whatever the reference features there, never enlarged to fill it; ' +
+    'light and focus make it read.'
+  );
+}
+
 export function productFramingDirective(): string {
   return (
     "This shot is framed at the product's own scale, not the room's: the camera comes as close as the product's " +
@@ -478,6 +547,26 @@ export function productFramingDirective(): string {
     'object the surface it rests on stays sharp at its own fine true scale while the architecture behind falls into ' +
     'large, soft, out-of-focus shapes of light and shade; a product the size of furniture keeps the room readable ' +
     'around it.'
+  );
+}
+
+/**
+ * Weight and balance, for a person in a set. Nothing said a pose had to be one
+ * a body could hold against the thing it touched, so a presenter hung her
+ * weight off the spring of a three-metre clothes peg, draped over it at
+ * shoulder height like a rail (2026-09-24, a catalog hero and the shots that
+ * followed it). Said once, as the physics a photographer never has to ask for.
+ * Standing upright, she still rested a hand on the steel coil and a leaning
+ * presenter put a shoulder to the wire, so where they touch is said too.
+ */
+export function physicalPoseDirective(): string {
+  return (
+    'Real physics holds for everyone and everything in the frame: each object stands, rests or hangs the way its ' +
+    'size and weight allow, on a base that could hold it; a person leans, sits or rests only on something solid and ' +
+    'steady enough to take their weight, with that weight carried believably through their feet, seat or hands and ' +
+    'their balance over what supports them, never draped over a thin or unstable object or held at an angle no body ' +
+    'could hold. Wherever they touch or lean on the set, it is where a real person would choose to: a broad, solid ' +
+    'surface at a comfortable height, clear of any spring, wire, hinge, mechanism, blade or sharp edge.'
   );
 }
 
@@ -793,6 +882,8 @@ export function sceneGuardDirectives(opts: {
   hasScenePhoto?: boolean;
   /** The scene is built around a figure, whose place in its photograph the attached presenter takes. */
   figureLed?: boolean;
+  /** The photograph is the scene's anchor, which may show a hero object where a product goes. */
+  anchor?: boolean;
   /** The figure role a scene is built around, when nobody is attached to take it and the brief asks for nobody. */
   emptyRole?: string;
 }): string[] {
@@ -829,16 +920,29 @@ export function sceneGuardDirectives(opts: {
   // sneaker took a loft's armchair's place at the armchair's size, and the
   // armchair went. Props are set, at their real size, and the product goes
   // where the shot puts it, at its own.
-  if (opts.hasScenePhoto && (opts.hasProduct || opts.hasPerson)) {
+  // An anchor rides whoever is attached, so it is disowned as the shot to copy
+  // even when nothing else is: a shot of the world alone chooses its own frame.
+  if (opts.hasScenePhoto && (opts.hasProduct || opts.hasPerson || opts.anchor)) {
     out.push(
-      "One attached reference is the scene's own photograph. It shows this world — the set, the light, the materials and any treatment this world applies — never a cast. The furniture, props and architecture in it are part of the set: they stay what they are, at their real size, and none of them stands in for anything attached to this shot." +
+      "One attached reference is the scene's own photograph. It shows this world — the set, the light, the materials and any treatment this world applies — never a cast. The furniture, props and architecture in it are part of the set: they stay what they are, at their real size" +
+        (opts.anchor && opts.hasProduct
+          ? ', and only its hero object stands in for anything attached to this shot.'
+          : ', and none of them stands in for anything attached to this shot.') +
         (opts.figureLed
           ? ''
           : ' It is not the shot to copy: this shot chooses its own camera, framing and composition inside this world, as its own direction asks.'),
     );
     if (opts.hasProduct) {
       out.push(
-        'The attached product photo is the only source of product identity. Nothing in the scene photograph is this product or measures its size: it goes where this shot puts it, at its own real-world size, keeping its own shape, label and colours.',
+        'The attached product photo is the only source of product identity. Nothing in the scene photograph is this product or measures its size: it goes where this shot puts it, at its own real-world size, keeping its own shape, label and colours.' +
+          // The anchor keeps the art direction of what was held or shown as the
+          // hero (as a plain object of its kind): its prominence and its place
+          // are the point, never its size. The 2026-09-22 failure was a line
+          // that handed over "the placement and scale", and a sneaker took an
+          // armchair's size; this hands over the place and keeps the size.
+          (opts.anchor
+            ? ' A plain object the scene photograph shows as its hero, held or showcased, only marks where the attached product goes: the attached product takes that place and prominence at its own size, and that object does not appear.'
+            : ''),
       );
     }
     if (opts.hasPerson) {

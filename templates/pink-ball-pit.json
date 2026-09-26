@@ -1,0 +1,15 @@
+{
+  "id": "pink-ball-pit",
+  "name": "Pink Ball Pit",
+  "promptName": "Pink Ball Pit",
+  "keywords": ["tennis balls", "pink", "felt", "multiples", "sporty", "tenniscore", "candy", "playful"],
+  "description": "A deep bed of candy-pink tennis balls, felt and seams catching soft light.",
+  "lighting": "Soft even top light, gentle rosy shadows",
+  "subject": "either",
+  "collections": ["Colored backgrounds", "Detail"],
+  "verticals": ["Beauty", "Beverage", "Food & drink", "Footwear", "Accessories", "Sport"],
+  "prompt": "A deep bed of tennis balls, every one dyed the same candy pink, fills the frame edge to edge, all the same regulation size, their felt fuzz catching a soft top light and their white seams curling in every direction, one continuous two-lobed seam on each ball. The balls pile loose and deep, with a slight hollow at the centre where they have settled. The shadows between them are soft and rosy. The palette is candy pink and white, soft, sporty and sweet.",
+  "width": 1024,
+  "height": 1280,
+  "cover": "hero"
+}

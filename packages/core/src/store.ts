@@ -669,6 +669,34 @@ export function createStore(db: DB) {
         hit('SELECT 1 FROM presenter_drafts WHERE json LIKE ? LIMIT 1', like)
       );
     },
+    /**
+     * Every stored image the database names, read once per source: the four
+     * imageReferenced asks, and the brand documents that are its callers'
+     * half. For a pass over the whole store, where asking per hash costs a
+     * scan of every source for each file. It never finds less than LIKE
+     * would, so any case counts, and every 32 characters of a longer hex run.
+     */
+    referencedHashes(): Set<string> {
+      const out = new Set<string>();
+      const sources = [
+        'SELECT images, brief FROM nodes',
+        'SELECT asset_ref FROM catalog_images',
+        'SELECT json FROM presenter_drafts',
+        'SELECT json FROM brands',
+      ];
+      for (const sql of sources) {
+        for (const row of db.prepare(sql).raw().iterate() as Iterable<unknown[]>) {
+          for (const value of row) {
+            for (const [run] of String(value ?? '')
+              .toLowerCase()
+              .matchAll(/[a-f0-9]{32,}/g)) {
+              for (let i = 0; i + 32 <= run.length; i++) out.add(run.slice(i, i + 32));
+            }
+          }
+        }
+      }
+      return out;
+    },
 
     // nodes / version tree
     addNode(input: {

@@ -13,7 +13,7 @@ import {
 import { type CreationState, UNSURE_LINE, asideEditAt, deserialize, isAsideEdit } from './creationState.js';
 import type { AsidePhase as Phase } from './presenterCopy.js';
 import {
-  ATTEST_TEXT,
+  attestText,
   DOOR_WORDS,
   changeCost,
   PROMPT,
@@ -23,6 +23,7 @@ import {
   gapsPrompt,
   photosHint,
   photosLine,
+  readingWhat,
 } from './presenterCopy.js';
 import {
   AGE_OPTIONS,
@@ -154,8 +155,21 @@ export const sourceFromText = (text: string): Source | null =>
 
 /* ------------------------------------------------------------- compiling */
 
+/**
+ * What the draft stores of a piece of text, to the character: the server's
+ * `str()` trims and then caps, so a cut that lands on a space is trimmed
+ * again over there. Sent any other way, the draft never holds what was asked
+ * and the flow asks it to, once, then again with a redraw when a face lands.
+ */
+const asStored = (text: string, max: number): string => text.trim().slice(0, max).trimEnd();
+const DIRECTION_CHARS = 400;
+
 /** The sentence the engine is given: the rows as a person, or the description with the follow-up folded in. */
 export function compileDirection(a: Answers): string {
+  return asStored(directionOf(a), DIRECTION_CHARS);
+}
+
+function directionOf(a: Answers): string {
   if (a.source?.via === 'taps') {
     const look = lookOf(a);
     // The row names a kind of person, and now carries any words typed into it.
@@ -188,8 +202,7 @@ export function keepItems(a: Answers): string[] {
  * Mirrors the server (`keepItemsOf` in `presenterDrafts.ts`), and has to: the
  * flow asks the draft to hold what the answers say and stops asking once it
  * does, so a cap only one side applies is a question that can never be
- * answered. `presenterKeepParity.test.ts` reads both files and fails if they
- * drift.
+ * answered. `presenterKeepParity.test.ts` holds both caps to the server's.
  */
 const KEEP_ITEM_CHARS = 200;
 const KEEP_ITEMS_MAX = 12;
@@ -214,7 +227,7 @@ export function compileItems(a: Answers): KeptItem[] {
   const details = traitDetails(a);
   const item = (id: string, words: string, refs?: string[]): KeptItem => ({
     id,
-    words: words.slice(0, KEEP_ITEM_CHARS),
+    words: asStored(words, KEEP_ITEM_CHARS),
     ...(refs?.length ? { refs: refs.slice(0, 4) } : {}),
   });
   const items: KeptItem[] = [];
@@ -308,9 +321,14 @@ export function compileRefs(a: Answers): Record<string, string[]> {
  * they exist nowhere else, so a resume that dropped them lost the half of the
  * conversation that was theirs.
  */
-export function seedStateFromDraft(d: DraftLike): { answers: Answers; asides: Aside[] } {
+export function seedStateFromDraft(d: DraftLike): { answers: Answers; asides: Aside[]; extrasDeclined?: true } {
   const held = deserialize(d.setup ?? null);
-  if (held && Object.keys(held.answers).length) return { answers: held.answers, asides: held.asides };
+  if (held && Object.keys(held.answers).length)
+    return {
+      answers: held.answers,
+      asides: held.asides,
+      ...(held.extrasDeclined ? { extrasDeclined: held.extrasDeclined } : {}),
+    };
   return { answers: seedFromDraft(d), asides: [] };
 }
 
@@ -376,7 +394,7 @@ function keptBack(d: DraftLike): Partial<Answers> {
 }
 
 /** What the setup questions can see of the draft. */
-export const flowContext = (draft: DraftLike | null, canGenerate: boolean): FlowContext => ({
+export const flowContext = (draft: DraftLike | null, canGenerate: boolean, engine?: string | null): FlowContext => ({
   draft: draft
     ? {
         source: draft.source,
@@ -387,6 +405,7 @@ export const flowContext = (draft: DraftLike | null, canGenerate: boolean): Flow
       }
     : null,
   canGenerate,
+  ...(engine ? { engine } : {}),
 });
 
 /* -------------------------------------------------------------- answers */
@@ -685,6 +704,8 @@ function questionFor(id: Qid, state: CreationState, ctx: FlowContext, reopened: 
         id,
         kind: 'confirm',
         prompt: PROMPT.weakPhotos,
+        // the first way on deletes the draft and its photographs: never on a stray Enter
+        noEnter: true,
         options: [
           { id: 'again', label: 'Use different photos' },
           { id: 'anyway', label: 'Draw from these anyway' },
@@ -700,7 +721,7 @@ function questionFor(id: Qid, state: CreationState, ctx: FlowContext, reopened: 
         hashes: p.hashes,
         max: MAX_PHOTOS,
         busy: state.uploading > 0,
-        attest: { text: ATTEST_TEXT, checked: p.attested },
+        attest: { text: attestText(ctx.engine), checked: p.attested },
         submit: 'Continue',
         back: 'Describe someone instead',
       };
@@ -868,8 +889,12 @@ export interface FlowArgs {
   state: CreationState;
   draft: DraftLike | null;
   canGenerate: boolean;
+  /** The engine that draws, by its display name: the photographs' confirmation says they go to it. */
+  engine?: string | null;
   /** A request that never reached the engine, said once with a Retry. */
   failed?: string | null;
+  /** The view that request was a draw of, when it was one. */
+  failedView?: StudioView | null;
   /**
    * The address names a draft whose answers are not read yet: it has not
    * arrived, or it has and the seed has not run (`awaitingAnswers`).
@@ -952,12 +977,12 @@ function shape(args: FlowArgs, asides: Aside[], openId: string | null): Turn[] {
 }
 
 function build(
-  { state, draft, canGenerate, failed, awaiting }: FlowArgs,
+  { state, draft, canGenerate, engine, failed, failedView, awaiting }: FlowArgs,
   asides: Aside[],
   openId: string | null,
   placed: Set<Aside>,
 ) {
-  const ctx = flowContext(draft, canGenerate);
+  const ctx = flowContext(draft, canGenerate, engine);
   const a = state.answers;
   const lead: Turn[] = [{ kind: 'you', id: 'intent', text: 'Create a presenter' }];
   // the details the photographs were asked about belong after the read of them
@@ -1102,16 +1127,16 @@ function build(
   const record = recordTurns({
     draft,
     canGenerate,
-    ui: { extrasDeclined: state.extrasDeclined, failed, editingName: state.editing === 'name' },
+    ui: { extrasDeclined: state.extrasDeclined, failed, failedView, editingName: state.editing === 'name' },
     afterCoverage: after,
     asides,
     openId,
     placed,
   });
-  const T = [...lead, ...record];
-  // A setup question is the one thing being asked: the record's own question
-  // waits, and the setup's stands last, after everything that already happened.
-  if (open && T[T.length - 1]?.kind === 'question') T.pop();
+  // A setup question is the one thing being asked: the record's own questions
+  // wait (the name standing above a decision with it), and the setup's stands
+  // last, after everything that already happened.
+  const T = [...lead, ...(open ? record.filter((t) => t.kind !== 'question') : record)];
   if (open) T.push({ kind: 'question', question: open });
   return T;
 }
@@ -1124,6 +1149,18 @@ export function activeQuestion(turns: Turn[]): Question | null {
     if (!isAsideTurn(t)) return null;
   }
   return null;
+}
+
+/**
+ * What the conversation is waiting on, when a Working turn should say so:
+ * only where something is actually being waited for. A question the flow
+ * already has arrives without anyone pretending to think. A line that says
+ * what is being drawn or read is that wait said once: a Working turn under it
+ * was the same news again, and a third time with the stage's badge.
+ */
+export function workingFor(turns: Turn[], d: DraftLike | null, busy: boolean): boolean | string {
+  if (turns.some((t) => t.kind === 'scenri' && (t.id === 'reading' || t.id.startsWith('drawing-')))) return false;
+  return d?.stage === 'analyzing' ? `Reading ${readingWhat(d.source)}` : d?.activeView ? 'Drawing' : busy;
 }
 
 /* ------------------------------------------------------------- composer */
@@ -1157,7 +1194,7 @@ const lookComposer = (step: LookStep, handed: boolean): ComposerFor => ({
     ? (LOOK_SAYS_PLACEHOLDER[step] ?? 'In your words')
     : LOOK_COLOUR.has(step)
       ? 'Tap a swatch above, or say the colour'
-      : 'Tap one above, or describe it',
+      : 'Pick one above, or describe it',
   label: 'Describe it',
   action: 'Send',
   color: LOOK_COLOUR.has(step),
@@ -1171,12 +1208,37 @@ function traitComposer(qid: string, handed: boolean): ComposerFor {
   const said = trait?.part === 'where' ? 'Where it is, in your words' : (t?.saying ?? 'What it looks like');
   const beside =
     trait?.part === 'where'
-      ? 'Tap one above, or say where it is'
-      : `Tap one above, or ${(t?.saying ?? 'describe it').toLowerCase()}`;
+      ? 'Pick one above, or say where it is'
+      : `Pick one above, or ${(t?.saying ?? 'describe it').toLowerCase()}`;
   return { placeholder: handed ? said : beside, label: t?.saying ?? 'Describe it', action: 'Send' };
 }
 
+/**
+ * A bare name typed where a change would go: a fast engine lands the face
+ * while it is being typed. It names them rather than redrawing the face from
+ * it. One reading for what Enter does and for what the button says it does.
+ */
+export function namesThem(text: string, d: DraftLike | null, open: string | null): boolean {
+  const said = text.trim();
+  return (
+    !!d && !d.name?.trim() && open !== 'name' && /^[A-Z][a-z]+(?:\s[A-Z][a-z]+)?$/.test(said) && !readsAsPerson(said)
+  );
+}
+
 export function composerFor(
+  q: Question | null,
+  state: CreationState,
+  d: DraftLike | null,
+  selected: StudioView,
+): ComposerFor {
+  const c = composerBase(q, state, d, selected);
+  // the button says what Enter will do: a name typed at a change names them
+  return c.action === 'Refine' && !c.off && namesThem(state.text, d, q?.id ?? null)
+    ? { ...c, label: 'Their name', action: 'Send' }
+    : c;
+}
+
+function composerBase(
   q: Question | null,
   state: CreationState,
   d: DraftLike | null,
@@ -1242,7 +1304,7 @@ export function composerFor(
       // description, and the question closes itself if the words filled it.
       case 'gaps':
         return {
-          placeholder: 'Tap one above, or say it in your own words',
+          placeholder: 'Pick one above, or say it in your own words',
           label: 'Fill in what is missing',
           action: 'Send',
         };

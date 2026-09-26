@@ -1,0 +1,37 @@
+{
+  "id": "puffer-foil-jump",
+  "title": "Puffer mid-jump in a foil booth",
+  "category": "launch",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "slate-harbor-cropped-puffer"
+      },
+      {
+        "t": "character",
+        "id": "tove"
+      },
+      {
+        "t": "template",
+        "id": "foil-tent"
+      },
+      {
+        "t": "text",
+        "v": " She is caught at the top of a jump inside the foil booth, knees tucked, braids flying, the tangerine cropped puffer open over a black sports bra, with black high-waisted leggings and black trainers. The crinkled silver walls throw hundreds of cool highlights across the glossy nylon. 24mm from low, full length, frozen with flash."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 82,
+  "family": "studio"
+}

@@ -15,12 +15,13 @@
     "skincare",
     "beverage"
   ],
-  "description": "The subject rests within a hollowed pocket carved into a wall of real glacial ice, cool blue daylight refracting through the frozen mass with the ice itself acting as a natural diffuser. Ancient, clinical, and quietly pristine, with a fine cold mist drifting at its base.",
+  "description": "A hollowed pocket carved into a wall of real glacial ice, cool blue daylight refracting through the frozen mass with the ice itself as the diffuser. Ancient, clinical and quietly pristine, with a fine cold mist drifting at its base.",
   "lighting": "Natural daylight refracted through the ice, no softbox",
   "subject": "product",
   "collections": ["Studio"],
-  "verticals": ["Beauty", "Fragrance", "Electronics"],
-  "prompt": "resting within a hollowed pocket carved into a wall of real glacial ice, cool blue daylight refracting deep through the frozen mass with the ice itself acting as the only diffuser, shallow depth of field with genuine crystalline ice texture soft-blurred behind the sharp in-focus product, fine cold mist drifting low and dissipating around the base, natural cool daylight color temperature, real ice refraction and specular highlights rather than a smooth CGI block, no fantasy glow or magic light, no visible ice-cave machinery, no props beyond the ice itself, pristine e-commerce-grade clarity",
+  "verticals": ["Beauty", "Fragrance", "Electronics", "Beverage"],
+  "prompt": "A wall of real glacial ice with a hollowed pocket carved into its face, cool blue daylight refracting deep through the frozen mass so the ice itself is the only diffuser. Genuine crystalline texture, trapped air bubbles, fine fracture lines and ancient compressed layers run through the ice, with real specular highlights on its wet carved surfaces. A fine cold mist drifts low along the floor of the pocket and dissipates. Natural cool daylight colour, no fantasy glow, no machinery, nothing beyond the ice itself, photographed on location inside a glacier.",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "cover": "hero"
 }

@@ -1,0 +1,33 @@
+{
+  "id": "orris-collarbone",
+  "title": "Salt Orris held at the collarbone",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "verlaine-salt-orris"
+      },
+      {
+        "t": "character",
+        "id": "odette"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. A close beauty crop from her lips to her collarbone: she presses the flacon lightly against her collarbone with two fingertips, the clear glass cold on her skin, the label turned to camera. She wears a black silk shirt open at the collar. Soft north light from a large window on the left, a gentle fill, her skin with real texture and a faint sheen. 100mm at f/4, focus on the label, her chin and lips just soft at the top of the frame."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 34,
+  "family": "human"
+}

@@ -1,0 +1,29 @@
+{
+  "id": "over-ear-pool-edge",
+  "title": "Headphones on a pool edge",
+  "category": "lifestyle",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "nordhavn-over-ear"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. The powder-blue headphones lie on the white tiled coping of an outdoor pool, one earcup overhanging the bright water, dancing caustic light playing across the tiles and the underside of the band. Hard afternoon sun, sharp shadow. 50mm from just above the coping, the turquoise water filling the top half of the frame."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 13,
+  "family": "optical"
+}

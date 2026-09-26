@@ -1,0 +1,33 @@
+{
+  "id": "ridgeline-stream-leap",
+  "title": "Trail runner crossing a mountain stream",
+  "category": "cinematic",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "voss-rowe-ridgeline-trail"
+      },
+      {
+        "t": "character",
+        "id": "finn"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. He crosses a fast mountain stream on wet boulders at a running stride, caught as his lead trail shoe lands flat on top of a boulder with his knee bent over the foot to take his weight, the trailing shoe just leaving the stone behind him, spray kicking up where the water breaks around the rocks. He wears a sleeveless burnt-orange running vest, black split running shorts and the trail shoes. Overcast alpine light, dark wet granite and a pale green valley falling away behind. 35mm from low beside the water, full length, fast shutter, his face set and his eyes on the next rock."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 28,
+  "family": "human"
+}

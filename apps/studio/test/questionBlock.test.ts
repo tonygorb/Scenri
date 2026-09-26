@@ -322,3 +322,66 @@ describe('a pick', () => {
     expect(onAnswer).not.toHaveBeenCalled();
   });
 });
+
+// A press whose request failed at once is asked again under the same id: the
+// block never went, so it kept the tapped control lit and took nothing more.
+// A new attempt count hands it back.
+describe('a question asked again after its press failed', () => {
+  const draw = (attempt?: number): Question => ({
+    id: 'agree-0',
+    kind: 'confirm',
+    prompt: 'Ready to draw?',
+    options: [{ id: 'draw', label: 'Draw the scene' }],
+    ...(attempt ? { attempt } : {}),
+  });
+  it('takes a press again once the attempt changes', () => {
+    const onAnswer = vi.fn();
+    render(draw(), { onAnswer });
+    act(() => button('Draw the scene').click());
+    expect(onAnswer).toHaveBeenCalledTimes(1);
+    expect(host.querySelector('[data-picked]')).not.toBeNull();
+    // still latched while nothing changed: a second tap takes nothing
+    act(() => button('Draw the scene').click());
+    expect(onAnswer).toHaveBeenCalledTimes(1);
+    render(draw(1), { onAnswer });
+    expect(host.querySelector('[data-picked]')).toBeNull();
+    act(() => button('Draw the scene').click());
+    expect(onAnswer).toHaveBeenCalledTimes(2);
+  });
+});
+
+// UXS-4: on a phone the picture being decided sat above a full read-back the
+// person had just agreed to, and scrolled off. Words already read out stand at
+// their first line, with the rest one press away.
+describe('a quote already read out', () => {
+  const decide = (quoteFolded?: boolean): Question => ({
+    id: 'decide-1',
+    kind: 'confirm',
+    prompt: 'Use it?',
+    quote: 'A wet basalt shelf at the waterline.\nLow sunset.',
+    quoteLabel: 'What your shots are told',
+    ...(quoteFolded ? { quoteFolded } : {}),
+    options: [{ id: 'use', label: 'Use it' }],
+  });
+  it('stands folded, and opens whole on Show all', () => {
+    render(decide(true));
+    const text = host.querySelector('.sc-convo-brief-text') as HTMLElement;
+    expect(text.hasAttribute('data-folded')).toBe(true);
+    expect(text.textContent).toContain('Low sunset.');
+    const more = button('Show all');
+    expect(more.getAttribute('aria-expanded')).toBe('false');
+    act(() => more.click());
+    expect(text.hasAttribute('data-folded')).toBe(false);
+    // a toggle that stays where it was, so the keyboard stays with it
+    expect(more.isConnected).toBe(true);
+    expect(more.textContent).toBe('Show less');
+    expect(more.getAttribute('aria-expanded')).toBe('true');
+    act(() => more.click());
+    expect(text.hasAttribute('data-folded')).toBe(true);
+  });
+  it('stands whole when it was not read out before', () => {
+    render(decide());
+    expect(host.querySelector('.sc-convo-brief-text')?.hasAttribute('data-folded')).toBe(false);
+    expect(button('Show all')).toBeUndefined();
+  });
+});

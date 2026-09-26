@@ -90,9 +90,10 @@
    A wall of hidden buttons does not pay for it.
    ========================================================================= */
 .sc-cell,
-.sc-lookcard {
-  /* One skin for a shot and a catalog card. Hover catches a little light,
-     press goes a step darker. */
+.sc-lookcard,
+.sc-sceneview-frame {
+  /* One skin for a shot, a catalog card and a scene page's view. Hover
+     catches a little light, press goes a step darker. */
   --sc-cell-ctl-bg: var(--sc-glass);
   --sc-cell-ctl-bg-hover: color-mix(in srgb, var(--sc-glass) 86%, #fff);
   --sc-cell-ctl-bg-press: color-mix(in srgb, var(--sc-glass) 78%, #000);

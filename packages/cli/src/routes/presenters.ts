@@ -1,7 +1,14 @@
 import { existsSync } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
-import { contentDirList, contentFile } from '../content/overlay.js';
-import { presenterAvatarPath, presenterFacetsOf, presenterRefPath, type Presenter } from '../presenters.js';
+import { contentFile } from '../content/overlay.js';
+import {
+  PRESENTER_FRAME_FILE,
+  presenterAvatarPath,
+  presenterFacetsOf,
+  presenterPageFrames,
+  presenterRefPath,
+  type Presenter,
+} from '../presenters.js';
 import type { ThumbStore } from '../thumbs.js';
 import { fileKey, mtimeQS, serveJpeg, serveJpegSized } from './shared.js';
 
@@ -11,11 +18,19 @@ export function registerPresenterRoutes(
 ): void {
   const { templatesRoot, presenters, thumbs } = deps;
   const presenterThumbPath = (id: string) => contentFile(templatesRoot, 'previews', 'presenters', `${id}.jpg`);
+  // The card is the portrait, whole, at 564 wide so an install can carry it. Its
+  // derivatives come from the library's full-size portrait once that is here:
+  // a card laid out wider than 564 device pixels was the small copy enlarged.
+  const portraitPath = (id: string) => contentFile(templatesRoot, 'previews', 'presenters', id, 'portrait.jpg');
+  const cardSource = (id: string) => {
+    const path = portraitPath(id);
+    return existsSync(path) ? { path, key: fileKey('presenter-portrait', id, path) } : undefined;
+  };
   const avatarPath = (id: string) => presenterAvatarPath(templatesRoot, id);
   const decoratePresenter = (p: Presenter) => ({
     ...p,
     previewUrl: existsSync(presenterThumbPath(p.id))
-      ? `/api/presenter-thumbnails/${p.id}.jpg${mtimeQS(presenterThumbPath(p.id))}`
+      ? `/api/presenter-thumbnails/${p.id}.jpg${mtimeQS(presenterThumbPath(p.id), portraitPath(p.id))}`
       : null,
     // Square portrait for small/square surfaces. Null when absent so every
     // consumer can fall back to previewUrl and nothing breaks without one.
@@ -31,7 +46,7 @@ export function registerPresenterRoutes(
     const m = /^([a-z0-9-]+)\.jpg$/.exec(String((req.params as any).file));
     if (!m || !existsSync(presenterThumbPath(m[1]))) return reply.status(404).send({ error: 'no preview' });
     const path = presenterThumbPath(m[1]);
-    return serveJpegSized(req, reply, path, thumbs, fileKey('presenter', m[1], path));
+    return serveJpegSized(req, reply, path, thumbs, fileKey('presenter', m[1], path), cardSource(m[1]));
   });
   app.get('/api/presenter-avatars/:file', async (req, reply) => {
     const m = /^([a-z0-9-]+)\.jpg$/.exec(String((req.params as any).file));
@@ -39,21 +54,22 @@ export function registerPresenterRoutes(
     const path = avatarPath(m[1]);
     return serveJpegSized(req, reply, path, thumbs, fileKey('avatar', m[1], path));
   });
-  // A presenter's reference set: the same 4-angle identity plan every time.
+  // A presenter's standing views, each with the angle it shows, so the page
+  // labels a picture by what it is rather than by where it falls in a list.
   // Both segments are pattern-guarded, so nothing outside previews/ is reachable.
   app.get('/api/presenter-previews/:id', async (req, reply) => {
     const id = /^[a-z0-9-]+$/.exec(String((req.params as any).id))?.[0];
     if (!id) return reply.status(400).send({ error: 'bad presenter id' });
-    const frames = contentDirList(templatesRoot, 'previews', 'presenters', id)
-      .map((f) => /^(ref-[0-9]{2})\.jpg$/.exec(f)?.[1])
-      .filter((slot): slot is string => !!slot)
-      .map((slot) => `/api/presenter-previews/${id}/${slot}.jpg${mtimeQS(presenterRefPath(templatesRoot, id, slot))}`);
+    const frames = presenterPageFrames(templatesRoot, id).map((f) => ({
+      url: `/api/presenter-previews/${id}/${f.slot}.jpg${mtimeQS(f.path)}`,
+      angle: f.angle,
+    }));
     return { frames };
   });
   app.get('/api/presenter-previews/:id/:file', async (req, reply) => {
     const p = req.params as any;
     const id = /^[a-z0-9-]+$/.exec(String(p.id))?.[0];
-    const slot = /^(ref-[0-9]{2})\.jpg$/.exec(String(p.file))?.[1];
+    const slot = PRESENTER_FRAME_FILE.exec(String(p.file))?.[1];
     const path = id && slot ? presenterRefPath(templatesRoot, id, slot) : null;
     if (!path || !existsSync(path)) return reply.status(404).send({ error: 'no frame' });
     return serveJpeg(req, reply, path);
