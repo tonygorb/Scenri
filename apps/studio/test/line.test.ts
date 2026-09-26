@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   CHIP,
   caretBeside,
+  caretToEnd,
   caretUnits,
   chipHexWords,
   chipLabel,
@@ -9,6 +10,7 @@ import {
   lineIsCanonical,
   stepAcrossChip,
   chipToDelete,
+  chipPastCaret,
   deletionAtLineEdge,
   syncEmpty,
   decode,
@@ -1298,5 +1300,53 @@ describe('updateColorChip', () => {
     expect(decode(el.dataset.tok ?? '')).toEqual({ t: 'color', hex: '#000000' });
     expect(sw.style.background).toBe('rgb(0, 0, 0)');
     expect(chipLabel(el)).toBe('#000000');
+  });
+});
+
+// Tab from the line went into the page's order, where the first chip inside
+// the line always came next: forward Tab looped between the line and its first
+// chip and never left the brief (S3-01). The line now picks the chip itself.
+describe('the chip a Tab from the line goes to', () => {
+  const seed = () =>
+    renderLine(
+      root,
+      [
+        { t: 'text', v: 'shot of ' },
+        { t: 'product', id: 'p1' },
+        { t: 'product', id: 'p2' },
+        { t: 'text', v: ' in warm light' },
+      ],
+      chipFor,
+    );
+
+  it('is the next chip after the caret, then none once the caret is past the last', () => {
+    seed();
+    const [p1, p2] = chips();
+    caret(0);
+    expect(chipPastCaret(root, 'forward')).toBe(p1);
+    caretBeside(root, p1, 'after'); // where a chip's own Tab puts the caret
+    expect(chipPastCaret(root, 'forward')).toBe(p2);
+    caretBeside(root, p2, 'after');
+    expect(chipPastCaret(root, 'forward')).toBeNull();
+    caretToEnd(root); // the end of the words, both chips behind it
+    expect(chipPastCaret(root, 'forward')).toBeNull();
+  });
+
+  it('with Shift is the chip before the caret, then none once the caret is before the first', () => {
+    seed();
+    const [p1, p2] = chips();
+    caretToEnd(root);
+    expect(chipPastCaret(root, 'back')).toBe(p2);
+    caretBeside(root, p2, 'before');
+    expect(chipPastCaret(root, 'back')).toBe(p1);
+    caretBeside(root, p1, 'before');
+    expect(chipPastCaret(root, 'back')).toBeNull();
+  });
+
+  it('is none for a line with no caret in it', () => {
+    seed();
+    window.getSelection()?.removeAllRanges();
+    expect(chipPastCaret(root, 'forward')).toBeNull();
+    expect(chipPastCaret(root, 'back')).toBeNull();
   });
 });

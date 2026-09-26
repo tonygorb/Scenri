@@ -59,6 +59,7 @@ import {
   unitsOfPosition,
   stepAcrossChip,
   chipToDelete,
+  chipPastCaret,
   deletionAtLineEdge,
   syncEmpty,
   decode,
@@ -377,13 +378,17 @@ export const BriefInput = forwardRef<
        *
        * It was a bare span with no tabIndex and a remove button at -1, so the
        * only keyboard route to a chip was to backspace over it: there was no
-       * way to reach one, and no way to change one. Tab is intercepted in
-       * `onKeyDown` so six chips do not become six tab stops on the way out.
+       * way to reach one, and no way to change one. It is reached from the
+       * line, not from the page's Tab order: Tab in the line goes to the next
+       * chip after the caret, Shift+Tab to the one before (`onKeyDown`). In
+       * the page's order a chip sat inside the line, so every Tab out of the
+       * line landed on the first chip, and the chip's own Tab put the caret
+       * back: forward Tab never left a brief that held one.
        */
       const pk = chipOpensPicker(token);
       if (pk) {
         const noun = pk === 'color' ? 'colour' : NOUN[pk];
-        el.tabIndex = 0;
+        el.tabIndex = -1;
         el.setAttribute('role', 'button');
         el.setAttribute('aria-haspopup', 'dialog');
         el.setAttribute('aria-expanded', 'false');
@@ -392,7 +397,7 @@ export const BriefInput = forwardRef<
         // A reference or a mark has no catalog to swap from, but its identity
         // IS a picture: hovering peeks at it and opening shows it full size.
         // Same button, same popup, a different verb.
-        el.tabIndex = 0;
+        el.tabIndex = -1;
         el.setAttribute('role', 'button');
         el.setAttribute('aria-haspopup', 'dialog');
         el.setAttribute('aria-expanded', 'false');
@@ -1067,8 +1072,8 @@ export const BriefInput = forwardRef<
       }
       if (e.key === 'Tab') {
         e.preventDefault();
-        // Step off the chip into the line rather than into the next chip: one
-        // more Tab then leaves the composer the way it always did.
+        // Step off the chip into the line beside it. The next Tab goes on from
+        // there, to the next chip, and past the last one it leaves the composer.
         caretBeside(root, focused, e.shiftKey ? 'before' : 'after');
         root?.focus({ preventScroll: true });
         return;
@@ -1112,6 +1117,17 @@ export const BriefInput = forwardRef<
     }
     if (menu || picker) return;
     if (composingEvent(e)) return;
+    // Tab walks the chips from the caret, one at a time, each by way of the
+    // line; with none left that way the browser's Tab leaves the line, and
+    // since no chip is in the page's order it lands on the next control.
+    if (e.key === 'Tab' && !e.altKey && !e.metaKey && !e.ctrlKey) {
+      const chip = chipPastCaret(root, e.shiftKey ? 'back' : 'forward');
+      if (chip) {
+        e.preventDefault();
+        chip.focus({ preventScroll: true });
+      }
+      return;
+    }
     // A chip and the space after it are one thing to the keyboard: one press
     // crosses both, one press removes both. Prose beside a chip still steps a
     // character at a time. Modifiers are left alone: Shift extends a selection
