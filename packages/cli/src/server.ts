@@ -14,7 +14,7 @@ import {
 import { compileBrief, validateBrief, FORMATS, type Attachment, type Brief, type BriefToken } from './brief.js';
 import { mergeEditAttachments } from './attachmentBudget.js';
 import { shotWordsFor } from './shotWords.js';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type {
   Core,
@@ -653,6 +653,15 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   // it is drawing. Put those back before anyone reads them.
   sweepPresenterDrafts(core);
   sweepAbandonedPresenterDrafts(core, { evict: (hash) => thumbs.evict(hash) });
+  // A turn of the loop after boot, so starting never waits on a walk of the
+  // whole store. Whatever an error leaves behind, the next start looks at again.
+  setImmediate(() => {
+    try {
+      sweepUnreferencedImages(core, (hash) => thumbs.evict(hash));
+    } catch {
+      /* not worth failing a start over */
+    }
+  });
   registerPresenterDraftRoutes(app, { core, engines, analyzer: opts.analyzer, scenes, presenters, thumbs });
   registerSceneStudioRoutes(app, {
     core,
@@ -2863,6 +2872,37 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   }
 
   return app;
+}
+
+/**
+ * How old an unreferenced picture must be before boot lets it go. Past every
+ * window a client holds a picture nothing on the server names yet: a scene
+ * conversation keeps its versions for seven days, and the Composer keeps a
+ * half-written brief, uploads included, for thirty days after its last edit,
+ * which can itself be weeks after the upload.
+ */
+const UNREFERENCED_IMAGE_MS = 60 * 24 * 60 * 60 * 1000;
+
+/**
+ * Remove stored pictures nothing names that are older than the window above:
+ * a scene studio's unused versions (its jobs live in memory and a restart
+ * forgets them), an upload never filed, a likeness photo taken off before
+ * Continue. The references are the ones removeUnreferenced trusts, read once
+ * each rather than once per file; if any read throws, nothing is removed.
+ */
+function sweepUnreferencedImages(core: Core, evict: (hash: string) => void): void {
+  const referenced = core.store.referencedHashes();
+  const dir = join(core.home, 'images');
+  const now = Date.now();
+  for (const name of readdirSync(dir)) {
+    const hash = /^([a-f0-9]{32})\.[a-z0-9]{2,5}$/.exec(name)?.[1];
+    if (!hash || referenced.has(hash)) continue;
+    const file = join(dir, name);
+    const stat = statSync(file, { throwIfNoEntry: false });
+    if (!stat || now - stat.mtimeMs < UNREFERENCED_IMAGE_MS) continue;
+    rmSync(file, { force: true });
+    evict(hash);
+  }
 }
 
 /** The brand collections their own routes own, carried over from the stored document. */

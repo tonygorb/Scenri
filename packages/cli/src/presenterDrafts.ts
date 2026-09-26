@@ -2147,7 +2147,13 @@ export async function discardPresenterDraft(
 export async function releasePresenter(
   deps: AssetBuildDeps,
   brandId: string,
-  presenter: { id: string; shots?: { file?: unknown }[]; sourceRefs?: unknown[]; preview?: unknown; avatar?: unknown },
+  presenter: {
+    id: string;
+    shots?: { file?: unknown }[];
+    sourceRefs?: { file?: unknown }[];
+    preview?: unknown;
+    avatar?: unknown;
+  },
   hooks: CleanupHooks = {},
 ): Promise<void> {
   for (const d of listPresenterDrafts(deps.core, brandId)) {
@@ -2155,7 +2161,9 @@ export async function releasePresenter(
   }
   const held = [
     ...(presenter.shots ?? []).map((s) => s?.file),
-    ...(presenter.sourceRefs ?? []),
+    // a source is { file: 'asset:<hash>' } like a shot; spread whole, it was
+    // read as '[object Object]' and the photographs were never let go
+    ...(presenter.sourceRefs ?? []).map((s) => s?.file),
     presenter.preview,
     presenter.avatar,
   ];

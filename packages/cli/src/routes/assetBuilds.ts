@@ -27,7 +27,7 @@ import {
   type AssetBuildDeps,
   type CustomScene,
 } from '../customAssets.js';
-import type { SceneExample } from '../assetRecords.js';
+import { headOf, type SceneExample } from '../assetRecords.js';
 import { presenterCropMode } from '../presenterRepair.js';
 import { releasePresenter, removeUnreferenced } from '../presenterDrafts.js';
 import { cancelSceneStudioFor, heldBySceneStudio } from '../sceneStudio.js';
@@ -278,21 +278,25 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     const brand = brandOr404(req, reply);
     if (!brand) return;
     const id = String((req.params as any).presenterId);
-    const base = brandCharacters(brand.json).find((c: any) => c.id === id);
+    const rows = brandCharacters(brand.json);
+    const base = rows.find((c: any) => c.id === id);
     if (!base) return reply.status(404).send({ error: 'presenter not found' });
     if (!isCustomPresenter(base)) return reply.status(400).send({ error: 'this presenter is not editable' });
     // Shots already made keep their prompt and their pixels. A brief that names
     // this person again will say so; see compileBrief's roster warning.
-    // Deleting the head of a revision chain removes only that record: the
-    // records it superseded stay, still marked superseded, and still what
-    // their own shots refine against.
+    // The person goes whole: the head and every record it superseded, in one
+    // commit. Each revision holds the same person's photographs, and kept
+    // behind a deleted head they stayed on disk where nothing lists them.
+    const gone = rows.filter((c: any) => c.id === id || headOf(brand.json, c.id) === id);
+    const goneIds = new Set(gone.map((c: any) => c.id));
     commit(core, brand.id, (json) => {
-      json.characters = brandCharacters(json).filter((c: any) => c.id !== id);
+      json.characters = brandCharacters(json).filter((c: any) => !goneIds.has(c.id));
     });
-    // After the record has left the document, never before: an open editing
+    // After the records have left the document, never before: an open editing
     // session ends here rather than drawing on into an orphan, and the pictures
     // nothing else holds are let go. See releasePresenter.
-    await releasePresenter(await buildDeps(), brand.id, base, hooks);
+    const assetDeps = await buildDeps();
+    for (const record of gone) await releasePresenter(assetDeps, brand.id, record, hooks);
     // The brand comes back, the way every other presenter mutation answers, so
     // the wall, the page, the pickers and the chips all stop showing them in
     // the same commit. Returning `{ok:true}` left every one of them stale until

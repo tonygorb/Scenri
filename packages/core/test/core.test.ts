@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createCore, SpendCapError, type Core } from '../src/index.js';
@@ -459,6 +459,18 @@ describe('image store', () => {
     writeFileSync(join(home, 'images', `${hash}.png`), buf.subarray(0, 64));
     expect(core.images.save(buf)).toBe(hash);
     expect(core.images.read(hash).equals(buf)).toBe(true);
+  });
+
+  // The boot sweep of pictures nothing references goes by file age, so bytes
+  // saved long ago and saved again today count as new.
+  it('counts the same bytes saved again as fresh', () => {
+    const buf = Buffer.from('a photo first saved long ago');
+    const hash = core.images.save(buf);
+    const file = core.images.pathFor(hash);
+    const old = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    utimesSync(file, old, old);
+    core.images.save(buf);
+    expect(Date.now() - statSync(file).mtimeMs).toBeLessThan(60_000);
   });
 });
 
