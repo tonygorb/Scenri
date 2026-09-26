@@ -36,8 +36,9 @@ const CAPABILITIES: Record<string, Capability> = {
   'codex-cli': { sizing: 'advisory' },
   // image_config.aspect_ratio only: draft, standard and high send identical bodies
   openrouter: { sizing: 'ratio' },
-  // three buckets, and it throws rather than silently return the wrong shape
-  replicate: { sizing: 'ratio', formats: ['square', 'story', 'landscape'] },
+  // eleven fixed ratios, every studio format among them; it still throws on a
+  // shape past 21:9 or 9:21 rather than silently return the wrong one
+  replicate: { sizing: 'ratio' },
   fal: { sizing: 'exact' },
   demo: { sizing: 'exact' },
 };

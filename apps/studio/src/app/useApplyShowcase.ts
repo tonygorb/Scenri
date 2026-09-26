@@ -5,10 +5,15 @@ import { useBrand } from './BrandLayout.js';
 import { hubPath } from '../routes.js';
 
 /**
- * A curated example as a brief the Composer can be seeded with: its own
- * variants and quality come along, because an example is a whole shot and not
- * just its words. The `_at` stamp is what makes picking the same tile twice
- * land twice — the seed is compared by identity, not by content.
+ * A curated example as a brief the Composer can be seeded with: its shape
+ * (in the sentence) and its quality come along, because an example is a whole
+ * shot and not just its words. The `_at` stamp is what makes picking the same
+ * tile twice land twice — the seed is compared by identity, not by content.
+ *
+ * Its variant count deliberately stays behind. Every recipe on the wall was
+ * shot as two, and lending that meant the first Generate from an example made
+ * two pictures the person never chose. Left alone, the composer's count is the
+ * one the person saved, or a single shot on a machine that never picked one.
  *
  * One owner for both entry points: Home stages it into the docked composer,
  * Create applies it on `?showcase=` arrival. A field added to `ShowcaseEntry`
@@ -17,7 +22,6 @@ import { hubPath } from '../routes.js';
 export function showcaseBrief(entry: ShowcaseEntry) {
   return {
     ...entry.brief,
-    ...(entry.variants ? { variants: entry.variants } : {}),
     ...(entry.quality ? { quality: entry.quality } : {}),
     _at: Date.now(),
   };

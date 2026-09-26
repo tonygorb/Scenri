@@ -821,7 +821,10 @@ export interface ShowcaseEntry {
   title: string;
   category: string;
   brief: { tokens: any[]; templateFields?: Record<string, string> };
-  /** Settings the example was shot with, applied on "Recreate this". */
+  /**
+   * How the example was shot. `variants` is a record only: the studio never
+   * lends it, so the person's own count applies. `quality` is lent.
+   */
   variants?: number;
   quality?: 'draft' | 'standard' | 'high';
   /** Curated homepage position; the server already returns entries sorted by it. */
