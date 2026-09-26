@@ -21,7 +21,7 @@ let core: Core;
 const CODE = '482913';
 const phone = { host: '192.168.1.42:4747', 'x-access-token': CODE };
 
-const serve = () => {
+const serve = (extra: Partial<Parameters<typeof buildServer>[0]> = {}) => {
   const demo = createDemoEngine((b) => core.images.save(b));
   let setups = 0;
   const app = track(
@@ -40,6 +40,7 @@ const serve = () => {
           return { ok: true };
         },
       } as any,
+      ...extra,
     }),
   );
   return { app, setups: () => setups };
@@ -97,6 +98,22 @@ describe('a phone holding the code', () => {
     expect((await app.inject({ method: 'DELETE', url: '/api/data?scope=shots' })).statusCode).toBe(200);
     expect((await app.inject({ method: 'POST', url: '/api/engines/codex/install' })).statusCode).toBe(200);
     expect(setups()).toBe(1);
+  });
+
+  it('cannot shut Scenri down', async () => {
+    const exits: number[] = [];
+    const { app } = serve({ exitImpl: (code) => exits.push(code) });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/system/quit',
+      headers: phone,
+      remoteAddress: '192.168.1.50',
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error).toBe('Only on the computer running Scenri.');
+    // the route answers first and leaves 50ms later: give it the time
+    await new Promise((r) => setTimeout(r, 150));
+    expect(exits).toEqual([]);
   });
 });
 

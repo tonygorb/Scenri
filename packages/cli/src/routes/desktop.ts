@@ -78,7 +78,9 @@ export function registerDesktopRoutes(
     return { ok: true, path: res.path };
   });
 
-  app.post('/api/system/quit', async (_req, reply) => {
+  app.post('/api/system/quit', async (req, reply) => {
+    // it stops Scenri on the computer running it: never at a phone's request
+    if (!fromThisComputer(req)) return reply.status(403).send({ error: 'Only on the computer running Scenri.' });
     const busy = deps.busyCount();
     if (busy > 0) {
       return reply.status(409).send({ error: `work is still running (${busy} task${busy === 1 ? '' : 's'})` });
