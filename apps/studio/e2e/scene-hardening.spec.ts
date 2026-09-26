@@ -101,11 +101,15 @@ async function named(p: Page, name: string) {
   await expect(openQ(p)).toHaveAttribute('data-turn', /^q:decide-/, { timeout: 45_000 });
 }
 
+/** The saved scene by name. Use answers before a loaded machine has always read it back, so this waits for it. */
 async function sceneRef(p: Page, name: string) {
-  const brands = await (await p.request.get('/api/brands')).json();
-  for (const b of brands) {
-    const s = (b.json?.scenes ?? []).find((x: any) => x.name === name);
-    if (s) return { brandId: b.id as string, sceneId: s.id as string, scene: s };
+  for (let i = 0; i < 50; i++) {
+    const brands = await (await p.request.get('/api/brands')).json();
+    for (const b of brands) {
+      const s = (b.json?.scenes ?? []).find((x: any) => x.name === name);
+      if (s) return { brandId: b.id as string, sceneId: s.id as string, scene: s };
+    }
+    await p.waitForTimeout(200);
   }
   throw new Error(`no scene called ${name}`);
 }

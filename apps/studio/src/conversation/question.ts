@@ -56,6 +56,13 @@ export interface SwatchRow {
 interface QuestionBase {
   id: string;
   prompt: string;
+  /**
+   * Counts the presses of this question that failed before anything started.
+   * The block keeps the control it was tapped with lit until it goes, and a
+   * question asked again under the same id after a failed request never went:
+   * a new count hands it back, so it can be pressed again.
+   */
+  attempt?: number;
   /** A quiet line under the prompt. */
   hint?: string;
   tone?: QuestionTone;

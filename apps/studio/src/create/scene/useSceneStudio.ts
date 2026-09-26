@@ -84,6 +84,8 @@ export function useSceneStudio(args: {
    * read due now was spent on a start that could not happen.
    */
   const [starting, setStarting] = useState(false);
+  /** Starts that failed before anything ran: the question pressed is handed back each time. */
+  const [failed, setFailed] = useState(0);
   const live = useRef(s);
   live.current = s;
   const seedRef = useRef(args.seed);
@@ -149,6 +151,7 @@ export function useSceneStudio(args: {
         });
       } catch (e: any) {
         dispatch({ type: 'error', text: String(e?.message ?? e) });
+        setFailed((n) => n + 1);
       } finally {
         pressing.current = false;
         setStarting(false);
@@ -323,5 +326,5 @@ export function useSceneStudio(args: {
     [brandId, sceneId, conversation, applyBrand, dispatch],
   );
 
-  return { offline, saving, starting, start, stop, putBack, use };
+  return { offline, saving, starting, failed, start, stop, putBack, use };
 }

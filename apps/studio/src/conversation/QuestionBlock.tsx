@@ -111,6 +111,10 @@ export function QuestionBlock({
     if (wasHeld.current && !held) setPicked(null);
     wasHeld.current = held;
   }, [held]);
+  // a press whose request failed at once is handed back (`attempt`)
+  useEffect(() => {
+    if (question.attempt) setPicked(null);
+  }, [question.attempt]);
   // The answer is taken the moment it is tapped. The block lights the chosen
   // control and hands its look to the transcript, which keeps a ghost of it
   // while the row goes.

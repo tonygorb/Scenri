@@ -231,6 +231,8 @@ export function useSceneFlow(args: {
    * even started.
    */
   const [asking, setAsking] = useState(false);
+  /** Set requests that failed before anything ran (see `attempt` on the questions). */
+  const [setFailures, setSetFailures] = useState(0);
   const [stoppingSet, setStoppingSet] = useState(false);
   useEffect(() => {
     if (!setRunning) setStoppingSet(false);
@@ -272,6 +274,7 @@ export function useSceneFlow(args: {
         })
         .catch((e: any) => {
           setAsking(false);
+          setSetFailures((n) => n + 1);
           // nothing started: the offer this press answered is made again
           if (!('roles' in ask)) dispatch({ type: 'set-failed', more: 'more' in ask });
           setNote(String(e?.message ?? e));
@@ -413,9 +416,16 @@ export function useSceneFlow(args: {
     shots,
     set,
   };
+  // A press whose request failed at once left its question latched: the same
+  // id was asked again, so the block never went and never handed its answer
+  // back. The count of such failures rides on the questions (`attempt`).
+  const attempt = work.failed + setFailures;
   const turns = useMemo(
-    () => turnsFor(flow),
-    [setup, studio, canDraw, uploading, editingName, shown, edit, shots, set],
+    () =>
+      turnsFor(flow).map((t) =>
+        t.kind === 'question' && attempt ? { ...t, question: { ...t.question, attempt } } : t,
+      ),
+    [setup, studio, canDraw, uploading, editingName, shown, edit, shots, set, attempt],
   );
   const open = (() => {
     const last = turns[turns.length - 1];
@@ -746,10 +756,7 @@ export function useSceneFlow(args: {
     title: edit ? COPY.editTitle : COPY.title,
     turns,
     working,
-    // A press that is still on its way holds the question, and the question is
-    // handed back when it answers. A start or a set that failed at once used to
-    // leave the pressed block latched with nothing to press but a reload.
-    busy: work.saving || work.starting || asking,
+    busy: work.saving,
     resumed: !!restored,
     memoryKey: storageKey,
     stage: onStage
