@@ -180,10 +180,6 @@ settings table):
 4. Any way out of the dialog, whether Escape, the ×, the backdrop, Back, "Got
    it" or either link to the page, reads everything up to the running version.
    Opening the page does the same.
-5. `?whatsnew=preview` (or `?whatsnew=preview:0.18.1` for any update in the
-   in-app window) shows the dialog the way it introduces itself and reads
-   nothing. A development build offers it from Help as "Preview What's New"; a
-   production build has no such row.
 
 ### New, where a feature lives
 

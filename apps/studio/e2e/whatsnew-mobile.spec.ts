@@ -261,8 +261,16 @@ test("What's New is a bottom sheet on a phone and a card on a tablet: the excerp
 test('an update without a picture shows the artwork in the sheet, its version chip on it and whole', async ({
   page,
 }) => {
-  const acked = await serve(page, '9.9.9');
-  await page.goto(`${HOME}?whatsnew=preview:9.9.6`);
+  // a build whose newest update has no picture (9.9.6), read already: it opens only by its address
+  const acked: string[] = [];
+  await page.route('**/api/release/notes', (route) =>
+    route.fulfill({ json: notesFor(RECORDS.slice(3), '9.9.6', '9.9.6') }),
+  );
+  await page.route('**/api/release/seen', async (route) => {
+    acked.push(String(route.request().postDataJSON()?.version));
+    await route.fulfill({ json: { ok: true } });
+  });
+  await page.goto(`${HOME}?whatsnew=1`);
   await expect(sheet(page)).toBeVisible();
   await settled(page);
   await expect(excerptLink(page)).toHaveText('A headline told in words');
@@ -272,12 +280,11 @@ test('an update without a picture shows the artwork in the sheet, its version ch
   await expect(art.locator('img')).toHaveAttribute('alt', '');
   await expect.poll(() => decoded(art.locator('img'))).toBe(true);
   const chip = art.locator('.sc-wn-fallback-chip[data-theme="dark"] > .sc-tag-version');
-  await expect(chip).toHaveText('Version 9.9.6');
-  await expect(chip).not.toHaveAttribute('data-on');
-  // an earlier release: its own version is the only one in the sheet, plain, and the head names none
+  await expect(chip).toHaveText('Version 9.9.6, the version you are on');
+  await expect(chip).toHaveAttribute('data-on');
+  // its own version is the only one in the sheet, lit because it runs, and the head names none
   await expect(sheet(page).locator('.sc-newdlg-head .sc-tag-version')).toHaveCount(0);
   await expect(sheet(page).locator('.sc-tag-version')).toHaveCount(1);
-  await expect(sheet(page).locator('.sc-tag-version[data-on]')).toHaveCount(0);
   await expect(excerpt(page).locator('.sc-wn-when .sc-tag-version')).toHaveCount(0);
   // the artwork runs the excerpt's width, and the chip sits on it, whole
   const a = await boxOf(art);

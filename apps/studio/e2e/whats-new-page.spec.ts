@@ -723,6 +723,8 @@ test('Help leads to the page: its name takes the keyboard, nothing in the bar cl
   await expect(page.locator('.sc-nav [aria-current="page"]')).toHaveCount(1);
 
   await page.locator('.sc-help-btn').click();
+  // one way in, and no preview of the dialog: it introduces itself once after an update
+  await expect(page.getByRole('menuitem', { name: /Preview What's New/i })).toHaveCount(0);
   await page.locator('.sc-help-menu .sc-menu-item', { hasText: "What's new" }).click();
   await expect(page).toHaveURL((u) => u.pathname === PAGE && u.search === '');
   await expect(page).toHaveTitle("What's new - Scenri");
@@ -1116,7 +1118,7 @@ test('with reduced motion nothing on the page animates: the lift and the mark ar
   await expect(box).toHaveCount(0);
 
   // and so does the dialog, behind a scrim that does not fade either
-  await page.goto(`${HOME}?whatsnew=preview`);
+  await page.goto(`${HOME}?whatsnew=1`);
   await expect(dialog(page)).toBeVisible();
   const arrives = await page.evaluate(() => {
     const cs = (sel: string) => {

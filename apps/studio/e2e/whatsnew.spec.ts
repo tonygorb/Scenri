@@ -7,12 +7,11 @@ import { FIRST_USE } from '../src/firstUse.js';
  *
  * The excerpt is the update's picture on its stage (or, for an update with no
  * picture of its own, the artwork that stands in for one, with the version on
- * it), its date and version chip, and its headline, and all of it is one link
+ * it), its version tag and date, and its headline, and all of it is one link
  * to that release on the What's New page. whats-new-page.spec.ts owns the page
  * and the lightbox, which is the page's alone. This file is about when the
- * dialog opens by itself, what it shows, where its link leads, the preview
- * that reads nothing, and that every way out of a real showing is the
- * acknowledgement.
+ * dialog opens by itself, what it shows, where its link leads, and that every
+ * way out of it is the acknowledgement.
  *
  * The notes read is stubbed in most tests, and the stub answers the way the
  * server does (`notesFor` below), so a test can never hold the app to a
@@ -298,8 +297,7 @@ async function expectTag(tag: Locator, version: string, running: boolean): Promi
 
 /**
  * The dialog names one version, the update's own: lit when it is the version
- * this computer runs, plain when it is an earlier one (a preview), and never a
- * second version in the head.
+ * this computer runs, plain otherwise, and never a second version in the head.
  */
 async function expectRunning(p: Page, shown: string, running: string | null): Promise<void> {
   await expect(headTag(p)).toHaveCount(0);
@@ -630,8 +628,9 @@ test('the excerpt is one link and one stop: the X, the excerpt, the foot link, G
 test('under the pointer the excerpt lifts its picture and underlines its headline; nothing moves, darkens or appears', async ({
   page,
 }) => {
+  // read already, so the dialog opens only by its address and closing it writes nothing
   const acked = await serve(page, [HEADLINE], '9.9.9', '9.9.9');
-  await page.goto(`${HOME}?whatsnew=preview`);
+  await page.goto(`${HOME}?whatsnew=1`);
   await expect(dialog(page)).toBeVisible();
   await settled(page);
   await expect.poll(() => decoded(stage(page).locator('img'))).toBe(true);
@@ -917,154 +916,7 @@ test('it waits while Settings is open, and Updates, Show leaves Settings for the
   await expect(dialog(page)).toHaveCount(0);
 });
 
-// ---- the preview: the dialog as it introduces itself, reading nothing ----------
-
-test('a preview on a fresh home opens the newest update, and neither closing it nor following it writes anything', async ({
-  page,
-}) => {
-  // the real server: this file's home is fresh, so everything is read already
-  const posted = watchSeen(page);
-  const notes = await realNotes(page);
-  const featured = notes.recent[0] as Rec;
-  expect(featured, 'the real history has no update to preview').toBeTruthy();
-
-  await page.goto(`${HOME}?whatsnew=preview`);
-  await expect(dialog(page)).toBeVisible();
-  await expect(excerptLink(page)).toHaveText(featured.title as string);
-  await expect(excerptLink(page)).toHaveAttribute('href', `${PAGE}#v${featured.version}`);
-  await expect(excerpt(page)).toContainText(featured.version);
-  await gotIt(page).click();
-  await expect(dialog(page)).toHaveCount(0);
-
-  for (const close of [
-    (p: Page) => p.keyboard.press('Escape'),
-    (p: Page) => p.goBack(),
-    (p: Page) => gotIt(p).click(),
-  ]) {
-    await openByAddress(page, 'preview');
-    await expect(dialog(page)).toBeVisible();
-    await expect(excerptLink(page)).toHaveText(featured.title as string);
-    await close(page);
-    await expect(dialog(page)).toHaveCount(0);
-    await expect(page).toHaveURL(onHome);
-  }
-
-  // its link leads where a real showing's does
-  await openByAddress(page, 'preview');
-  await expect(dialog(page)).toBeVisible();
-  await excerptLink(page).click();
-  await expect(page).toHaveURL((u) => onPage(u) && u.hash === `#v${featured.version}`);
-  await expect(dialog(page)).toHaveCount(0);
-  await expect(heading(page)).toBeFocused();
-
-  await page.waitForTimeout(OUTWAIT_MS);
-  expect(posted, 'a preview acknowledged something').toEqual([]);
-  const after = await realNotes(page);
-  expect(after.seen).toBe(notes.seen);
-});
-
-test('a preview reads nothing even with something unread: the dot stays, and it opens again and again', async ({
-  page,
-}) => {
-  // A small update unread and the headline before it read: nothing opens by
-  // itself, but anything that acknowledged would have something to write. The
-  // preview shows the newest update, the small one, on the artwork.
-  const records = [
-    small('9.9.9', 'A small update since'),
-    headline('9.9.8', 'The headline to preview', [HEADLINE.sections[0]]),
-  ];
-  const acked = await serve(page, records, '9.9.9', '9.9.8');
-  await page.goto(HOME);
-  await expect(page.locator('.sc-greet')).toBeVisible();
-  await expect(dot(page)).toBeVisible();
-
-  const WAYS: ReadonlyArray<readonly [string, (p: Page) => Promise<unknown>]> = [
-    ['Got it', (p) => gotIt(p).click()],
-    ...WAYS_OUT,
-  ];
-  for (const [way, close] of WAYS) {
-    await openByAddress(page, 'preview');
-    await expect(dialog(page), `the preview did not open before ${way}`).toBeVisible();
-    await expect(excerptLink(page)).toHaveText('A small update since');
-    await expect(stage(page)).toHaveClass(/\bsc-wn-fallback\b/);
-    await close(page);
-    await expect(dialog(page), `${way} did not close the preview`).toHaveCount(0);
-    await expect(page).toHaveURL(onHome);
-    expect(acked, `closing the preview by ${way} acknowledged it`).toEqual([]);
-  }
-  await page.waitForTimeout(OUTWAIT_MS);
-  expect(acked).toEqual([]);
-  await expect(dot(page)).toBeVisible();
-  await expect(dialog(page)).toHaveCount(0);
-});
-
-/**
- * What `?whatsnew=preview:<version>` shows for WORDS running 9.9.9: any
- * recent update it names, headline or small, with its picture or on the
- * artwork; and the newest update when it names nothing it can show.
- */
-const PREVIEWS: ReadonlyArray<readonly [asked: string, shows: string]> = [
-  ['9.9.8', '9.9.8'],
-  ['9.9.7', '9.9.7'],
-  ['9.9.6', '9.9.6'],
-  ['1.2.3', '9.9.9'],
-];
-
-test('a preview shows any recent update it names, on its picture or on the artwork with its own version', async ({
-  page,
-}) => {
-  const acked = await serve(page, WORDS, '9.9.9', '9.9.9');
-  for (const [asked, shows] of PREVIEWS) {
-    const rec = WORDS.find((r) => r.version === shows) as Rec;
-    const pic = rec.sections.find((s) => s.image)?.image;
-    await page.goto(`${HOME}?whatsnew=preview:${asked}`);
-    await expect(dialog(page), `preview:${asked}`).toBeVisible();
-    await expect(excerptLink(page)).toHaveText(rec.title as string);
-    await expect(excerptLink(page)).toHaveAttribute('href', `${PAGE}#v${shows}`);
-    if (pic) await expectPicture(page, pic, shows, '9.9.9');
-    else await expectFallback(page, shows, '9.9.9');
-    await page.keyboard.press('Escape');
-    await expect(dialog(page)).toHaveCount(0);
-  }
-  await page.waitForTimeout(OUTWAIT_MS);
-  expect(acked).toEqual([]);
-});
-
-test('a preview of an earlier headline in the real history shows it, and this build offers no preview in Help', async ({
-  page,
-}) => {
-  const posted = watchSeen(page);
-  const notes = await realNotes(page);
-  const headlines = notes.recent.filter((r) => r.announce);
-  expect(headlines.length, 'the real history has no earlier headline to preview').toBeGreaterThan(1);
-  const earlier = headlines[1];
-
-  await page.goto(`${HOME}?whatsnew=preview:${earlier.version}`);
-  await expect(dialog(page)).toBeVisible();
-  await expect(excerptLink(page)).toHaveText(earlier.title as string);
-  await expect(excerptLink(page)).toHaveAttribute('href', `${PAGE}#v${earlier.version}`);
-  const pic = earlier.sections.find((s) => s.image)?.image;
-  if (pic) {
-    await expect(stage(page).locator('img')).toHaveAttribute('alt', pic.alt);
-    await expect.poll(() => decoded(stage(page).locator('img'))).toBe(true);
-    await expectTag(meta(page).locator('.sc-tag-version'), earlier.version, earlier.version === notes.version);
-    await expectRunning(page, earlier.version, notes.version);
-  } else {
-    await expectFallback(page, earlier.version, notes.version);
-  }
-  await page.keyboard.press('Escape');
-  await expect(dialog(page)).toHaveCount(0);
-
-  // the preview is a development build's Help row; this is the production bundle
-  await menuTrigger(page).click();
-  await expect(page.locator('.sc-help-menu [role="menuitem"]', { hasText: "What's new" })).toBeVisible();
-  await expect(page.getByRole('menuitem', { name: /Preview What's New/i })).toHaveCount(0);
-  await page.keyboard.press('Escape');
-  await page.waitForTimeout(OUTWAIT_MS);
-  expect(posted).toEqual([]);
-});
-
-test('0.19.1 has no picture: its page row is words alone, and a preview of it shows the artwork and its chip', async ({
+test('0.19.1 has no picture: its page row is words alone, and the dialog shows it on the artwork with its tag', async ({
   page,
 }) => {
   // the real server and the real record
@@ -1086,13 +938,15 @@ test('0.19.1 has no picture: its page row is words alone, and a preview of it sh
   await expectTag(row.locator(':scope > .sc-wn-when .sc-tag-version'), '0.19.1', notes.version === '0.19.1');
   await expect(page.locator('.sc-wn-fallback')).toHaveCount(0);
 
-  // while this computer runs 0.19.1 the artwork's tag is the lit one, and the head says nothing
-  await page.goto(`${HOME}?whatsnew=preview:0.19.1`);
-  await expect(dialog(page)).toBeVisible();
-  await expect(excerptLink(page)).toHaveText(rec?.title as string);
-  await expectFallback(page, '0.19.1', notes.version);
-  await page.keyboard.press('Escape');
-  await expect(dialog(page)).toHaveCount(0);
+  // while 0.19.1 is the newest update, the dialog shows it on the artwork, its tag lit when it runs
+  if (notes.recent[0]?.version === '0.19.1') {
+    await page.goto(`${HOME}?whatsnew=1`);
+    await expect(dialog(page)).toBeVisible();
+    await expect(excerptLink(page)).toHaveText(rec?.title as string);
+    await expectFallback(page, '0.19.1', notes.version);
+    await page.keyboard.press('Escape');
+    await expect(dialog(page)).toHaveCount(0);
+  }
   await page.waitForTimeout(OUTWAIT_MS);
   expect(posted).toEqual([]);
 });
@@ -1111,7 +965,7 @@ test("a picture the build does not carry, or one that fails to load, falls back 
   const acked = await serve(page, records, '9.9.9', '9.9.9');
 
   // not in the build: the release has no picture to show, so the artwork stands in
-  await page.goto(`${HOME}?whatsnew=preview:9.9.9`);
+  await page.goto(`${HOME}?whatsnew=1`);
   await expect(dialog(page)).toBeVisible();
   await expect(excerptLink(page)).toHaveText('Its picture never shipped');
   await expectFallback(page, '9.9.9', '9.9.9');
@@ -1121,11 +975,12 @@ test("a picture the build does not carry, or one that fails to load, falls back 
 
   // in the build but failing on the way: the artwork takes its place, wearing the
   // release's own tag, exactly as for a release with no picture, and nothing
-  // broken or empty is left behind
-  await page.goto(`${HOME}?whatsnew=preview:9.9.8`);
+  // broken or empty is left behind (a build whose newest update is that one)
+  const acked2 = await serve(page, records.slice(1), '9.9.8', '9.9.8');
+  await page.goto(`${HOME}?whatsnew=1`);
   await expect(dialog(page)).toBeVisible();
   await expect(excerptLink(page)).toHaveText('Its picture fails to load');
-  await expectFallback(page, '9.9.8', '9.9.9');
+  await expectFallback(page, '9.9.8', '9.9.8');
   await expect(dialog(page).locator(`img[alt="${PIC_C.alt}"]`)).toHaveCount(0);
   await expect
     .poll(() =>
@@ -1144,6 +999,7 @@ test("a picture the build does not carry, or one that fails to load, falls back 
   await page.keyboard.press('Escape');
   await expect(dialog(page)).toHaveCount(0);
   expect(acked).toEqual([]);
+  expect(acked2).toEqual([]);
 });
 
 test('a failed read opens nothing and marks nothing, and the dialog by address says the read failed', async ({

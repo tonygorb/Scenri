@@ -8,12 +8,11 @@ import {
   Lightning,
   Megaphone,
   Question,
-  Eye,
 } from '@phosphor-icons/react';
 import { DropdownMenu } from '@radix-ui/themes';
 import { useRef } from 'react';
 import { Link, useLocation, useMatch } from 'react-router';
-import { useAppData, useDialogParam } from '../app/AppShell.js';
+import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { learnOpener, useOpenLearn, useOpenSettings, useOpenSetup, useOpenWelcome } from '../app/dialogs.js';
 import { WELCOME } from '../guidedTasks.js';
@@ -24,13 +23,6 @@ import { P, whatsNewPath } from '../routes.js';
 import { Tip } from './Tip.js';
 
 const GITHUB = 'https://github.com/tonygorb/scenri';
-
-/**
- * A development build only (Vite's dev server): the production bundle
- * compiles the row that reads it away. What's New introduces itself once, and
- * whoever is working on it needs to see it again without resetting anything.
- */
-const DEV = (import.meta as { env?: { DEV?: boolean } }).env?.DEV === true;
 
 /**
  * Help, in one place (DESIGN.md, "First use"): Learn, every lesson there is
@@ -65,7 +57,6 @@ export function HelpMenu() {
   // back to this button. Already on it, nothing remounts, so the button keeps it.
   const toPage = useRef(false);
   const pagePath = whatsNewPath(brand);
-  const whatsNewDialog = useDialogParam('whatsnew');
 
   return (
     <div className="sc-help-float">
@@ -145,15 +136,6 @@ export function HelpMenu() {
               )}
             </Link>
           </DropdownMenu.Item>
-          {/* Development only: the dialog as it introduces itself, as often as
-              needed, reading nothing (`?whatsnew=preview`, or
-              `preview:<version>` for an earlier headline). */}
-          {DEV && (
-            <DropdownMenu.Item className="sc-menu-item" onSelect={() => whatsNewDialog.open('preview')}>
-              <Eye size={18} className="sc-menu-ic" />
-              <span className="sc-menu-lb">Preview What's New</span>
-            </DropdownMenu.Item>
-          )}
           {noEngine && (
             <DropdownMenu.Item className="sc-menu-item" onSelect={() => openSetup()}>
               <Lightning size={18} className="sc-menu-ic" />

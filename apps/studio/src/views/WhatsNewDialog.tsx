@@ -22,11 +22,6 @@ import { FAILED, NOTHING_YET, ReleaseMeta, WhatsNewFallback, WhatsNewPicture, pi
  * same update by hand. It stands behind the app's darker scrim (`tone="dim"`,
  * no blur), so a bright card under it never reads as the dialog's own edge.
  *
- * `?whatsnew=preview` shows it the way it would introduce itself and reads
- * nothing: closing a preview leaves this computer's read state as it was.
- * `preview:<version>` shows an earlier update in the history instead. Help
- * offers the preview in a development build.
- *
  * Nothing here asks the user to do anything. Every way out of a real showing
  * is an acknowledgement (Escape, the X, the backdrop, Got it, Back, and both
  * links to the page), so there is no way to read it and still be shown it again.
@@ -38,22 +33,17 @@ export function WhatsNewDialog() {
   // The read is local and quick; opening only once it has answered keeps the
   // dialog from arriving as a sentence and then jumping to a picture.
   const open = param.value !== null && status !== 'loading';
-  const preview = param.value?.startsWith('preview') ?? false;
-  const asked = preview ? param.value?.split(':')[1] : undefined;
-  // A preview may name any recent update, to see how one without a picture
-  // would introduce itself; a real showing is always the newest update.
-  const shown = (asked && recent.find((r) => r.version === asked)) || featured;
+  const shown = featured;
 
-  // Counted as it opens: how many other updates wait, and whether this is a
-  // preview. Acknowledging clears the first while the dialog animates away, and
-  // the address that said "preview" is already gone when the close lands.
-  const snap = useRef({ open: false, more: 0, preview: false });
+  // Counted as it opens: how many other updates wait. Acknowledging clears
+  // them while the dialog animates away.
+  const snap = useRef({ open: false, more: 0 });
   if (open && !snap.current.open) {
-    snap.current = { open: true, more: unseen.filter((v) => v !== shown?.version).length, preview };
+    snap.current = { open: true, more: unseen.filter((v) => v !== shown?.version).length };
   } else if (!open) snap.current.open = false;
 
   const close = () => {
-    if (!snap.current.preview) markSeen();
+    markSeen();
     param.close();
   };
 
@@ -61,7 +51,7 @@ export function WhatsNewDialog() {
   // dialog's own ways out, and each is still a close: read once, never again.
   const wasOpen = useRef(open);
   useEffect(() => {
-    if (wasOpen.current && !open && !snap.current.preview) markSeen();
+    if (wasOpen.current && !open) markSeen();
     wasOpen.current = open;
   }, [open, markSeen]);
 
