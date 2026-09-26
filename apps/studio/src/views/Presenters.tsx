@@ -13,7 +13,7 @@ import { P, presenterEditPath, presenterPath, presenterStudioPath } from '../rou
 import { PresenterCard, PresenterCardSkeleton } from '../layout/PresenterCard.js';
 import { PresenterDraftCard } from '../layout/PresenterDraftCard.js';
 import { CatalogPickedBar } from '../layout/CatalogPickedBar.js';
-import { catalogPickVerb, keepersLine, settlePicked } from '../layout/catalogPick.js';
+import { catalogPickVerb, deleteLeaves, keepersLine, settlePicked } from '../layout/catalogPick.js';
 import { useCatalogPick } from '../layout/useCatalogPick.js';
 import { Confirm } from '../Confirm.js';
 import { DuplicatePresenterDialog } from './DuplicatePresenterDialog.js';
@@ -624,7 +624,7 @@ export function PresentersView() {
                   <Confirm
                     label="Delete presenter"
                     title={`Delete ${removing.name}?`}
-                    body="Shots already made with them keep their images and their recipe. Only future shots lose them."
+                    body={deleteLeaves('presenter', 1)}
                     open
                     busy={acting}
                     onOpenChange={(o) => {
@@ -637,7 +637,7 @@ export function PresentersView() {
                   <Confirm
                     label={catalogPickVerb('presenter', pick.ids.size).menu}
                     title={`${catalogPickVerb('presenter', pick.ids.size).menu}?`}
-                    body="Shots already made with them keep their images and their recipe. Only future shots lose them."
+                    body={deleteLeaves('presenter', pick.ids.size)}
                     open
                     busy={acting}
                     onOpenChange={(o) => {

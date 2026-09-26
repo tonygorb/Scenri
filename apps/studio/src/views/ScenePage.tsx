@@ -18,6 +18,7 @@ import { FRAMINGS, SETUPS_MAX } from '../create/scene/sceneSetups.js';
 import { sceneTailLine } from './sceneFacts.js';
 import { RecordCrumb } from '../layout/RecordCrumb.js';
 import { RecordKeep } from '../layout/RecordKeep.js';
+import { deleteLeaves } from '../layout/catalogPick.js';
 import { Tip } from '../layout/Tip.js';
 import { AssetDetailsDialog } from './AssetDetailsDialog.js';
 import { EmptyRefFrame, ShotThumb, Shown, Slider } from '../layout/ReferenceGallery.js';
@@ -531,7 +532,7 @@ export function ScenePage() {
             <Confirm
               label="Delete scene"
               title={`Delete ${owned.name}?`}
-              body="Shots already made here keep their images. Their recipe will say this scene is gone, and building from one again will miss it."
+              body={deleteLeaves('owned-scene', 1)}
               busy={busy}
               onConfirm={() => void remove()}
             />

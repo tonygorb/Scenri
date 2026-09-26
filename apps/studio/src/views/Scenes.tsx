@@ -26,7 +26,7 @@ import { useToasts } from '../toasts.js';
 import { AssetBuildCard } from '../layout/AssetBuildCard.js';
 import { SceneCard, SceneCardSkeleton } from '../layout/SceneCard.js';
 import { CatalogPickedBar } from '../layout/CatalogPickedBar.js';
-import { catalogPickVerb, keepersLine, settlePicked } from '../layout/catalogPick.js';
+import { catalogPickVerb, deleteLeaves, keepersLine, settlePicked } from '../layout/catalogPick.js';
 import { useCatalogPick } from '../layout/useCatalogPick.js';
 import { DensityControl, WallDensityCtx, densitySize, densityWallStyle } from '../layout/DensityControl.js';
 import { DENSITY_DEFAULT, normalizeDensity, type DensityCols } from '../layout/masonry.js';
@@ -509,7 +509,7 @@ export function ScenesView() {
                 <Confirm
                   label="Delete scene"
                   title={`Delete ${removing.name}?`}
-                  body="Shots already made here keep their images and their recipe. Only future shots lose it."
+                  body={deleteLeaves('owned-scene', 1)}
                   open
                   busy={removingBusy}
                   onOpenChange={(o) => {
@@ -522,7 +522,7 @@ export function ScenesView() {
                 <Confirm
                   label={catalogPickVerb('owned-scene', pick.ids.size).menu}
                   title={`${catalogPickVerb('owned-scene', pick.ids.size).menu}?`}
-                  body="Shots already made here keep their images and their recipe. Only future shots lose it."
+                  body={deleteLeaves('owned-scene', pick.ids.size)}
                   open
                   busy={removingBusy}
                   onOpenChange={(o) => {

@@ -28,6 +28,7 @@ import { LineField } from '../layout/LineField.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
 import { RecordCrumb } from '../layout/RecordCrumb.js';
 import { RecordKeep } from '../layout/RecordKeep.js';
+import { deleteLeaves } from '../layout/catalogPick.js';
 import { Tip } from '../layout/Tip.js';
 import { ProductDetailsDialog } from './ProductDetailsDialog.js';
 import { categoryLabel, effectiveCategory } from '../productCategories.js';
@@ -570,7 +571,7 @@ export function ProductPage() {
               <Confirm
                 label="Delete product"
                 title={`Delete ${product.name}?`}
-                body="Shots already made with it keep their images and their recipe. Only future shots lose it."
+                body={deleteLeaves('product', 1)}
                 busy={removing}
                 onConfirm={() => void remove()}
               />

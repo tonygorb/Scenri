@@ -16,6 +16,7 @@ import { ImageLightbox } from '../composer/ImageLightbox.js';
 import { Rail } from '../layout/Rail.js';
 import { RecordCrumb } from '../layout/RecordCrumb.js';
 import { RecordKeep } from '../layout/RecordKeep.js';
+import { deleteLeaves } from '../layout/catalogPick.js';
 import { Tip } from '../layout/Tip.js';
 import { EmptyRefFrame, ShotThumb, Slider } from '../layout/ReferenceGallery.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
@@ -397,7 +398,7 @@ export function PresenterPage() {
             <Confirm
               label="Delete presenter"
               title={`Delete ${owned.name}?`}
-              body="Shots already made with them keep their images and their recipe. Only future shots lose them."
+              body={deleteLeaves('presenter', 1)}
               busy={busy}
               onConfirm={() => void remove()}
             />

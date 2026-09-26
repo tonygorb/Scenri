@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { catalogBatchItems, catalogPickVerb } from '../src/layout/catalogPick.js';
+import { catalogBatchItems, catalogPickVerb, deleteLeaves } from '../src/layout/catalogPick.js';
 
 const run = () => {};
 
@@ -127,5 +127,43 @@ describe('catalog pick verbs', () => {
       onKeep: run,
     });
     expect(drafts.some((it) => it.key === 'keep')).toBe(false);
+  });
+});
+
+// Three of the four delete dialogs promised that shots already made keep
+// "their images and their recipe". The recipe names each thing by id and
+// loses it on the delete, which has no undo (S1-05): one true sentence per
+// kind, on the card, the page and the bulk bar alike.
+describe('what a delete leaves behind', () => {
+  it('keeps the pictures and says the recipe loses the thing, for one or many', () => {
+    for (const kind of ['product', 'owned-scene', 'presenter'] as const) {
+      for (const n of [1, 3]) {
+        const said = deleteLeaves(kind, n);
+        expect(said).toMatch(/^Shots already made (with it|with them|here) keep their images\. Their recipe /);
+        expect(said).not.toMatch(/and their recipe|Only future shots/);
+        expect(said).toMatch(/, and building from one again will miss (it|them)\.$/);
+      }
+    }
+  });
+
+  it('says each kind in its own words', () => {
+    expect(deleteLeaves('product', 1)).toBe(
+      'Shots already made with it keep their images. Their recipe loses this product, and building from one again will miss it.',
+    );
+    expect(deleteLeaves('product', 2)).toBe(
+      'Shots already made with them keep their images. Their recipe loses these products, and building from one again will miss them.',
+    );
+    expect(deleteLeaves('owned-scene', 1)).toBe(
+      'Shots already made here keep their images. Their recipe will say this scene is gone, and building from one again will miss it.',
+    );
+    expect(deleteLeaves('owned-scene', 2)).toBe(
+      'Shots already made here keep their images. Their recipe will say these scenes are gone, and building from one again will miss them.',
+    );
+    expect(deleteLeaves('presenter', 1)).toBe(
+      'Shots already made with them keep their images. Their recipe loses this person, and building from one again will miss them.',
+    );
+    expect(deleteLeaves('presenter', 2)).toBe(
+      'Shots already made with them keep their images. Their recipe loses these people, and building from one again will miss them.',
+    );
   });
 });
