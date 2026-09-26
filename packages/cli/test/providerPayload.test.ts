@@ -229,7 +229,14 @@ describe('what reaches an image provider', { timeout: 60_000 }, () => {
       child.emit('exit', 0, null);
     };
     const child = new FakeChild(
-      () => void respond(),
+      // A test that has read what it came for (PS-H18 ends once the draw has
+      // started) can be torn down while this fake still renders its picture, and
+      // the runner removes its workdir with it. That late write is the fake's own
+      // and nothing reads it; any other failure still surfaces.
+      () =>
+        void respond().catch((err) => {
+          if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') throw err;
+        }),
       (d) => {
         exec.stdin += d;
       },
