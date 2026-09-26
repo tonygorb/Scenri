@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.18.2](https://github.com/tonygorb/Scenri/compare/v0.18.1...v0.18.2) (2026-09-26)
+
+
+### Bug Fixes
+
+* **content:** give the library download thirty minutes, not ten ([4ade59d](https://github.com/tonygorb/Scenri/commit/4ade59d7163fac662f98baa0d5a107d1741b3a52))
+* give the library download thirty minutes, not ten ([43426b5](https://github.com/tonygorb/Scenri/commit/43426b5ad3be5cc3236d4de21861b9b8095cde68))
+* give the library download thirty minutes, not ten ([#257](https://github.com/tonygorb/Scenri/issues/257)) ([43426b5](https://github.com/tonygorb/Scenri/commit/43426b5ad3be5cc3236d4de21861b9b8095cde68))
+
 ## [0.18.1](https://github.com/tonygorb/Scenri/compare/v0.18.0...v0.18.1) (2026-09-26)
 
 
