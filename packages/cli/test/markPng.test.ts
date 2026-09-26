@@ -75,7 +75,9 @@ describe('toMarkPng', () => {
   });
 });
 
-describe('capReferenceEdge', () => {
+// Real encodes (AVIF, a 3000px JPEG, three formats in a row) run past vitest's
+// 5 s default on a Windows runner: 5.8 s measured on CI, 2026-09-27.
+describe('capReferenceEdge', { timeout: 30_000 }, () => {
   let home: string;
   let core: Core;
   beforeEach(() => {
