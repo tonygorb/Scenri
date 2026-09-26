@@ -7,7 +7,7 @@ import {
   openQuestionId,
 } from '../../conversation/question.js';
 import type { FailureRemedy } from '../../failure.js';
-import { failureWords, keptAfter, reason } from './presenterCopy.js';
+import { failureWords, keptAfter } from './presenterCopy.js';
 import {
   CORE_VIEWS,
   type DraftLike,

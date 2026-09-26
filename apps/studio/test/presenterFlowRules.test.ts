@@ -726,7 +726,10 @@ describe('the record once a face is drawn', () => {
     const d = draft({ views: { ...draft().views, portrait: { ...emptySlot(), status: 'candidate', hash: 'p1' } } });
     const q = open(turns(state(a), d));
     expect(q?.id).toBe('identity');
-    expect(q?.kind === 'confirm' && q.options.map((o) => o.id)).toEqual(['use', 'again', 'change']);
+    expect(q?.kind === 'confirm' && q.options.map((o) => o.id)).toEqual(['use', 'again']);
+    // changing the person is a way into the line, not an answer: pressed as an
+    // option it took the question with it, and the face could no longer be used
+    expect(q?.kind === 'confirm' && q.describe).toBe('Change something');
     expect(composerFor(q, state(a), d, 'portrait').action).toBe('Refine');
   });
 

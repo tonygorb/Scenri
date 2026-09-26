@@ -354,8 +354,10 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
         options: [
           { id: 'use', label: 'Use this person' },
           { id: 'again', label: 'Try again' },
-          { id: 'change', label: 'Change something' },
         ],
+        // a way into the line, not an answer: as an option it took the question
+        // with it, and the face could no longer be used or drawn again
+        describe: 'Change something',
       });
       return T;
     }

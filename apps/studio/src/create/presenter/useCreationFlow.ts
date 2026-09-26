@@ -797,8 +797,6 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
             setFocus(null);
           }
           if (a.id === 'again') void s.generate('portrait');
-          // changing the person is said in words: the composer takes it from here
-          if (a.id === 'change') setChanging((n) => n + 1);
           return;
         case 'revision':
         case 'view-revision': {
@@ -1276,6 +1274,11 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
     // the read-back: a detail the rows could not ask for, in their own words
     if (id === 'agree') {
       dispatch({ type: 'say', id: 'keep' });
+      return;
+    }
+    // changing the person is said in words: the composer takes it from here
+    if (id === 'identity') {
+      setChanging((n) => n + 1);
       return;
     }
     if (!id || !isQid(id)) return;
