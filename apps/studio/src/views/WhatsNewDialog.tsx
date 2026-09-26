@@ -8,6 +8,7 @@ import { moreLabel } from '../app/whatsNewRules.js';
 import { DialogSheet, SheetClose, SheetDescription, SheetTitle } from '../layout/DialogSheet.js';
 import { whatsNewPath } from '../routes.js';
 import fallbackArt from '../assets/whatsnew-fallback.svg';
+import stageSky from '../assets/whatsnew-stage.webp';
 import { FAILED, NOTHING_YET, ReleaseMeta, WhatsNewFallback, WhatsNewPicture, pictureOf } from './WhatsNewParts.js';
 
 /**
@@ -58,11 +59,17 @@ export function WhatsNewDialog() {
   // A picture that fails to load gives way to the fallback, as one that was never there.
   const [broken, setBroken] = useState<string | null>(null);
   const picture = shown && broken !== shown.version ? pictureOf(shown) : null;
-  // The settle before it opens by itself is time enough to decode its picture,
-  // or the artwork that stands in for one.
+  // The settle before it opens by itself is time enough to fetch its picture,
+  // or the artwork that stands in for one, and the sky under either: asked for
+  // first, because the page beneath may be loading a wall of pictures of its own.
   const heroUrl = picture?.src ?? fallbackArt;
   useEffect(() => {
-    if (lead && heroUrl) new Image().src = heroUrl;
+    if (!lead) return;
+    for (const src of [heroUrl, stageSky]) {
+      const img = new Image();
+      img.fetchPriority = 'high';
+      img.src = src;
+    }
   }, [lead, heroUrl]);
 
   // Leaving by a link hands the keyboard to the page, not back to whatever

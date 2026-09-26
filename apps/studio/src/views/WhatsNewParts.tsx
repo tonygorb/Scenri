@@ -18,6 +18,16 @@ export const FAILED =
   'Scenri could not read its release notes. If you are running a development server, it may predate this page; restart it and try again.';
 export const NOTHING_YET = 'There is nothing new to show here yet.';
 
+/**
+ * Asked for ahead of whatever else is loading: the picture someone is looking
+ * at goes before a page's wall of thumbnails, which otherwise holds every
+ * connection to the server until it has drained (measured, 2026-09-27: Home's
+ * wall kept the dialog's picture and its sky waiting past ten seconds). React
+ * 18 knows no `fetchPriority` prop, so the attribute is spelt as the platform
+ * spells it, and set before `src`.
+ */
+const FIRST = { fetchpriority: 'high' } as const;
+
 /** A release's picture, resolved to the file this build ships. */
 export interface WhatsNewPic {
   src: string;
@@ -73,6 +83,7 @@ export function WhatsNewPicture({
   const img = (
     <img
       ref={seen}
+      {...(eager ? FIRST : undefined)}
       src={picture.src}
       alt={picture.alt}
       loading={eager ? 'eager' : 'lazy'}
