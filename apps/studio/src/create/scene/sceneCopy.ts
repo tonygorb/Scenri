@@ -154,6 +154,8 @@ export const COPY = {
   failedFirst: (why: string) => `That did not go through: ${why}. Nothing was drawn.`,
   /** A failure Scenri can say in words (failure.ts): what happened, what to do. */
   failedSaid: (words: string) => `${words} Nothing was drawn.`,
+  /** A failure with no plain words of its own, while a picture stands. */
+  failedKept: (why: string) => `That did not go through: ${why}. The picture you had is kept.`,
   /** The way on from a brief a provider declined, where trying the same again only fails again. */
   sayDifferently: 'Say it differently',
   lost: 'That work is gone: the server restarted while it ran. Try it again.',
@@ -215,7 +217,7 @@ export const COPY = {
   // one line back to a sentence that answers nothing
   notAPlace: "That did not read as a place. Try a few words about it, like 'a quiet concrete gallery at dusk'.",
   greet: 'Hello. Describe the place, or choose above.',
-  greetRow: 'Tap one above, or say it in a few words.',
+  greetRow: 'Pick one above, or say it in a few words.',
   askHelp: 'Describe the place in a few words, or tap one above. Everything can be changed later.',
   goFirst: 'Choose above, or describe the place first.',
   startOverIsUp: 'Start over is at the top of this panel.',

@@ -25,7 +25,7 @@ aside rather than giving you false confidence. `commit-msg` drops AI
 who committed.
 
 The full test suite compiles prompts against the library imagery, which the repo
-deliberately does not carry. Hydrate it once, about a 95 MB download, cached
+deliberately does not carry. Hydrate it once, about a 155 MB download, cached
 under `~/.scenri/content`:
 
 ```bash

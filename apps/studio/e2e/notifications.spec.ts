@@ -101,16 +101,18 @@ test('an idle panel says nothing about nothing, and both lists show at once when
   await clearHistory(page);
   await page.goto(`/${brand.slug}/scenes`);
 
-  // Nothing running: one list, not a heading over an empty one. In progress
-  // announcing itself while empty said the same nothing the section under it
-  // was already saying.
+  // Nothing running and nothing finished: the head, and one sentence. A
+  // Notifications heading over that sentence said the same nothing twice.
   await bell(page).click();
   await expect(pop(page)).toBeVisible();
-  await expect(sections(page)).toHaveCount(1);
-  await expect(sections(page).nth(0)).toContainText('Notifications');
-  await expect(page.locator('section[aria-label="Notifications"] .sc-notif-empty')).toHaveText(
-    'You have no notifications yet.',
-  );
+  await expect(sections(page)).toHaveCount(0);
+  await expect(pop(page).locator('.sc-notif-empty')).toHaveText('Work that finishes shows up here.');
+  // The list is 440 because a row with a picture asks for it. Quiet, the card
+  // stops at the sentence, so the words are not a short line in a wide field.
+  const idle = await pop(page).boundingBox();
+  const sentence = await pop(page).locator('.sc-notif-empty').boundingBox();
+  expect(idle!.width).toBeLessThan(320);
+  expect(idle!.x + idle!.width - (sentence!.x + sentence!.width)).toBeLessThan(24);
   await page.keyboard.press('Escape');
 
   // Work landed: it is in the list. Whether a demo shot is still in flight by
@@ -234,7 +236,7 @@ test("clearing is the list's own action, and it empties the record in place", as
   // From the keyboard again: the panel stays, the empty state says so, and focus
   // is still inside the panel rather than dropped on the page behind it.
   await page.keyboard.press('Enter');
-  await expect(list.locator('.sc-notif-empty')).toHaveText('You have no notifications yet.');
+  await expect(pop(page).locator('.sc-notif-empty')).toHaveText('Work that finishes shows up here.');
   await expect(verbs).toHaveCount(0);
   await expect(pop(page)).toBeVisible();
   expect(await page.evaluate(() => !!document.activeElement?.closest('.sc-notif-pop'))).toBe(true);
@@ -243,7 +245,7 @@ test("clearing is the list's own action, and it empties the record in place", as
   await page.keyboard.press('Escape');
   await page.reload();
   await bell(page).click();
-  await expect(list.locator('.sc-notif-empty')).toHaveText('You have no notifications yet.');
+  await expect(pop(page).locator('.sc-notif-empty')).toHaveText('Work that finishes shows up here.');
 });
 
 test('a finish toasts wherever you cannot see it land', async ({ page }) => {

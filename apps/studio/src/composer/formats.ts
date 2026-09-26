@@ -21,8 +21,10 @@ export const FORMATS = [
  * The shape a shot is going to be, from the format its brief recorded.
  *
  * A placeholder that guesses cannot hold the space the picture will need, and
- * the feed reflows the moment the image lands. Square is the app's own default
- * and the right guess for a brief written before formats were stored.
+ * the feed reflows the moment the image lands. A brief written before formats
+ * were stored has no shape to prefer, and those shots were square, so the
+ * guess stays 1:1. A new brief opens at 4:5; that default lives with the shot
+ * settings, not here.
  */
 export function aspectOfFormat(formatId: string | undefined): number {
   const f = FORMATS.find((x) => x.id === formatId);

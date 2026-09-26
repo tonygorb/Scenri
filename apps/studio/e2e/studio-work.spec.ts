@@ -88,7 +88,8 @@ test('a scene draw goes on while you are elsewhere, and Activity brings you back
 
   // the bell has it, running, by the name it was given, saying what it is doing
   await page.locator('.sc-topbar .sc-notif-btn').click();
-  const row = page.locator('.sc-notif-scroll .sc-notif-row', { hasText: 'Flash Cyc' });
+  // In progress sits above the finished list, outside the scroller.
+  const row = page.locator('.sc-notif-pop .sc-notif-row', { hasText: 'Flash Cyc' });
   await expect(row).toContainText('Drawing the picture');
   await page.keyboard.press('Escape');
 

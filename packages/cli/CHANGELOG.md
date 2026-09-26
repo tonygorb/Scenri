@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.18.0](https://github.com/tonygorb/Scenri/compare/v0.17.2...v0.18.0) (2026-09-25)
+
+
+### Features
+
+* **studio:** keep a record from its own page ([0bbff0b](https://github.com/tonygorb/Scenri/commit/0bbff0b28d8a2da70919726cb939a5090a372a8a))
+* **studio:** records, a portrait default, and a quieter activity ([8836896](https://github.com/tonygorb/Scenri/commit/8836896da522d0e801b9c02b1856ce220a66e9de))
+* **studio:** sit the remove beside Keep ([b52820f](https://github.com/tonygorb/Scenri/commit/b52820f9ed9b55fd16b2b25d3b326aaca09d3b90))
+* **studio:** start a new shot at portrait, one variant ([9f3721f](https://github.com/tonygorb/Scenri/commit/9f3721fb5f2117ac3b1df7593f7f96b69120abaa))
+
 ## [0.17.2](https://github.com/tonygorb/Scenri/compare/v0.17.1...v0.17.2) (2026-09-24)
 
 
