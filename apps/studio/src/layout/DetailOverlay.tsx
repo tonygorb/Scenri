@@ -39,7 +39,7 @@ import type { TokenNames } from '../feedRules.js';
 import { attachableMarks, markLabel } from '../brand/marks.js';
 import { briefTokens, serializeBriefTokens, type SentenceToken } from '../composer/line.js';
 import { LineageStrip } from './detail/LineageStrip.js';
-import { trailOf, whereIs } from './detail/historyRules.js';
+import { pendingChildOf, trailOf, whereIs } from './detail/historyRules.js';
 import { useMediaQuery } from '../useMediaQuery.js';
 import { ShotRail } from './detail/ShotRail.js';
 import { useSwipe } from './detail/useSwipe.js';
@@ -47,7 +47,7 @@ import { neighborsOf } from '../feedRules.js';
 import { ChipPreview } from '../composer/ChipPreview.js';
 import { useHoverPreview } from '../composer/useHoverPreview.js';
 import { BriefLine } from './detail/Ingredients.js';
-import { useLineageOf } from './detail/useLineageOf.js';
+import { rememberStep, useLineageOf } from './detail/useLineageOf.js';
 import { useFullNode } from './detail/useFullNode.js';
 import { PREF, useLocalPref } from '../prefs.js';
 import { useDockHeight } from '../useDockHeight.js';
@@ -92,6 +92,7 @@ export function DetailOverlay({
   onUnarchive,
   onDelete,
   onRefined,
+  subscribeActivity,
   tokenNames,
 }: {
   node: FeedNode;
@@ -121,6 +122,8 @@ export function DetailOverlay({
   onDelete: (n: FeedNode) => void;
   /** A shot was made from in here, so the workspace can follow the same thread. */
   onRefined?: (nodeId: string, kind?: 'generation' | 'edit') => void;
+  /** The activity poll's records as they arrive: how a refinement made in here is followed to its landing. */
+  subscribeActivity?: (fn: (nodes: FeedNode[]) => void) => () => void;
   /** Ids to display names, for the line saying which ingredient moved. */
   tokenNames: TokenNames;
 }) {
@@ -213,10 +216,54 @@ export function DetailOverlay({
    * predates is folded in by its parent; the rest of the reading (which tile
    * is the original, which number, which source) is `trailOf`'s.
    */
+  /**
+   * Refinements made in here, kept by the overlay itself.
+   *
+   * A refinement renders beside the shot it came from, which stays on the
+   * stage: the shot being refined is the accepted picture until the new one
+   * exists, and the thing to compare it against. It used to move the stage
+   * onto the new step the moment it was asked for, so the picture left and
+   * the whole stage became the rendering state. The feed may not hold the new
+   * record at all (a set, Keepers, Archived or a search does not admit it), so
+   * the overlay keeps its own copy, current from the activity poll, for the
+   * trail to show and to know when it lands.
+   */
+  const [made, setMade] = useState<FeedNode[]>([]);
+  useEffect(() => {
+    if (!subscribeActivity || made.length === 0) return;
+    return subscribeActivity((nodes) => {
+      const byId = new Map(nodes.map((n) => [n.id, n]));
+      setMade((cur) => {
+        const next = cur.map((m) => byId.get(m.id) ?? m);
+        return next.some((m, i) => m !== cur[i]) ? next : cur;
+      });
+    });
+  }, [subscribeActivity, made.length]);
   const trail = useMemo(
-    () => trailOf(history ?? [...ancestors, node, ...children.slice(0, 6)], node, items),
-    [history, ancestors, node, children, items],
+    () =>
+      trailOf(
+        history ?? [...ancestors, node, ...children.slice(0, 6)],
+        node,
+        made.length ? [...items, ...made] : items,
+      ),
+    [history, ancestors, node, children, items, made],
   );
+  /** The refinement of this shot still being made: it holds the refine field until it lands. */
+  const pendingChild = useMemo(() => pendingChildOf(trail, node.id), [trail, node.id]);
+  /**
+   * A refinement made in here that has landed moves the stage onto itself,
+   * the old picture under it until the new one has painted, but only while
+   * the stage is still on the shot it came from, or on the step itself: a
+   * person who has moved on to another shot is not pulled back. One that
+   * failed stays a warning tile beside its source and never takes the stage.
+   */
+  useEffect(() => {
+    const landed = made.find((m) => m.status === 'done' && m.images[0]);
+    if (!landed) return;
+    setMade((cur) => cur.filter((m) => m.id !== landed.id));
+    rememberStep(landed);
+    if (node.id === landed.parentId || node.id === landed.id) onSelect(landed.id);
+  }, [made, node.id, onSelect]);
   /** This shot's own step in the trail: what the panel calls the record. */
   const here = useMemo(() => trail.find((s) => s.node.id === node.id) ?? null, [trail, node.id]);
   /**
@@ -949,6 +996,9 @@ export function DetailOverlay({
                 engines={engines}
                 parentId={rootId}
                 target={node}
+                // one refinement at a time from the open shot: the field waits
+                // for the one still being made, which renders beside this shot
+                holdFor={pendingChild}
                 // the variant on the stage is the one a refine works from
                 sourceImage={hash}
                 // The dock's composer is still mounted behind this one and there
@@ -957,14 +1007,17 @@ export function DetailOverlay({
                 // sentence, and left its own target behind to be restored later
                 // as a draft the person never wrote.
                 persistDraft={false}
-                // an edit/regen submitted from inside the overlay used to only
-                // reload the tree in place, leaving you looking at the shot you
-                // just replaced; wait for the new node to actually exist, then
-                // reuse the same in-overlay navigation the lineage filmstrip
-                // and Prev/Next already use to land on it
-                onQueued={(id, kind, _siblings, made) => {
-                  onLanded(made ?? []);
-                  if (id) onSelect(id);
+                // A refinement stays beside this shot while it renders and takes
+                // the stage when it lands (above); anything else made in here
+                // is a new shot of its own and is opened, as the filmstrip and
+                // Prev/Next open one.
+                onQueued={(id, kind, _siblings, records) => {
+                  onLanded(records ?? []);
+                  const refined = kind === 'edit' ? records?.find((r) => r.id === id) : undefined;
+                  if (refined) {
+                    rememberStep(refined);
+                    setMade((cur) => [...cur.filter((m) => m.id !== refined.id), refined]);
+                  } else if (id) onSelect(id);
                   // One thread, wherever it was pulled. Refining in here used to
                   // leave the workspace behind still pointed at nothing, so
                   // stepping back out and carrying on turned the next

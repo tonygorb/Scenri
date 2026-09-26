@@ -155,7 +155,7 @@ export const Composer = forwardRef<
      * Cleared here only on failure: on success the caller clears it once the
      * real shot has actually landed, or the tile would blink out and back in.
      */
-    onSending?: (sending: { said: string; count: number } | null) => void;
+    onSending?: (sending: { said: string; count: number; format?: string } | null) => void;
     /**
      * Which assets the brief holds, published whenever that set changes.
      *
@@ -176,6 +176,12 @@ export const Composer = forwardRef<
      * new shot, which is the resting state and the only other one there is.
      */
     target?: FeedNode | null;
+    /**
+     * A refinement of the target still being made, from the open shot: the
+     * target stays the picture on the stage and the one the chip names, and
+     * the field waits for this one to land before it sends another.
+     */
+    holdFor?: FeedNode | null;
     /** Given only where the target can be dropped, which is where it is shown. */
     onClearTarget?: () => void;
     /**
@@ -230,6 +236,7 @@ export const Composer = forwardRef<
     onAttached,
     onCeiling,
     target,
+    holdFor,
     onClearTarget,
     sourceImage,
     onRestoreBranchId,
@@ -898,6 +905,7 @@ export const Composer = forwardRef<
     !goneCharacter &&
     !!projectId &&
     !targetPending &&
+    !holdFor &&
     (cropping || !noEngine);
   /** Why the button will not go, in the words of the thing that is blocking. */
   const blockedReason =
@@ -909,13 +917,15 @@ export const Composer = forwardRef<
           ? 'Still opening this brand'
           : targetPending
             ? 'Wait for this version to finish, or press X to start a new shot'
-            : cropWithWords
-              ? 'This shape is reached by cropping, and a crop uses no words. Clear the prompt, or keep the current shape.'
-              : goneCharacter
-                ? 'Remove the presenter who is no longer in your roster'
-                : !hasContent && !aspectOnly
-                  ? 'Write a prompt first'
-                  : null;
+            : holdFor
+              ? 'Wait for this refinement to finish'
+              : cropWithWords
+                ? 'This shape is reached by cropping, and a crop uses no words. Clear the prompt, or keep the current shape.'
+                : goneCharacter
+                  ? 'Remove the presenter who is no longer in your roster'
+                  : !hasContent && !aspectOnly
+                    ? 'Write a prompt first'
+                    : null;
 
   /**
    * The compiler's own reading of the brief, refreshed as it changes. For a
@@ -1249,8 +1259,10 @@ export const Composer = forwardRef<
       .replace(/\s+/g, ' ')
       .trim();
     // one stand-in tile per expected sibling: a generation asks for `count`
-    // shots, an edit always comes back as one
-    onSending?.({ said: said || 'Your shot', count: mode === 'generation' ? count : 1 });
+    // shots, an edit always comes back as one. The shape goes with it, so the
+    // stand-in holds the box the shot will take and nothing resizes when the
+    // running tile replaces it.
+    onSending?.({ said: said || 'Your shot', count: mode === 'generation' ? count : 1, format: formatId });
     try {
       // the brand's workspace always exists by the time a brief can be run; a
       // missing one is a load that has not landed, not a container to invent

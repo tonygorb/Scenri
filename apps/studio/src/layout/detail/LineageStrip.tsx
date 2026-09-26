@@ -167,13 +167,13 @@ export function LineageStrip({
               data-original={s.index === 0 && trail.length > 1 ? '' : undefined}
               // the step's name and what it asked for, so a reader hears the
               // history the tiles show; the name alone when nothing was recorded
-              aria-label={said[i] ? `${s.label}: ${said[i]}` : s.label}
+              aria-label={`${said[i] ? `${s.label}: ${said[i]}` : s.label}${pending ? ', still rendering' : ''}`}
               aria-pressed={active}
-              aria-disabled={pending || undefined}
               tabIndex={n.id === stop ? 0 : -1}
               onClick={() => {
-                // a picture that is not there yet cannot be looked at; the tile fills in when it lands
-                if (pending) return;
+                // A step still being made opens onto its own place on the
+                // stage, where its clock and Cancel are; the shot it came from
+                // is one click back.
                 peek.closeNow();
                 onSelect(n.id);
               }}
@@ -194,7 +194,7 @@ export function LineageStrip({
                 />
               ) : pending ? (
                 <span className="sc-thumb sc-thumb-wait" data-active={active}>
-                  <span className="sc-shimmer" />
+                  <span className="sc-rendering" />
                 </span>
               ) : (
                 <span className="sc-thumb sc-thumb-failed" data-active={active}>

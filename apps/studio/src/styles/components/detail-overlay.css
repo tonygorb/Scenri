@@ -140,8 +140,8 @@
 :where(:root:not([data-input="pointer"])) .sc-thumb-btn:not([aria-pressed="true"]):focus-visible .sc-thumb {
   opacity: 1;
 }
-/* A tile with no picture yet, or none at all: the feed's own shimmer while
-   it renders, the warning glyph after it failed. Both rows wear these. */
+/* A tile with no picture yet, or none at all: the feed's own moving band
+   while it renders, the warning glyph after it failed. Both rows wear these. */
 .sc-thumb-wait,
 .sc-thumb-failed {
   position: relative;
@@ -150,9 +150,10 @@
   overflow: hidden;
   color: var(--sc-fg3);
 }
-.sc-thumb-wait .sc-shimmer {
-  position: absolute;
-  inset: 0;
+/* A step still being made is news, not a choice to stand back from: it keeps
+   full strength while the step on the stage stays ringed. */
+.sc-thumb-btn:not([aria-pressed="true"]) .sc-thumb-wait {
+  opacity: 1;
 }
 
 /* ---- the trail: the history read as a sequence ----
@@ -318,6 +319,26 @@
       transparent 100%
     );
   }
+}
+/* The picture's place while it is being made: the box it will occupy, on the
+   same raised ground as a tile, with the moving band inside it and what is
+   happening said over it. Without this box the band, which is absolutely
+   placed, spread over the whole stage and its trail (lost with the rail's
+   swell rewrite, 4ab3beee; restored as it was). */
+.sc-stage-wait {
+  position: relative;
+  /* Sized from the cap, not from the parent: the frame around this is an
+     inline-block that shrink-wraps its child, so a percentage width resolved
+     against an auto width and collapsed the box to nothing. Fit a box of
+     this ratio inside the room there is: the smaller of the column's width
+     and what the cap allows, and the ratio gives the height. */
+  width: min(100%, calc(var(--sc-stage-cap) * var(--sc-wait-ar, 1)));
+  aspect-ratio: var(--sc-wait-ar, 1);
+  height: auto;
+  margin-inline: auto;
+  background: var(--sc-raised);
+  border-radius: 14px;
+  overflow: hidden;
 }
 .sc-stage-wait-say {
   position: absolute;

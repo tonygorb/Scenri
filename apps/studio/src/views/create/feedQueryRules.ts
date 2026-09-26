@@ -104,9 +104,19 @@ export function countsAfter(
 }
 
 /** The pages with one record swapped in by id; the same array when it is not held or is the same object. */
+/**
+ * Whether two copies of a record say the same thing. The activity poll sends
+ * fresh objects every tick for every recent shot, so a reference check found
+ * a change in every one of them and every screen re-rendered on every poll.
+ * By value, the same JSON way the bell compares its lists (tasks.ts).
+ */
+export function sameRecord(a: FeedNode, b: FeedNode): boolean {
+  return a === b || JSON.stringify(a) === JSON.stringify(b);
+}
+
 export function replaceById(items: FeedNode[], node: FeedNode): FeedNode[] {
   const i = items.findIndex((n) => n.id === node.id);
-  if (i === -1 || items[i] === node) return items;
+  if (i === -1 || sameRecord(items[i], node)) return items;
   const next = [...items];
   next[i] = node;
   return next;

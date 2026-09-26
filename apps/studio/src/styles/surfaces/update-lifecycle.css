@@ -137,9 +137,16 @@
   color: var(--sc-fg);
   font-family: var(--sc-font);
 }
+/* Waiting for the restart: ink, like every other wait (DESIGN.md, Waiting).
+   The gift of an update is gold; the minute it takes to arrive is not. */
 .sc-upd-overlay-card svg {
-  color: var(--sc-gold);
+  color: var(--sc-fg2);
   animation: sc-upd-breathe 1.8s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-upd-overlay-card svg {
+    animation: none;
+  }
 }
 .sc-upd-overlay-card b {
   font: 600 13.5px / 1.4 var(--sc-font);

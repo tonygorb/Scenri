@@ -95,7 +95,12 @@ export function StudioStage<V extends string = string>({
    * the feet.
    */
   const [ar, setAr] = useState<number | undefined>(undefined);
-  useEffect(() => setAr(undefined), [hash]);
+  // Only an emptied well goes back to 4:5. A new picture sets its own shape
+  // when it paints (below): reset on the hash asked for, the well snapped to
+  // 4:5 under the old picture and then to the new shape a moment later.
+  useEffect(() => {
+    if (!shown) setAr(undefined);
+  }, [shown]);
   const step = (d: 1 | -1) => {
     const next = list[at + d];
     if (next) setPeek(next.hash);
@@ -122,8 +127,13 @@ export function StudioStage<V extends string = string>({
   const [waiting, setWaiting] = useState(false);
   useLayoutEffect(() => {
     const el = img.current;
-    setWaiting(!(el?.complete && el.naturalWidth));
+    const painted = !!(el?.complete && el.naturalWidth);
+    setWaiting(!painted);
+    if (painted && el?.naturalHeight) setAr(el.naturalWidth / el.naturalHeight);
   }, [shown]);
+  // A picture just made is known before it can be painted: the well keeps the
+  // moving band until it can, rather than showing the empty sign in between.
+  const landing = !!hash && !shown;
 
   return (
     <div className="sc-pstudio-stage">
@@ -153,20 +163,19 @@ export function StudioStage<V extends string = string>({
             />
           ) : (
             <span className="sc-pstudio-well-blank">
-              {!drawing && <StageEmpty glyph={glyph} lead={empty?.lead} hint={empty?.hint} />}
+              {!drawing && !hash && <StageEmpty glyph={glyph} lead={empty?.lead} hint={empty?.hint} />}
             </span>
           )}
-          {/* Waiting reads as one thing everywhere in Scenri: the same gold
-              sweep the feed uses while a shot renders. Over a picture being
-              drawn again a light passes across it instead, because there is
-              something to look at and the state is "worked on", not "empty". */}
-          {drawing && !hash && <span className="sc-shimmer" aria-hidden />}
-          {drawing && hash && <span className="sc-pstudio-veil" aria-hidden />}
+          {/* A picture that does not exist yet carries the moving band the feed
+              uses while a shot renders. A picture being drawn again stays as
+              it is: it is the one in use until the new one lands, and the
+              strip's slot for that view carries the band instead. */}
+          {((drawing && !hash) || landing) && <span className="sc-rendering" aria-hidden />}
           {drawing && (
             // Not a live region: the conversation's log already says what is
             // being drawn, and a clock inside a status was read out every second.
+            // The words and the clock are the proof of life; no spinner.
             <span className="sc-pstudio-doing">
-              <span className="sc-pstudio-ring" aria-hidden />
               <span>{doing ?? 'Drawing'}</span>
               {since && <time aria-hidden="true">{elapsedLabel(since, now)}</time>}
             </span>
@@ -234,10 +243,7 @@ export function StudioStage<V extends string = string>({
                 >
                   <span className="sc-pstudio-slot-inner">
                     {it.hash ? <img src={thumbUrl(it.hash, 'micro')} alt="" /> : null}
-                    {it.drawing && !it.hash ? <span className="sc-shimmer" aria-hidden /> : null}
-                    {it.drawing && it.hash ? (
-                      <span className="sc-pstudio-slot-work sc-pstudio-ring" aria-hidden />
-                    ) : null}
+                    {it.drawing ? <span className="sc-rendering" aria-hidden /> : null}
                     {it.approved && !it.drawing ? (
                       <span className="sc-pstudio-slot-mark" aria-hidden>
                         <Check size={11} weight="bold" />

@@ -45,6 +45,23 @@ function remember(id: string, lineage: Lineage): void {
   for (const n of lineage.history ?? []) if (n.id !== id) put(n.id, derived(lineage.history ?? [], n));
 }
 
+/**
+ * A step made from a shot this cache already knows, folded into that shot's
+ * tree before the server has been asked again: a refinement queued from the
+ * open shot, and again with its finished record when it lands. Selecting it
+ * then finds its whole trail here, so the strip never drops to a single tile
+ * for the frame the lineage read takes.
+ */
+export function rememberStep(step: FeedNode): void {
+  const parent = step.parentId ? cache.get(step.parentId) : undefined;
+  const history = parent?.history;
+  if (!history) return;
+  const next = history.some((n) => n.id === step.id)
+    ? history.map((n) => (n.id === step.id ? step : n))
+    : [...history, step];
+  for (const n of next) put(n.id, derived(next, n));
+}
+
 interface LineageOf {
   /** Root-most first, the parent last; never the root itself. */
   ancestors: FeedNode[];

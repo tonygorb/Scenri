@@ -4,7 +4,7 @@ import { FilmSlate, IdentificationBadge, ImageSquare, Storefront, WarningCircle,
 import { api, thumbUrl } from '../../api.js';
 import { useBrand } from '../../app/BrandLayout.js';
 import { useTaskCenter } from '../../app/TaskCenter.js';
-import { agoLabel, elapsedLabel, elapsedSec, type NotificationItem, type Task } from '../../tasks.js';
+import { agoLabel, elapsedLabel, type NotificationItem, type Task } from '../../tasks.js';
 import { useToasts } from '../../toasts.js';
 import { failureToast } from '../../failure.js';
 
@@ -175,7 +175,9 @@ export function ActivityPanel({
 
 function Thumb({ task }: { task: Pick<Task, 'kind' | 'state' | 'thumb' | 'title'> }) {
   if (task.thumb) return <img src={thumbUrl(task.thumb, 'micro')} alt="" loading="lazy" decoding="async" />;
-  if (task.state === 'running') return <span className="sc-shimmer" />;
+  // A picture being made carries the moving band; an import or the library
+  // download is a load, and holds its place still (primitives.css, Waiting).
+  if (task.state === 'running') return <span className={task.kind === 'catalog' ? 'sc-placeholder' : 'sc-rendering'} />;
   if (task.state === 'error') return <WarningCircle size={17} weight="fill" />;
   if (task.state === 'cancelled') return <XCircle size={17} color="var(--sc-fg3)" />;
   if (task.kind === 'catalog') return <Storefront size={17} />;
@@ -204,9 +206,6 @@ function TaskRow({
   // Every kind of work that can actually be stopped. A catalog import can:
   // its route existed from the start and the UI simply never called it.
   const stoppable = task.id.startsWith('node:') || task.id.startsWith('build:') || task.id.startsWith('catalog:');
-  // past 60s, the cancel control is the one thing on this row worth making
-  // louder than the rest, since it is the only way out of a stuck run
-  const urgent = running && elapsedSec(task.startedAt, now) >= 60;
   // While a catalog import runs, the useful destination is the import itself:
   // the products it is writing are not all there yet, so sending someone to
   // the products page mid-run shows them a half-filled shelf.
@@ -269,7 +268,6 @@ function TaskRow({
         <button
           type="button"
           className="sc-notif-row-cancel"
-          data-urgent={urgent || undefined}
           onClick={(e) => {
             e.stopPropagation();
             onCancel(task.id);

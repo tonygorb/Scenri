@@ -245,6 +245,27 @@ function isShoplessSite(j: Pick<CatalogImportJob, 'stage' | 'errors'>): boolean 
   return j.stage === 'no_catalog' || (j.stage === 'failed' && j.errors?.[0]?.code === 'empty_catalog');
 }
 
+/**
+ * The one-time library download, while it runs: one row, machine-wide, with
+ * no percent (the archive is read in one piece, so there is no honest one)
+ * and nothing to stop. It is never filed as a notification: it only ever
+ * exists as running, and `settled` reads rows that are still there.
+ */
+export const CONTENT_TASK_ID = 'content:library';
+export function taskFromContent(since: string): Task {
+  return {
+    id: CONTENT_TASK_ID,
+    kind: 'catalog',
+    state: 'running',
+    title: 'Downloading the Scenri library',
+    subtitle: 'Pictures for the examples, products and presenters, once',
+    thumb: null,
+    percent: null,
+    startedAt: since,
+    href: null,
+  };
+}
+
 export function taskFromCatalogJob(j: CatalogImportJob, brand: { slug: string }): Task {
   const shopless = isShoplessSite(j);
   const state: TaskState = shopless

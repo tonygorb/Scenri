@@ -71,8 +71,15 @@ export function RefineChip({
         }}
       >
         {/* a version that has just been asked for has no picture yet, and
-            the same shimmer the feed uses says so without a second word */}
-        {image ? <img src={thumbUrl(image, 'micro')} alt="" /> : <span className="sc-target-thumb sc-shimmer" />}
+            the same band the feed uses says so without a second word, inside
+            a box of its own so it never crosses the whole chip */}
+        {image ? (
+          <img src={thumbUrl(image, 'micro')} alt="" />
+        ) : (
+          <span className="sc-target-thumb">
+            <span className="sc-rendering" />
+          </span>
+        )}
         Refining
         {onClear && (
           <button

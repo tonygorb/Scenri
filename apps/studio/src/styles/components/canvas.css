@@ -132,15 +132,23 @@
 .sc-cell:where(:has(.sc-cellimg[data-loaded])) {
   border-color: transparent;
   background: none;
+  /* The ground and its edge let go only once the picture has faded in over
+     them. Dropped on the frame the fade began, the tile went raised, then a
+     page-coloured hole with no edge, then the picture. A delayed swap, not a
+     crossfade, which would dip halfway. The selection ring is the ::after,
+     so nothing a person does waits on this. */
+  transition:
+    background-color 0s linear var(--sc-dur-slow),
+    border-color 0s linear var(--sc-dur-slow);
 }
 .sc-cell img {
   width: 100%;
   display: block;
 }
 /* The one moment the app has no cached copy of a picture is the shot that just
-   finished. The wrapper keeps the brief's shape and shimmers underneath until
-   the pixels decode, so the reveal is a fade rather than a blank tile that
-   snaps. */
+   finished, or a page scrolled to for the first time. The wrapper keeps the
+   brief's shape on the tile's still ground until the pixels decode, so the
+   reveal is a fade rather than a blank tile that snaps. */
 .sc-cellimg {
   position: relative;
   display: block;
@@ -150,7 +158,7 @@
 }
 .sc-cellimg img {
   opacity: 0;
-  transition: opacity 180ms ease;
+  transition: opacity var(--sc-dur-slow) var(--sc-ease);
 }
 .sc-cellimg[data-loaded] img,
 .sc-cellimg[data-cached] img {
@@ -160,6 +168,16 @@
   /* A remount of a picture this session already decoded. The fade is for the
      one moment there are no pixels; replaying it is the feed flashing. */
   transition: none;
+}
+/* A picture that could not load, from the derivative or the original behind
+   it: the tile keeps its ground, its edge and a box of its shape, and says so
+   with the blank glyph the catalog uses. It is never marked loaded, so it
+   never leaves an empty hole or a placeholder that waits forever. */
+.sc-cellimg[data-broken] {
+  aspect-ratio: var(--sc-cell-ar, 4 / 5);
+  display: grid;
+  place-items: center;
+  color: var(--sc-fg3);
 }
 .sc-cellimg[data-loaded][data-guess] {
   /* A guessed shape hands control back to the picture once it loads, so a shot
@@ -625,7 +643,8 @@
 @media (prefers-reduced-motion: reduce) {
   .sc-cellimg img,
   .sc-cell-veil,
-  .sc-cell-ctl {
+  .sc-cell-ctl,
+  .sc-cell:where(:has(.sc-cellimg[data-loaded])) {
     transition: none;
   }
 }
@@ -702,9 +721,11 @@
 /* ---------- running, cancelled and failed ----------------------------------
    Tiles with no picture yet, or none coming. They share the tile's shell and
    nothing of its chrome. */
-.sc-cell[data-running] {
+.sc-cell[data-running],
+.sc-cell[data-placeholder] {
   /* The brief already records the shape, so the placeholder holds it. 4/5 stays
-     as the fallback for the optimistic sending tile, which has no node yet. */
+     as the fallback for a first page's placeholders, which stand for shots
+     not yet known. */
   aspect-ratio: var(--sc-cell-ar, 4 / 5);
   cursor: default;
 }
@@ -777,10 +798,6 @@
   bottom: 10px;
   opacity: 1;
   padding: 0 12px;
-}
-.sc-cell-cancel[data-urgent] {
-  color: var(--sc-gold);
-  background: color-mix(in srgb, var(--sc-gold) 18%, var(--sc-cell-ctl-bg));
 }
 
 /* One scroll container, and only one. Every section below is a fixed two-row

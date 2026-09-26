@@ -530,6 +530,8 @@
   height: 18px;
   border-radius: var(--sc-radius-sm);
   align-self: center;
+  /* its own ground: the chip is inverse, and the band needs a tile to cross */
+  background: var(--sc-raised);
 }
 /* When something overrules the branch, the chip says so instead of quietly
    doing the other thing. */

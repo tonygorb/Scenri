@@ -82,7 +82,7 @@ function firstSentence(text: string, max: number): string {
  */
 export function ProductPage() {
   const { productId = '' } = useParams();
-  const { brand, products, refreshProducts } = useBrand();
+  const { brand, products, productsLoaded, refreshProducts } = useBrand();
   const { demoProducts, demoProductsLoaded, applyBrand, refreshBrands } = useAppData();
   const navigate = useNavigate();
   const applyProduct = useApplyProduct();
@@ -311,11 +311,15 @@ export function ProductPage() {
     if (here()) navigate(wall, { replace: true });
   };
 
-  if (!product && !demoProduct && !demoProductsLoaded) {
+  // Both answers are needed before a product can be called missing: an owned
+  // product arrives with the brand's library, a demo one with the catalog.
+  // Waiting on the catalog alone showed a cold reload of an owned product's
+  // page the not-found state until the library landed.
+  if (!product && !demoProduct && (!demoProductsLoaded || !productsLoaded)) {
     return (
       <ScrollPane>
         <main className="sc-lookpage sc-productpage" id="main">
-          <div className="sc-refskeleton" aria-hidden>
+          <div className="sc-refskeleton sc-wait-late" aria-hidden>
             <span className="sc-refskeleton-title" />
             <span className="sc-refskeleton-stage" />
             <span className="sc-refskeleton-rail">

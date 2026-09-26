@@ -76,12 +76,14 @@
   --sc-dock-reserve: 200px;
   padding: 0 var(--sc-canvas-gutter) var(--sc-dock-reserve);
 }
-/* failed tiles stay small and quiet: they are a record, not content */
+/* A failed or stopped tile keeps the shape it rendered in, so a batch never
+   reflows when one sibling fails; quiet inside, a record rather than content.
+   3/2 only for one with no shape on record. */
 .sc-cell[data-failed] {
-  aspect-ratio: 3 / 2;
+  aspect-ratio: var(--sc-cell-ar, 3 / 2);
 }
 .sc-cell[data-cancelled] {
-  aspect-ratio: 3 / 2;
+  aspect-ratio: var(--sc-cell-ar, 3 / 2);
 }
 
 /* ---------- control row: one scale, two groups, no Radix margin surprises ----------
