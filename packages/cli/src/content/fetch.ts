@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { mkdirSync, renameSync, rmSync, existsSync, readFileSync, lstatSync, unlinkSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { dirname, join, normalize } from 'node:path';
@@ -22,6 +23,18 @@ import { contentCacheReady, contentCacheRoot, contentCacheVersion } from './over
  */
 export const CONTENT_VERSION = 3;
 export const CONTENT_TAG = 'content-v3';
+/**
+ * The sha256 of the content-v3 release asset, checked before anything is
+ * unpacked. A release asset can be replaced on GitHub; a build installs only
+ * the bytes it was released against. A custom SCENRI_CONTENT_URL is its
+ * owner's choice and is not pinned. Changes together with CONTENT_TAG, read
+ * from the published asset.
+ */
+export const CONTENT_SHA256 = 'c736f1f9142bc428e19bb80bc139c2d9e60a9dce7449b322760ffe8df333b734';
+
+export function archiveMatches(bytes: Buffer, expected: string = CONTENT_SHA256): boolean {
+  return createHash('sha256').update(bytes).digest('hex') === expected;
+}
 
 const DEFAULT_CONTENT_URL = `https://github.com/tonygorb/scenri/releases/download/${CONTENT_TAG}/scenri-content.zip`;
 // The whole download, headers through last byte: ~155 MB inside it needs about 0.7 Mbps, and a
@@ -123,12 +136,15 @@ export function createContentFetcher(deps: {
   log?: (line: string) => void;
   /** The whole download's bound, headers through last byte; tests shorten it. */
   timeoutMs?: number;
+  /** The archive's expected sha256; CONTENT_SHA256 unless the URL is custom. */
+  sha256?: string | null;
 }): ContentFetcher {
   const env = deps.env ?? process.env;
   const log = deps.log ?? console.log;
   const doFetch = deps.fetchImpl ?? fetch;
   const url = resolveContentUrl(env, deps.url);
   const custom = Boolean(deps.url ?? env.SCENRI_CONTENT_URL);
+  const expected = deps.sha256 !== undefined ? deps.sha256 : custom ? null : CONTENT_SHA256;
 
   const enabled = () => env.SCENRI_NO_CONTENT_FETCH !== '1' && deps.store.getSetting('content.enabled') !== 'false';
 
@@ -159,6 +175,13 @@ export function createContentFetcher(deps: {
         clearTimeout(timer);
       }
       // A failed download or a refused archive leaves the old cache serving.
+      if (expected && !archiveMatches(bytes, expected)) {
+        return {
+          ok: false,
+          updated: false,
+          error: 'the library download does not match the archive this version expects',
+        };
+      }
       const refused = await installContentArchive(bytes, root);
       if (refused) return { ok: false, updated: false, error: refused };
       try {

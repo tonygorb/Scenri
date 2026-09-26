@@ -18,7 +18,14 @@
  */
 import { readFileSync } from 'node:fs';
 import { contentCacheRoot } from '../src/content/overlay.js';
-import { CONTENT_TAG, contentCacheStale, installContentArchive, resolveContentUrl } from '../src/content/fetch.js';
+import {
+  archiveMatches,
+  CONTENT_SHA256,
+  CONTENT_TAG,
+  contentCacheStale,
+  installContentArchive,
+  resolveContentUrl,
+} from '../src/content/fetch.js';
 
 const arg = process.argv[2];
 const root = contentCacheRoot();
@@ -43,6 +50,13 @@ if (arg) {
     process.exit(1);
   }
   zipBytes = Buffer.from(await res.arrayBuffer());
+}
+
+// The same pin the app checks: CI and the publish job hydrate exactly the
+// archive this build was released against. A custom SCENRI_CONTENT_URL is not pinned.
+if (!process.env.SCENRI_CONTENT_URL && !archiveMatches(zipBytes)) {
+  console.error(`archive does not match ${CONTENT_TAG} (expected sha256 ${CONTENT_SHA256})`);
+  process.exit(1);
 }
 
 const refused = await installContentArchive(zipBytes, root);
