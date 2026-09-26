@@ -34,6 +34,7 @@ import { matchesQuery, bookmarkedFirst } from '../layout/library/libraryRules.js
 import { useLibraryQuery } from '../layout/library/useLibraryQuery.js';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
+import { forgetFeeds } from './create/feedCache.js';
 
 /** Same floor as every catalog page: below this, scanning beats typing. */
 const SEARCH_MIN = 8;
@@ -464,6 +465,9 @@ export function HomeView() {
                 // Create shows them the moment it opens, and whatever watches shots hears of them.
                 if (made?.length) applyNodes(made);
                 poke();
+                // a remembered feed would not hold them, and they would arrive
+                // late and push every tile down: Create reads its page afresh
+                forgetFeeds(brand.id);
                 navigate(hubPath(brand));
               }}
             />

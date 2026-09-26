@@ -166,7 +166,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   const { poke } = useTaskCenter();
   /** The brief that has been sent and not yet come back as shots, and how
    * many shots it asked for — one stand-in tile per expected sibling. */
-  const [sending, setSending] = useState<{ said: string; count: number } | null>(null);
+  const [sending, setSending] = useState<{ said: string; count: number; format?: string } | null>(null);
 
   const projectId = workspace?.id ?? '';
   const base = set ? setPath(brand, set) : hubPath(brand);
@@ -295,7 +295,12 @@ export function CreateView({ set }: { set: ShotSet | null }) {
         const { messages, next } = generationMessages(statusMap.current ?? new Map(), fresh);
         const firstDiff = statusMap.current === null;
         statusMap.current = next;
-        if (!firstDiff && messages.length) setGenLive(messages.join(' '));
+        // The same sentence twice is not a change to the region, and would not
+        // be read: a second "Shot ready." alternates a trailing space instead.
+        if (!firstDiff && messages.length) {
+          const said = messages.join(' ');
+          setGenLive((cur) => (cur === said ? `${said}\u00a0` : said));
+        }
         const f = feedRef.current;
         let stranger = false;
         /**
@@ -1150,7 +1155,16 @@ export function CreateView({ set }: { set: ShotSet | null }) {
             change vocabulary depending on where the error came from. */}
         {(err || feed.error) && (
           <div className="sc-canvas-alert">
-            <FailureRow failure={describeFailure(err ?? feed.error ?? '')} />
+            <FailureRow
+              failure={describeFailure(err ?? feed.error ?? '')}
+              action={
+                feed.error && !err ? (
+                  <button type="button" className="sc-btn sc-btn-ghost" onClick={feed.retry}>
+                    Try again
+                  </button>
+                ) : undefined
+              }
+            />
           </div>
         )}
 
@@ -1234,7 +1248,9 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           onVersions={setLineageId}
           tile={tile}
           empty={loaded ? emptyState : null}
-          pending={!loaded}
+          // a first page that failed says so above and offers Try again; the
+          // placeholders stop rather than waiting beside it for ever
+          pending={!loaded && !feed.error}
           onNearEnd={feed.complete ? undefined : feed.loadMore}
           inSet={set}
           setsFor={(id) => setsByNode.get(id) ?? []}

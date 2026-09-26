@@ -36,4 +36,32 @@ describe('generationMessages', () => {
     state = generationMessages(new Map([['b', 'running']]), [node('b', 'done', ['h1'])]);
     expect(state.messages).toEqual(['Shot ready.']);
   });
+
+  // A partial answer (the one to four records a send or a keep returns) used
+  // to replace the map, so the next poll took every other shot for new and
+  // said nothing when they landed.
+  it('keeps every status it has heard when an answer holds only some of them', () => {
+    let state = generationMessages(new Map(), [node('a', 'running'), node('b', 'running')]);
+    state = generationMessages(state.next, [node('c', 'running')]);
+    state = generationMessages(state.next, [node('a', 'done', ['h']), node('b', 'running'), node('c', 'running')]);
+    expect(state.messages).toEqual(['Shot ready.']);
+  });
+
+  it('says a batch once, not once per sibling', () => {
+    let state = generationMessages(new Map(), []);
+    state = generationMessages(state.next, [
+      node('a', 'running'),
+      node('b', 'running'),
+      node('c', 'running'),
+      node('d', 'running'),
+    ]);
+    expect(state.messages).toEqual(['Generating 4 shots.']);
+    state = generationMessages(state.next, [
+      node('a', 'done', ['h']),
+      node('b', 'done', ['h']),
+      node('c', 'error', [], 'x'),
+      node('d', 'error', [], 'y'),
+    ]);
+    expect(state.messages).toEqual(['2 shots ready.', '2 shots failed.']);
+  });
 });

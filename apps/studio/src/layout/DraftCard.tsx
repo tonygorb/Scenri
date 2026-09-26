@@ -106,7 +106,7 @@ export function DraftCard({
         }}
       >
         {hash ? <img src={thumbUrl(hash, 'tile')} alt="" /> : <span className="sc-lookcard-blank">{blank}</span>}
-        {drawing && <span className="sc-shimmer" aria-hidden />}
+        {drawing && <span className="sc-rendering" aria-hidden />}
         {/* Said on the picture, because the picture is what makes one of these
             look finished: a face or a place on a card reads as done until
             something on it says otherwise. */}

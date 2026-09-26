@@ -51,7 +51,7 @@ export function AssetBuildCard({
         <span className="sc-lookcard-blank" />
         {!failed && (
           <>
-            <span className="sc-shimmer" />
+            <span className="sc-rendering" />
             <RunningTag since={build.startedAt} />
           </>
         )}

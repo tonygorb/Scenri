@@ -78,34 +78,31 @@ export function StageFrame({
        * a small empty rectangle adrift in a large dark one, which then
        * jumped to a different size and shape the moment the picture landed.
        * It now takes the box the picture will take — the stage's own cap
-       * for height, the shot's recorded shape for aspect — and fills it
-       * with the same shimmer the feed uses while a tile is rendering, so
-       * there is one language for "this is coming" in both places and
-       * nothing moves when it arrives.
+       * for height, the shot's recorded shape for aspect — and carries the
+       * same moving band the feed uses while a tile is rendering, so there
+       * is one language for "this is coming" in both places and nothing
+       * moves when it arrives. The box is detail-overlay.css's
+       * `.sc-stage-wait`: without it the band, which is absolutely placed,
+       * spread over the whole stage.
        *
        * The prompt is not repeated here. It is already the BRIEF beside
        * this, in full, and it was truncated to a single line here anyway.
        */
       <div className="sc-stage-wait" style={{ '--sc-wait-ar': aspectOf(node) } as CSSProperties}>
-        <span className="sc-shimmer" />
+        <span className="sc-rendering" />
         <div className="sc-stage-wait-say">
-          {/* The counter alone: the shimmer says "generating", and the words
+          {/* The counter alone: the band says "generating", and the words
               beside the number read as noise on a phone. The escalating
               phrase still reaches assistive tech. */}
           <span
             className="sc-stage-wait-t"
-            role="status"
+            role="timer"
             aria-label={`${runningPhrase(runSince(node))}, ${elapsedSec(runSince(node))} seconds`}
           >
             {elapsedLabel(runSince(node))}
           </span>
           {onCancel && (
-            <button
-              type="button"
-              className="sc-btn sc-btn-ghost"
-              data-urgent={elapsedSec(runSince(node)) >= 60 || undefined}
-              onClick={onCancel}
-            >
+            <button type="button" className="sc-btn sc-btn-ghost" onClick={onCancel}>
               Cancel
             </button>
           )}

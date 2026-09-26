@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Spinner } from '@radix-ui/themes';
 import { useOutletContext, useParams } from 'react-router';
 import { api, type FeedNode } from '../api.js';
@@ -48,6 +48,14 @@ export function ShotDetailRoute() {
 
   const node = held ?? (fetched !== null && fetched.id === shotId ? fetched.node : null);
   const missing = !held && fetched !== null && fetched.id === shotId && fetched.node === null;
+  // The shot on screen stays while the next one is read. Stepping to a shot
+  // the pages do not hold (a refinement in Keepers or a set, a version out of
+  // the loaded pages) used to swap the whole overlay for a full-screen spinner
+  // and mount it again, which dropped the picture under the next one, the
+  // typed field and the focus. Only a first open has nothing to show yet.
+  const last = useRef<FeedNode | null>(null);
+  if (node) last.current = node;
+  const shown = node ?? (missing ? null : last.current);
 
   // a link to a shot that has since been deleted, or to the project root:
   // fall back to the canvas rather than holding an empty overlay open, and
@@ -61,7 +69,7 @@ export function ShotDetailRoute() {
   // Its own class, not `sc-ovl`. Sharing that one made "the overlay is open"
   // a claim a spinner could satisfy, so every e2e assertion on `.sc-ovl`
   // quietly also passed while the shot was still loading.
-  if (!node) {
+  if (!shown) {
     return missing ? null : (
       <div className="sc-ovl-wait" role="status" aria-label="Loading">
         <Spinner size="3" />
@@ -71,7 +79,7 @@ export function ShotDetailRoute() {
 
   return (
     <DetailOverlay
-      node={node}
+      node={shown}
       rootId={ctx.rootId}
       items={ctx.items}
       loadMore={ctx.loadMore}
@@ -86,11 +94,12 @@ export function ShotDetailRoute() {
       onKeep={ctx.keep}
       onLanded={ctx.landed}
       onRefined={ctx.refined}
+      subscribeActivity={ctx.subscribeActivity}
       tokenNames={ctx.tokenNames}
       onRemix={ctx.remix}
-      onArchive={() => ctx.archive(node)}
-      onUnarchive={() => ctx.unarchive(node)}
-      onDelete={() => ctx.delete(node)}
+      onArchive={() => ctx.archive(shown)}
+      onUnarchive={() => ctx.unarchive(shown)}
+      onDelete={() => ctx.delete(shown)}
     />
   );
 }

@@ -110,11 +110,6 @@
   opacity: var(--sc-disabled);
   cursor: not-allowed;
 }
-.sc-btn-ghost[data-urgent] {
-  border-color: var(--sc-gold);
-  color: var(--sc-gold);
-  background: color-mix(in srgb, var(--sc-gold) 12%, transparent);
-}
 
 .sc-chip {
   display: inline-flex;
@@ -145,69 +140,129 @@
   border-color: transparent;
 }
 
-/* honest in-flight: gold shimmer + elapsed, never a fake percent.
+/* ---- waiting ----
+   Two surfaces, and neither wears gold: waiting is not an accent (DESIGN.md,
+   Waiting). Both stand on their host's own ground and hairline and take no
+   fill of their own, so nothing changes colour when the picture arrives.
 
-   Two layers, because one linear sweep at one speed reads as a loading GIF:
-   a slow breath under a passing highlight, the way light actually moves across
-   a surface. The sweep eases in and out rather than running at constant speed,
-   and its period is a variable so a 40px notification thumb and a full stage
-   do not both take 1.6 seconds to cross: the same sweep speed over a much
-   wider box is what made the large placeholders feel sluggish. */
-.sc-shimmer {
+   .sc-placeholder is the place of something that exists but has not painted
+   yet: a picture decoding, a page of data on its way, library imagery still
+   arriving. It is still at first, so a fast load never shows motion; if it is
+   still there after 800ms a faint breath comes up, so a slow one never reads
+   as dead. Opacity only. */
+.sc-placeholder,
+.sc-rendering {
   position: absolute;
   inset: 0;
-  --sc-shimmer-dur: 1.9s;
-  background:
-    linear-gradient(
-      100deg,
-      transparent 26%,
-      color-mix(in srgb, var(--sc-gold) 15%, transparent) 47%,
-      color-mix(in srgb, var(--sc-gold) 7%, transparent) 58%,
-      transparent 74%
-    ),
-    radial-gradient(120% 90% at 50% 40%, color-mix(in srgb, var(--sc-gold) 5%, transparent), transparent 70%);
-  background-size:
-    220% 100%,
-    100% 100%;
-  background-repeat: no-repeat;
-  animation:
-    sc-shimmer var(--sc-shimmer-dur) cubic-bezier(0.45, 0, 0.3, 1) infinite,
-    sc-shimmer-breathe calc(var(--sc-shimmer-dur) * 2.2) ease-in-out infinite;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
 }
-/* Small hosts get a quicker pass, large ones a slower one, so the highlight
-   travels at roughly one speed across every surface in the app. */
-.sc-notif-thumb .sc-shimmer,
-.sc-fr .sc-shimmer,
-.sc-target-thumb.sc-shimmer {
-  --sc-shimmer-dur: 1.15s;
+.sc-placeholder::after,
+.sc-rendering::after {
+  content: "";
+  position: absolute;
+  inset: 0;
 }
-.sc-stage-wait .sc-shimmer {
-  --sc-shimmer-dur: 2.9s;
+.sc-placeholder::after {
+  background: color-mix(in srgb, var(--sc-fg) 5%, transparent);
+  opacity: 0;
+  animation: sc-wait-breathe 2.8s ease-in-out 800ms infinite;
 }
-@keyframes sc-shimmer {
-  from {
-    background-position:
-      180% 0,
-      0 0;
-  }
-  to {
-    background-position:
-      -80% 0,
-      0 0;
-  }
-}
-@keyframes sc-shimmer-breathe {
+@keyframes sc-wait-breathe {
   0%,
   100% {
-    opacity: 0.72;
+    opacity: 0;
   }
   50% {
     opacity: 1;
   }
 }
+
+/* .sc-rendering is the place of a picture that does not exist yet and is
+   being made: a generation, a refinement, a view being drawn. It moves from
+   the first frame, because a generation is long by nature, and it moves in
+   one direction, which is what tells it apart from a picture that is only
+   loading. The band is moved by transform alone, so the compositor draws it
+   and no tile repaints per frame. A small host crosses in half the time so
+   the band travels at about one speed everywhere. Over a picture that is
+   being redrawn it passes over the picture and leaves it whole. */
+.sc-rendering {
+  --sc-rendering-dur: 3.2s;
+}
+.sc-rendering::after {
+  background: linear-gradient(
+    90deg,
+    transparent 30%,
+    color-mix(in srgb, var(--sc-fg) 7%, transparent) 50%,
+    transparent 70%
+  );
+  transform: translateX(-70%);
+  animation: sc-rendering var(--sc-rendering-dur) cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+.sc-notif-thumb .sc-rendering,
+.sc-thumb-wait .sc-rendering,
+.sc-target-thumb .sc-rendering,
+.sc-pstudio-slot-inner > .sc-rendering {
+  --sc-rendering-dur: 1.6s;
+}
+/* The band enters at one edge and leaves at the other (its soft half-width is
+   a fifth of the box, so -70% and 70% are just outside), crossing at an even
+   pace for three quarters of the cycle and resting out of sight for the last
+   quarter: a pass and a pause, not a highlight that races and then hides. */
+@keyframes sc-rendering {
+  0% {
+    transform: translateX(-70%);
+  }
+  75%,
+  100% {
+    transform: translateX(70%);
+  }
+}
+
+/* A placeholder that stands in for whole cards or cells (a first page, a
+   wall's skeleton) is laid out at once but shown only after 250ms: a local
+   answer usually lands first, and a grid of stand-ins flashing for a frame
+   reads worse than nothing. Visibility, not opacity, so it keeps its place and
+   never fights an opacity animation on the same box; and not motion, so it
+   stays under reduced motion. */
+.sc-wait-late {
+  animation: sc-appear 0s linear 250ms both;
+}
+@keyframes sc-appear {
+  from {
+    visibility: hidden;
+  }
+  to {
+    visibility: visible;
+  }
+}
+
+/* The reveal: a picture that exists waits invisible on its host's ground
+   until it has decoded, then fades in over the ground it stood on. One this
+   session already decoded is ready from its first frame, so there is nothing
+   to fade and a revisited wall does not flash. Opacity only, and only while
+   waiting, so a host's own hover and press rules keep the picture after. */
+img[data-reveal] {
+  transition: opacity var(--sc-dur-slow) var(--sc-ease);
+}
+img[data-reveal]:not([data-ready]) {
+  opacity: 0;
+}
+
+/* Reduced motion: the placeholder is flat, and the band rests at the centre
+   of the box, still, so a picture being made still reads apart from one that
+   is loading. The elapsed clock keeps counting beside it. */
 @media (prefers-reduced-motion: reduce) {
-  .sc-shimmer {
+  .sc-placeholder::after {
     animation: none;
+  }
+  .sc-rendering::after {
+    animation: none;
+    transform: none;
+  }
+  img[data-reveal] {
+    transition: none;
   }
 }
 

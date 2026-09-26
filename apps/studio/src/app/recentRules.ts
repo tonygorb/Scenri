@@ -1,5 +1,6 @@
 import type { FeedNode } from '../api.js';
 import { byNewest } from '../feedRules.js';
+import { sameRecord } from '../views/create/feedQueryRules.js';
 
 /** How many of the newest done shots the workspace answer carries for the rail and the attach panel. */
 const RECENT_CAP = 48;
@@ -18,7 +19,7 @@ export function mergeRecent(prev: FeedNode[], fresh: FeedNode[], cap = RECENT_CA
     const shows = n.status === 'done' && n.images.length > 0 && !n.archived;
     if (i >= 0) {
       const held = (next ?? prev)[i];
-      if (held === n) continue;
+      if (sameRecord(held, n)) continue;
       next ??= [...prev];
       if (shows) next[i] = n;
       else next.splice(i, 1);

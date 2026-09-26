@@ -13,6 +13,7 @@ import {
   withoutIds,
   type AdmitContext,
 } from './feedQueryRules.js';
+import { cachedFeed, rememberFeed } from './feedCache.js';
 
 /** Shots per page: about three screens at the large tile, the same page the library walls turn. */
 const FEED_PAGE = 60;
@@ -42,6 +43,8 @@ interface FeedQueryResult {
   drop: (ids: readonly string[]) => void;
   /** Re-read the first page and the counts, keeping every older page that was loaded. */
   refresh: () => Promise<void>;
+  /** Ask for the first page again after it failed. */
+  retry: () => void;
 }
 
 interface Held {
@@ -67,7 +70,13 @@ export function useFeedQuery(brandId: string, query: FeedQuery, ctx: AdmitContex
   // A wipe of every shot moves the epoch, and the pages are read again.
   const { shotsEpoch } = useBrand();
   const key = `${queryKey(brandId, query)}#${shotsEpoch}`;
-  const [held, setHeld] = useState<Held>({ brandId, key: '', items: [], next: null, counts: null, error: null });
+  // A query this session has already met paints what it last held at once;
+  // the first page read below replaces it whole (feedCache.ts).
+  const [held, setHeld] = useState<Held>(() => {
+    const seen = cachedFeed(key);
+    return seen ? { ...seen, error: null } : { brandId, key: '', items: [], next: null, counts: null, error: null };
+  });
+  const [attempt, setAttempt] = useState(0);
   const [loading, setLoading] = useState(false);
   const heldRef = useRef(held);
   heldRef.current = held;
@@ -80,6 +89,9 @@ export function useFeedQuery(brandId: string, query: FeedQuery, ctx: AdmitContex
   useEffect(() => {
     const ctrl = new AbortController();
     setLoading(true);
+    // A lens or place met before shows what it last held while its page is read.
+    const seen = cachedFeed(key);
+    if (seen && heldRef.current.key !== key) setHeld({ ...seen, error: null });
     api
       .feed(brandId, { ...queryRef.current, limit: FEED_PAGE }, ctrl.signal)
       .then((page) => {
@@ -89,13 +101,27 @@ export function useFeedQuery(brandId: string, query: FeedQuery, ctx: AdmitContex
       .catch((err: unknown) => {
         if (ctrl.signal.aborted) return;
         const message = String((err as { message?: string })?.message ?? err);
-        setHeld((h) => ({ ...h, brandId, key, error: message }));
+        // Another query's shots are not this one's: what was held for a
+        // different lens, place or brand goes, and only this query's own
+        // pages (remembered, or read before) stay under the error.
+        setHeld((h) =>
+          h.key === key
+            ? { ...h, error: message }
+            : { brandId, key, items: [], next: null, counts: null, error: message },
+        );
       })
       .finally(() => {
         if (!ctrl.signal.aborted) setLoading(false);
       });
     return () => ctrl.abort();
-  }, [brandId, key]);
+  }, [brandId, key, attempt]);
+
+  // Every answer this feed holds is remembered for the next visit; a failed one is not.
+  useEffect(() => {
+    if (held.key && !held.error) rememberFeed(held);
+  }, [held]);
+
+  const retry = useCallback(() => setAttempt((n) => n + 1), []);
 
   const loadMore = useCallback(() => {
     const h = heldRef.current;
@@ -210,5 +236,6 @@ export function useFeedQuery(brandId: string, query: FeedQuery, ctx: AdmitContex
     insert,
     drop,
     refresh,
+    retry,
   };
 }

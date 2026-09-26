@@ -121,11 +121,30 @@ export interface ContentFetchResult {
   error: string | null;
 }
 
+/**
+ * What the studio can be told about the library download, and all it needs:
+ * whether pictures are still on their way, and a count that moves when they
+ * land. Never a percent: the archive is read in one piece, so there is no
+ * honest one to give.
+ */
+export interface ContentState {
+  /**
+   * Library pictures are on their way: the download is on, the cache is not
+   * the one this version wants, and this boot has not finished trying. True
+   * from the first moment, before the attempt starts, so a studio that asks
+   * early waits for it; false once an attempt fails, so nothing waits forever.
+   */
+  arriving: boolean;
+  /** Installs this process has made. A change means the catalogs have pictures they lacked. */
+  installs: number;
+}
+
 export interface ContentFetcher {
   enabled(): boolean;
   ensure(): Promise<ContentFetchResult>;
   /** One attempt shortly after listen. Timer unref'd: never keeps the process alive. */
   schedule(): void;
+  state(): ContentState;
 }
 
 export function createContentFetcher(deps: {
@@ -149,6 +168,12 @@ export function createContentFetcher(deps: {
   const enabled = () => env.SCENRI_NO_CONTENT_FETCH !== '1' && deps.store.getSetting('content.enabled') !== 'false';
 
   let inflight: Promise<ContentFetchResult> | null = null;
+  // What the studio is told: whether this boot has tried and given up, and
+  // how many installs it has made. Whether the cache is stale is read once
+  // and again after each attempt, not on every poll.
+  let gaveUp = false;
+  let installs = 0;
+  let stale: boolean | null = null;
 
   async function download(): Promise<ContentFetchResult> {
     const root = contentCacheRoot(env);
@@ -202,10 +227,23 @@ export function createContentFetcher(deps: {
   async function ensure(): Promise<ContentFetchResult> {
     if (!enabled()) return { ok: false, updated: false, error: null };
     if (!contentCacheStale(env, custom)) return { ok: true, updated: false, error: null };
-    inflight ??= download().finally(() => {
-      inflight = null;
-    });
+    inflight ??= download()
+      .then((result) => {
+        if (result.updated) installs += 1;
+        else if (!result.ok) gaveUp = true;
+        return result;
+      })
+      .finally(() => {
+        inflight = null;
+        stale = null;
+      });
     return inflight;
+  }
+
+  function state(): ContentState {
+    if (!enabled() || gaveUp) return { arriving: false, installs };
+    stale ??= contentCacheStale(env, custom);
+    return { arriving: stale, installs };
   }
 
   function schedule(): void {
@@ -214,5 +252,5 @@ export function createContentFetcher(deps: {
     setTimeout(() => void ensure(), 3000).unref();
   }
 
-  return { enabled, ensure, schedule };
+  return { enabled, ensure, schedule, state };
 }

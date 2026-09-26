@@ -63,25 +63,26 @@
   aspect-ratio: 4 / 5;
   object-fit: cover;
   display: block;
-  transition: transform 0.45s cubic-bezier(0.2, 0.6, 0.2, 1);
+  /* one list: the hover lift and the reveal (primitives.css) share it, or
+     whichever rule came last would drop the other's transition */
+  transition:
+    transform 0.45s cubic-bezier(0.2, 0.6, 0.2, 1),
+    opacity var(--sc-dur-slow) var(--sc-ease);
 }
 .sc-lookcard-blank {
+  position: relative;
   display: grid;
   place-items: center;
   color: var(--sc-fg3);
   background: var(--sc-raised);
 }
-/* A card waiting for its picture holds the space the picture will take.
-   The shimmer is `position: absolute; inset: 0`, and the image that normally
-   gives this plane its height is not there yet, so the plane collapsed to
-   nothing: a wall of pending cards measured zero pixels tall. That reads as a
-   blank page, jumps the layout as each picture lands, and leaves a scroll
-   sentinel with no content between it and the top, so a paged grid ran away to
-   thousands of rows at once. Measured on a 2,199-product store: pending cards
-   0px, loaded cards 208px. */
-.sc-lookcard-media:has(> .sc-shimmer) {
-  aspect-ratio: 4 / 5;
-}
+/* A card waiting for its picture holds the space the picture will take: the
+   blank box, in flow, with the still placeholder in it and no glyph. It used
+   to be an absolutely placed shimmer with nothing in flow, so the plane
+   collapsed and a wall of pending cards measured zero pixels tall, which read
+   as a blank page, jumped the layout as each picture landed, and let a paged
+   grid's scroll sentinel run away to thousands of rows. Measured on a
+   2,199-product store: pending cards 0px, loaded cards 208px. */
 .sc-lookcard:hover img,
 .sc-lookcard[data-state="open"] img,
 .sc-lookcard:has(.sc-lookcard-more[data-state="open"]) img {
@@ -377,9 +378,11 @@ a.sc-lookcard {
   opacity: 1;
   transform: none;
 }
-/* Waiting reads as one thing everywhere: the same gold sweep the feed uses
-   while a shot renders, rather than a second, deader loading vocabulary of
-   static grey blocks on the first screen of the app. */
+/* A wall whose list has not arrived: cards of the real card's shape, as the
+   placeholder (primitives.css, Waiting), not the generation band. A list on
+   its way is a load; nothing is being made. Still at first, then the same
+   faint breath after 800ms. The card itself comes up only after 250ms
+   (`sc-wait-late`), so a quick answer shows no skeleton at all. */
 .sc-lookcard[data-variant="skeleton"] {
   background: var(--sc-raised);
   aspect-ratio: 4 / 5;
@@ -390,14 +393,9 @@ a.sc-lookcard {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    100deg,
-    transparent 30%,
-    color-mix(in srgb, var(--sc-gold) 14%, transparent) 50%,
-    transparent 70%
-  );
-  background-size: 220% 100%;
-  animation: sc-shimmer 1.6s linear infinite;
+  background: color-mix(in srgb, var(--sc-fg) 5%, transparent);
+  opacity: 0;
+  animation: sc-wait-breathe 2.8s ease-in-out 800ms infinite;
 }
 @media (prefers-reduced-motion: reduce) {
   .sc-lookcard[data-variant="skeleton"]::after {
@@ -643,11 +641,19 @@ a.sc-lookcard {
     border-radius: var(--sc-radius-lg);
     background: var(--sc-raised);
   }
+  /* The caption's room under the picture, in flow like the real card's
+     caption: it inherited the breath layer's absolute placement and sat out
+     of flow, so a phone skeleton was a caption shorter than the card that
+     replaced it and every card grew as it landed. */
   .sc-lookcard[data-variant="skeleton"]::after {
     content: "";
     display: block;
+    position: static;
     height: 1.35em;
     margin-top: 8px;
+    background: none;
+    opacity: 1;
+    animation: none;
   }
   .sc-lookcard[data-variant="skeleton"][data-caption="photo"]::after {
     content: none;

@@ -125,11 +125,10 @@ export function ShotRail({
                 className="sc-thumb-btn sc-shotrail-tile"
                 aria-label={running ? `${nodeLabel(n)}, still rendering` : nodeLabel(n)}
                 aria-pressed={active}
-                aria-disabled={running || undefined}
                 tabIndex={n.id === stop ? 0 : -1}
                 onClick={() => {
-                  // a picture that is not there yet cannot be looked at; the tile fills in when it lands
-                  if (running) return;
+                  // a shot still being made opens onto its own place on the
+                  // stage, with its clock and Cancel, as its feed tile does
                   peek.closeNow();
                   onSelect(n.id);
                 }}
@@ -150,7 +149,7 @@ export function ShotRail({
                   />
                 ) : running ? (
                   <span className="sc-thumb sc-thumb-wait" data-active={active}>
-                    <span className="sc-shimmer" />
+                    <span className="sc-rendering" />
                   </span>
                 ) : (
                   <span className="sc-thumb sc-thumb-failed" data-active={active}>

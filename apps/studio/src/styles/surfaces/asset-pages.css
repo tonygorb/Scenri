@@ -114,7 +114,7 @@
   background: var(--sc-well);
 }
 /* Failed only: the name and why it died sit under the tile. A running card
-   has no caption — the shimmer and the clock are the whole of it. */
+   has no caption — the moving band and the clock are the whole of it. */
 .sc-lookcard[data-build] {
   overflow: visible;
   background: none;
@@ -650,19 +650,15 @@
   position: relative;
   overflow: hidden;
 }
-/* Same sweep as the feed and the catalog cards: one loading vocabulary. */
+/* The placeholder's faint breath after 800ms, as on a catalog card: a page on
+   its way is a load, not a generation (primitives.css, Waiting). */
 .sc-refskeleton span:not(.sc-refskeleton-rail)::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    100deg,
-    transparent 30%,
-    color-mix(in srgb, var(--sc-gold) 14%, transparent) 50%,
-    transparent 70%
-  );
-  background-size: 220% 100%;
-  animation: sc-shimmer 1.6s linear infinite;
+  background: color-mix(in srgb, var(--sc-fg) 5%, transparent);
+  opacity: 0;
+  animation: sc-wait-breathe 2.8s ease-in-out 800ms infinite;
 }
 @media (prefers-reduced-motion: reduce) {
   .sc-refskeleton span::after {
@@ -1140,7 +1136,7 @@
 .sc-scenepage .sc-refset-tile img {
   object-fit: cover;
 }
-/* A scene's example on its way (the old picture, if any, under the shimmer),
+/* A scene's example on its way (the old picture, if any, under the band),
    or one that did not draw. Neither opens: there is nothing to look at yet. */
 .sc-refset-tile[data-state] {
   position: relative;
@@ -1153,6 +1149,16 @@
   gap: var(--sc-space-2);
   color: var(--sc-fg3);
   font-size: var(--sc-text-caption);
+}
+.sc-refset-why {
+  max-width: 88%;
+  text-align: center;
+  font-size: var(--sc-text-micro);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 /* The band the arrows are measured against: one line, never two. */
 .sc-refset-lb {

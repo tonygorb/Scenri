@@ -23,6 +23,7 @@ import {
   examplesInItsStudio,
   taskFromAssetBuild,
   taskFromCatalogJob,
+  taskFromContent,
   taskFromNode,
   taskFromStudioWork,
   unreadCount,
@@ -92,6 +93,9 @@ export function useTaskCenter(): TaskCenterValue {
   return value;
 }
 
+/** When this tab first saw the library download running: the row's clock, kept across brand switches. */
+let contentSince: string | null = null;
+
 export function TaskCenterProvider({
   brand,
   onActivity,
@@ -108,7 +112,7 @@ export function TaskCenterProvider({
 }) {
   const navigate = useNavigate();
   const { push } = useToasts();
-  const { refreshBrands } = useAppData();
+  const { refreshBrands, noteContent } = useAppData();
   // the feed is keyed by id and the links are built from the slug: a rename
   // changes where a task points, never which brand's history it belongs to
   const brandId = brand.id;
@@ -146,6 +150,8 @@ export function TaskCenterProvider({
   const brandPulledRef = useRef<Set<string>>(new Set());
   const refreshBrandsRef = useRef(refreshBrands);
   refreshBrandsRef.current = refreshBrands;
+  const noteContentRef = useRef(noteContent);
+  noteContentRef.current = noteContent;
   // the live timer's own re-arm, published by the effect below so poke() can
   // reach it without owning a timer of its own
   const restartRef = useRef<(() => void) | null>(null);
@@ -188,7 +194,7 @@ export function TaskCenterProvider({
     try {
       // One tick, both sources. Asked together so a build and a generation can
       // never disagree about what moment it is.
-      const [{ nodes, jobs, studio = [], boot }, { builds: bs }] = await Promise.all([
+      const [{ nodes, jobs, studio = [], boot, content }, { builds: bs }] = await Promise.all([
         api.activity(brandId),
         api.assetBuilds(brandId),
       ]);
@@ -202,6 +208,10 @@ export function TaskCenterProvider({
       if (boot && bootRef.current && boot !== bootRef.current) unreachableRef.current = true;
       if (boot) bootRef.current = boot;
       onActivityRef.current?.(brandId, nodes);
+      // The library download is the machine's, not the brand's: it is passed
+      // up to where the catalogs live, and shown as one row while it runs.
+      noteContentRef.current(content);
+      if (content?.arriving) contentSince ??= new Date().toISOString();
       // One row per REQUEST, not per sibling: a four-shot batch is one piece
       // of work in the bell, read across all of its siblings (batchTask) now
       // that each lands on its own.
@@ -218,6 +228,7 @@ export function TaskCenterProvider({
         ...jobs.map((j) => taskFromCatalogJob(j, brandRef.current)),
         ...bs.map((b) => taskFromAssetBuild(b, brandRef.current)),
         ...studio.map((w) => taskFromStudioWork(w, brandRef.current)),
+        ...(content?.arriving && contentSince ? [taskFromContent(contentSince)] : []),
       ];
     } catch {
       // the bell is not worth an error state; the next tick will tell the truth

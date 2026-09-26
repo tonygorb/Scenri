@@ -7,6 +7,7 @@ import { Check, DotsThree, DotsThreeVertical, ImageSquare, Star, Trash } from '@
 import type { CatalogMenuItem } from './catalogMenu.js';
 import { useWallDensitySize } from './DensityControl.js';
 import { MenuGlyph } from './menuGlyph.js';
+import { Shown } from './ReferenceGallery.js';
 import { iconTip } from './Tip.js';
 
 export type CatalogCardVariant = 'navigate' | 'use' | 'select' | 'plain';
@@ -119,7 +120,6 @@ function CatalogCardInner({
   /** Present on a card that has a bulk verb. The tick, and the tap while a pick exists. */
   onPick?: (id: string) => void;
 }) {
-  const [broken, setBroken] = useState(false);
   const [armed, setArmed] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const touchUi = useHoverNone();
@@ -147,23 +147,29 @@ function CatalogCardInner({
     return () => document.removeEventListener('pointerdown', onPointerDown);
   }, [armed]);
 
-  const preview =
-    previewUrl && !broken ? (
-      <img
-        src={thumbOf(previewUrl, 'tile')}
-        srcSet={tileSrcSet(previewUrl)}
-        sizes={CARD_SIZES[density]}
-        alt=""
-        loading="lazy"
-        onError={() => setBroken(true)}
-      />
-    ) : pending ? (
-      <span className="sc-shimmer" />
-    ) : (
-      <span className="sc-lookcard-blank">
-        <ImageSquare size={20} />
-      </span>
-    );
+  // A picture that exists paints through Shown: its place held on the card's
+  // ground, faded in once decoded, painted at once if this session has seen
+  // it. A picture on its way (library imagery still arriving, a store product
+  // whose details are still coming) holds the same 4:5 box, still, with no
+  // glyph: a waiting card is not a broken one. Only a card with nothing
+  // coming shows the glyph.
+  const preview = previewUrl ? (
+    <Shown
+      src={thumbOf(previewUrl, 'tile')}
+      srcSet={tileSrcSet(previewUrl)}
+      sizes={CARD_SIZES[density]}
+      wait
+      blank="sc-lookcard-blank"
+    />
+  ) : pending ? (
+    <span className="sc-lookcard-blank" data-waiting>
+      <span className="sc-placeholder" />
+    </span>
+  ) : (
+    <span className="sc-lookcard-blank">
+      <ImageSquare size={20} />
+    </span>
+  );
 
   // `title` was reaching the DOM only as an aria-label, so a sighted user had
   // no way to read a name the caption had ellipsised. The caption is what
@@ -391,7 +397,7 @@ export function CatalogCardSkeleton({
         <div
           // biome-ignore lint/suspicious/noArrayIndexKey: a fixed-count skeleton row has nothing else to key on
           key={i}
-          className="sc-lookcard"
+          className="sc-lookcard sc-wait-late"
           data-variant="skeleton"
           data-size={size}
           data-caption={caption ? undefined : 'photo'}

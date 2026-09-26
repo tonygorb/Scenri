@@ -82,6 +82,10 @@ export function registerProjectRoutes(app: FastifyInstance, deps: ProjectRouteDe
       jobs: core.catalog.listRecentJobs(brand.id),
       studio: listStudioWork(core, brand.id, deps.sceneExampleJobs?.(brand.id) ?? []),
       boot: BOOT,
+      // Machine-scoped like `boot`, and read on the same tick: whether library
+      // pictures are still arriving, so the studio shows them as on their way
+      // rather than missing, and reads its catalogs again once they land.
+      content: app.content?.state(),
     };
   });
 

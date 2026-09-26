@@ -19,9 +19,12 @@ describe('the feed window', () => {
   it('estimates a tile from its shape inside the border, plus the gutter', () => {
     // a 4:5 picture at a 390px column: 388 / 0.8 = 485, the border, the 14px gutter
     expect(estimateHeight('done', 0.8, 390)).toBe(485 + 2 + 14);
-    // no recorded shape and a failed tile both take the sending stand-in's 4:5
+    // no recorded shape takes the sending stand-in's 4:5
     expect(estimateHeight('done', undefined, 390)).toBe(estimateHeight('sending', undefined, 390));
-    expect(estimateHeight('failed', 1.5, 390)).toBe(estimateHeight('sending', undefined, 390));
+    // a failed tile keeps the shape it rendered in, so a batch does not reflow
+    expect(estimateHeight('failed', 1.5, 390)).toBe(Math.round(388 / 1.5) + 2 + 14);
+    // and in a narrow column is never shorter than its note
+    expect(estimateHeight('failed', 16 / 9, 190)).toBe(112 + 14);
     expect(estimateHeight('running', 1.5, 300)).toBe(Math.round(298 / 1.5) + 16);
   });
 
