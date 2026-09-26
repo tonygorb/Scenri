@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import Database from 'better-sqlite3';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openDb, SCHEMA_VERSION, SchemaTooNewError } from '../src/db.js';
@@ -41,6 +41,21 @@ describe('schema version gate', () => {
     const snap = new Database(join(home, 'backups', backups[0]), { readonly: true });
     expect(snap.prepare('SELECT COUNT(*) AS n FROM brands').get()).toEqual({ n: 1 });
     snap.close();
+  });
+
+  // A backup is the whole database, keys included, so it is as private as the
+  // database. Windows ignores these modes; the profile's ACLs carry it there.
+  it.skipIf(process.platform === 'win32')('keeps backups to their owner, in a folder only they can list', () => {
+    const first = openDb(home);
+    first.pragma('user_version = 0');
+    first.close();
+    // a folder an older build made with the default mode is tightened too
+    mkdirSync(join(home, 'backups'), { mode: 0o755 });
+
+    openDb(home).close();
+    const [backup] = backupsOf(home);
+    expect(statSync(join(home, 'backups')).mode & 0o777).toBe(0o700);
+    expect(statSync(join(home, 'backups', backup)).mode & 0o777).toBe(0o600);
   });
 
   it('refuses to open a database written by a newer Scenri', () => {
