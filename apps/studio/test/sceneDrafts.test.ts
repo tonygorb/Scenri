@@ -100,6 +100,22 @@ describe('scenes still being made', () => {
     expect(sceneDrafts([d], [])).toHaveLength(1);
   });
 
+  it('say a picture stands when the last Try again failed, rather than that nothing finished', () => {
+    const tried = reduce(drawn, { type: 'started', id: 'j3', kind: 'again', since: 't' });
+    const failedAgain = reduce(tried, {
+      type: 'finished',
+      job: job({ id: 'j3', kind: 'again', status: 'failed', error: 'the engine returned no picture' }),
+    });
+    const d = sceneDraftOf('c1', kept(failedAgain))!;
+    expect(d).toMatchObject({ failed: true, hash: 'a'.repeat(32) });
+    expect(sceneDraftState(d)).toBe('Drawn, not used yet');
+    // the same when the server is the one that says the Try again failed
+    const running = sceneDraftOf('c1', kept(tried))!;
+    const told = sceneDrafts([running], [work({ id: 'scene:j3', status: 'failed' })])[0];
+    expect(told).toMatchObject({ failed: true, hash: 'a'.repeat(32) });
+    expect(sceneDraftState(told)).toBe('Drawn, not used yet');
+  });
+
   it('include work running for a conversation this browser does not hold, and never an edit', () => {
     const other = sceneDrafts([], [work({ conversation: 'c9' })]);
     expect(other).toMatchObject([{ convo: 'c9', drawing: true, name: 'Night Shore' }]);

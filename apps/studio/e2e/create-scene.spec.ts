@@ -157,7 +157,7 @@ test('guided: the rows, read back as the words shots are told, drawn on a press,
   await expect(turn(page, 'scenri:saved')).toContainText('Saved. Nothing is drawn until you ask.');
   // the hero came with the place: saved with it as the cover, and the rest is offered
   await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-start');
-  await expect(openQ(page)).toContainText('Add one more? Close-up, drawn from the hero.');
+  await expect(openQ(page)).toContainText('Add one picture of it in use? Close-up.');
   const usedWith = (await scenes(page)).find((s) => s.name === 'Dusk Lobby');
   expect(usedWith.examples.map((e: any) => [e.role, e.from])).toEqual([['hero', usedWith.preview]]);
   expect(usedWith.cover).toBe('hero');

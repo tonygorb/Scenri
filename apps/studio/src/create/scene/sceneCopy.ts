@@ -127,6 +127,12 @@ export const COPY = {
   agreePhotos: 'Here is the place I read in your pictures. Ready to draw?',
   agreeShot: 'Here is the place I read in your shot. Ready to draw?',
   agreeChanged: 'Here it is with that. Ready to draw?',
+  /**
+   * What a draw spends, said after "Ready to draw?": the place, then its hero
+   * drawn from it (`drawHero` on the server). Every later offer counts its
+   * pictures, so this one does too.
+   */
+  drawsTwo: 'It draws two pictures: the place, and the place in use.',
   agreeBlind: 'Here is the place, in full. Nothing here can draw yet, so it is saved as words.',
   readAgain: 'I read the place again.',
   draw: 'Draw the scene',
@@ -136,6 +142,8 @@ export const COPY = {
   changed: 'Here it is, changed.',
   decide: (name: string) => `Here is ${name}. Use it, or change something.`,
   decideEdit: (name: string) => `Here is ${name}. Save it, or change something.`,
+  /** A saved scene opened to change it, before anything has: why there is no Save yet. */
+  decideSaved: 'Nothing has changed yet.',
   use: 'Use this scene',
   saveChanges: 'Save changes',
   tryAgain: 'Try again',
@@ -161,6 +169,8 @@ export const COPY = {
   // for, so every one of these is a press (sceneExamples.ts on the server).
   saved: 'Saved.',
   savedQuiet: 'Saved. Nothing is drawn until you ask.',
+  /** The line after Use: the place is decided, and the way on is the question above. */
+  usedOff: 'The scene is saved. Choose above.',
   /** The offer, with what it draws named, so the cost is read before it is pressed. */
   showInUse: (who: 'product' | 'presenter', labels: string[]) =>
     `Show it in use? ${count(labels.length)} with a Scenri demo ${who} in the place: ${joinAnd(
@@ -170,13 +180,11 @@ export const COPY = {
   staleSet: (n: number) =>
     `${count(n)} here show${n === 1 ? 's' : ''} the place as it was before. Draw ${n === 1 ? 'it' : 'them'} again?`,
   /**
-   * The offer once the hero came with the place: the rest of the set, drawn
-   * from the hero, with what it draws named.
+   * The offer once the hero came with the place: the rest of the place in use,
+   * counted and named. Said plainly, since neither "the hero" nor a set was
+   * ever introduced by name.
    */
-  moreViews: (labels: string[]) =>
-    `Add ${count(labels.length)
-      .toLowerCase()
-      .replace(/ pictures?$/, '')} more? ${joinAnd(labels)}, drawn from the hero.`,
+  moreViews: (labels: string[]) => `Add ${count(labels.length).toLowerCase()} of it in use? ${joinAnd(labels)}.`,
   drawIt: 'Draw it',
   drawThem: 'Draw them',
   drawThemAgain: 'Draw them again',

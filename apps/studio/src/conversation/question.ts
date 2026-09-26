@@ -215,6 +215,12 @@ export type Question =
       quote?: string;
       /** What the quoted words are, over them. */
       quoteLabel?: string;
+      /**
+       * The quoted words were read out whole at the step before: here they
+       * stand at their first line with a way to read the rest, so what is
+       * being decided (a picture above them) stays on a phone's screen.
+       */
+      quoteFolded?: boolean;
       /** A way to say something instead of deciding, which hands the composer this question. */
       describe?: string;
       /** A way to answer with a picture of the thing, in the same row as the words. */

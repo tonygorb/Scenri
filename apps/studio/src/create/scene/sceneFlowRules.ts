@@ -50,8 +50,11 @@ export interface FlowArgs {
   studio: StudioState;
   canDraw: boolean;
   uploading: number;
-  /** A saved scene opened to change it: no setup, the record from the start. */
-  edit: { name: string } | null;
+  /**
+   * A saved scene opened to change it: no setup, the record from the start.
+   * `changed` once anything differs from the record, so Save is offered only then.
+   */
+  edit: { name: string; changed: boolean } | null;
   /** The name is being rewritten in its own bubble. */
   editingName: boolean;
   /** One line Scenri says about the pictures or the connection, before the open question. */
@@ -476,18 +479,13 @@ export function turnsFor(args: FlowArgs): Turn[] {
         const shot = !edit && a.source?.door === 'shot';
         // a place read from the wrong shot is put right by choosing another, before anything is drawn
         const another = shot ? [{ id: 'another-shot', label: COPY.anotherShot }] : [];
+        const ask =
+          v.how === 'change' ? COPY.agreeChanged : photos ? COPY.agreePhotos : shot ? COPY.agreeShot : COPY.agree;
         open = {
           id: `agree-${studio.current}`,
           kind: 'confirm',
-          prompt: !args.canDraw
-            ? COPY.agreeBlind
-            : v.how === 'change'
-              ? COPY.agreeChanged
-              : photos
-                ? COPY.agreePhotos
-                : shot
-                  ? COPY.agreeShot
-                  : COPY.agree,
+          // a place read as its own hero is drawn alone; every other draw brings its hero too
+          prompt: !args.canDraw ? COPY.agreeBlind : v.reading.hero === 'place' ? ask : `${ask} ${COPY.drawsTwo}`,
           quote,
           quoteLabel: COPY.readingHead,
           options: [
@@ -499,17 +497,28 @@ export function turnsFor(args: FlowArgs): Turn[] {
           ],
         };
       } else {
+        // A saved scene nothing has changed in yet has nothing to save, the way
+        // the presenter editor offers Save only once it is dirty. Its Try again
+        // stays quiet, so Enter never spends a draw.
+        const untouched = !!edit && !edit.changed;
         open = {
           id: `decide-${studio.current}`,
           kind: 'confirm',
-          prompt: (edit ? COPY.decideEdit : COPY.decide)(studio.name.trim() || v.reading.name),
+          prompt: untouched
+            ? COPY.decideSaved
+            : (edit ? COPY.decideEdit : COPY.decide)(studio.name.trim() || v.reading.name),
           quote,
           quoteLabel: COPY.readingHead,
+          // A picture drawn from words already read out whole at the read-back
+          // brings them folded, so the picture stays on a phone's screen with
+          // the decision. After a change the words are new here, and stand whole.
+          ...(v.how === 'draw' || v.how === 'again' ? { quoteFolded: true } : {}),
           options: [
             ...remedyOption(studio.error),
-            { id: 'use', label: edit ? COPY.saveChanges : COPY.use },
+            ...(untouched ? [] : [{ id: 'use', label: edit ? COPY.saveChanges : COPY.use }]),
             ...(args.canDraw ? [{ id: 'again', label: COPY.tryAgain }] : []),
           ],
+          ...(untouched ? { quiet: true } : {}),
           describe: COPY.changeSomething,
         };
       }
@@ -693,8 +702,13 @@ export function composerFor(args: FlowArgs, open: Question | null): ComposerFor 
     working,
     attach: false,
   });
-  // once used, the place is decided; the pictures after it are asked for by tapping
-  if (studio.saved) return off('', !!studio.job || !!args.set?.running);
+  // Once used, the place is decided; the pictures after it are asked for by
+  // tapping, and the line says so. While they draw the stage says what is
+  // drawing, so the line says nothing.
+  if (studio.saved) {
+    const working = !!studio.job || !!args.set?.running;
+    return off(open && !working ? COPY.usedOff : '', working);
+  }
   // an answer open again from its pencil takes the sentence
   const reopened = setup.editing;
   if (reopened === 'source') return say({ kind: 'source' }, COPY.sourcePlaceholder, true);

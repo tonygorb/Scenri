@@ -409,7 +409,8 @@ export function useSceneFlow(args: {
     studio,
     canDraw,
     uploading,
-    edit,
+    // the same test leaving uses: Save is offered once something differs from the record
+    edit: edit && { ...edit, changed: unsavedOf(studio, seed) },
     editingName,
     note: shown,
     stale: stale(studio),

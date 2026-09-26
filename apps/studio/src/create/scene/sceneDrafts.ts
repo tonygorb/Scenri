@@ -120,11 +120,14 @@ function keptUsed(): string[] {
   return out;
 }
 
-/** Where a scene draft stands, in words. */
+/**
+ * Where a scene draft stands, in words. A picture standing is what the card
+ * shows, so a Try again that failed over it does not make it unfinished.
+ */
 export function sceneDraftState(d: SceneDraft): string {
   if (d.drawing) return 'Drawing';
-  if (d.failed) return 'Did not finish';
-  return d.hash ? 'Drawn, not used yet' : 'Not drawn yet';
+  if (d.hash) return 'Drawn, not used yet';
+  return d.failed ? 'Did not finish' : 'Not drawn yet';
 }
 
 /** Every conversation this browser keeps for a brand, read as drafts. */

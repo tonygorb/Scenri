@@ -349,3 +349,34 @@ describe('a question asked again after its press failed', () => {
     expect(onAnswer).toHaveBeenCalledTimes(2);
   });
 });
+
+// UXS-4: on a phone the picture being decided sat above a full read-back the
+// person had just agreed to, and scrolled off. Words already read out stand at
+// their first line, with the rest one press away.
+describe('a quote already read out', () => {
+  const decide = (quoteFolded?: boolean): Question => ({
+    id: 'decide-1',
+    kind: 'confirm',
+    prompt: 'Use it?',
+    quote: 'A wet basalt shelf at the waterline.\nLow sunset.',
+    quoteLabel: 'What your shots are told',
+    ...(quoteFolded ? { quoteFolded } : {}),
+    options: [{ id: 'use', label: 'Use it' }],
+  });
+  it('stands folded, and opens whole on Show all', () => {
+    render(decide(true));
+    const text = host.querySelector('.sc-convo-brief-text') as HTMLElement;
+    expect(text.hasAttribute('data-folded')).toBe(true);
+    expect(text.textContent).toContain('Low sunset.');
+    const more = button('Show all');
+    expect(more.getAttribute('aria-expanded')).toBe('false');
+    act(() => more.click());
+    expect(text.hasAttribute('data-folded')).toBe(false);
+    expect(button('Show all')).toBeUndefined();
+  });
+  it('stands whole when it was not read out before', () => {
+    render(decide());
+    expect(host.querySelector('.sc-convo-brief-text')?.hasAttribute('data-folded')).toBe(false);
+    expect(button('Show all')).toBeUndefined();
+  });
+});

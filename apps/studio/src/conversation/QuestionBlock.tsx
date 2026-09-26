@@ -644,7 +644,9 @@ export function QuestionBlock({
           </div>
         )}
 
-        {question.kind === 'confirm' && question.quote && <Quote text={question.quote} label={question.quoteLabel} />}
+        {question.kind === 'confirm' && question.quote && (
+          <Quote text={question.quote} label={question.quoteLabel} folded={question.quoteFolded} />
+        )}
 
         {question.kind === 'confirm' && (
           <div className="sc-convo-decide sc-convo-ask" data-guide-shape="">
@@ -702,8 +704,9 @@ export function QuestionBlock({
  * of it. The copy button is there on hover and whenever the keyboard reaches
  * it, so it is never a thing only a mouse can find.
  */
-function Quote({ text, label = 'The brief' }: { text: string; label?: string }) {
+function Quote({ text, label = 'The brief', folded = false }: { text: string; label?: string; folded?: boolean }) {
   const [took, setTook] = useState(false);
+  const [open, setOpen] = useState(!folded);
   useEffect(() => {
     if (!took) return;
     const t = setTimeout(() => setTook(false), 1600);
@@ -728,7 +731,14 @@ function Quote({ text, label = 'The brief' }: { text: string; label?: string }) 
           {took ? 'Copied' : 'Copy'}
         </button>
       </figcaption>
-      <p className="sc-convo-brief-text">{text}</p>
+      <p className="sc-convo-brief-text" data-folded={!open || undefined}>
+        {text}
+      </p>
+      {!open && (
+        <button type="button" className="sc-convo-brief-more" aria-expanded={false} onClick={() => setOpen(true)}>
+          Show all
+        </button>
+      )}
     </figure>
   );
 }
