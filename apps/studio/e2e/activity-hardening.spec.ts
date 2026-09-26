@@ -540,7 +540,8 @@ test.describe('a restart under running work', () => {
 
     // the bell sees both running
     await page.locator('.sc-topbar .sc-notif-btn').click();
-    const rows = page.locator('.sc-notif-scroll .sc-notif-row');
+    // In progress sits above the finished list, outside its scroller (v0.18.0)
+    const rows = page.locator('.sc-notif-pop .sc-notif-row');
     await expect(rows.filter({ hasText: 'Restart Hall' })).toBeVisible({ timeout: 15_000 });
     await expect(rows.filter({ hasText: 'Rhea' })).toBeVisible({ timeout: 15_000 });
     await page.keyboard.press('Escape');
