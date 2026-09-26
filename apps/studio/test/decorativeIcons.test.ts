@@ -29,7 +29,9 @@ vi.mock('../src/theme.js', () => ({ ThemeProvider: ({ children }: { children: Re
 vi.mock('../src/toasts.js', () => ({ ToastProvider: ({ children }: { children: ReactNode }) => children }));
 
 describe('icons at the root of the studio', () => {
-  it('are hidden from assistive technology and keep their default size and colour', async () => {
+  // The entry pulls in the whole studio's modules: 5 s is not enough on a loaded
+  // machine or a CI runner, where it timed out once while passing alone.
+  it('are hidden from assistive technology and keep their default size and colour', { timeout: 30_000 }, async () => {
     // a saved theme, so the entry never asks jsdom for matchMedia
     localStorage.setItem('sc-theme', 'dark');
     await import('../src/main.js');
