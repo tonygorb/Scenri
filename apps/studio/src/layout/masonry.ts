@@ -61,6 +61,17 @@ export function normalizeDensity(raw: unknown): DensityCols {
   return DENSITY_DEFAULT;
 }
 
+/**
+ * How many cards a Home shelf holds, by wall density.
+ *
+ * A shelf shares the wall's columns, so its length decides how its last row
+ * lands. Eight never leaves one card alone at any count the large wall draws
+ * (five down to two); fourteen never does at any count the compact wall draws
+ * (seven down to two), and fills two rows of seven on a wide screen.
+ * `test/masonry.test.ts` holds both to that.
+ */
+export const SHELF_LENGTH: Record<DensityCols, number> = { 5: 8, 7: 14 };
+
 /** An element's own content width, watched — the column maths needs the real
  * one, not the viewport's, since a sidebar or panel can narrow it independent
  * of the window. */

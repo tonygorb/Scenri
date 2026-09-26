@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   GAP,
+  SHELF_LENGTH,
   TILE_DEFAULT,
   TILE_STOPS,
   feedColumnCount,
@@ -84,5 +85,21 @@ describe('the tile stops earn their place', () => {
     expect(feedColumnCount(7)).toBe(7);
     expect(feedColumnCount(2)).toBe(2);
     expect(feedColumnCount(0)).toBe(1);
+  });
+});
+
+describe('a Home shelf never strands a card', () => {
+  // Every column count a wall can draw at that density, a phone's two included:
+  // large stops at five, compact at seven.
+  const reach = { 5: [2, 3, 4, 5], 7: [2, 3, 4, 5, 6, 7] } as const;
+
+  it('leaves no single card on its last row at any count', () => {
+    for (const density of [5, 7] as const) {
+      for (const cols of reach[density]) expect(SHELF_LENGTH[density] % cols).not.toBe(1);
+    }
+  });
+
+  it('is two rows at most when the wall is at its widest', () => {
+    for (const density of [5, 7] as const) expect(SHELF_LENGTH[density]).toBeLessThanOrEqual(2 * density);
   });
 });

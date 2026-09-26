@@ -210,6 +210,16 @@
   font-weight: 600;
   letter-spacing: -0.01em;
 }
+/* Home is three chapters, each a <section>: the use-case wall with the row
+   that filters it, then the Presenters and Scenes shelves. A shelf heading
+   sits 14px over its own grid and 46px under the chapter before it, the beat
+   the library pages keep between their own sections (.sc-owned, .sc-coll).
+   The shelves were scrolling rows once (.sc-tplrow) and carried that air in
+   their own margin; as grids they carried none, so each heading sat on the
+   bottom edge of the grid above and read as its caption. */
+.sc-main > section + section {
+  margin-top: 46px;
+}
 
 .sc-tplrow {
   display: grid;
