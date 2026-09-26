@@ -88,6 +88,11 @@ export function Updates({ version }: { version: VersionInfo | null }) {
   } else if (version?.installKind === 'dev') {
     rowBody = "Running from source. Pull and rebuild when you're ready; nothing here touches your checkout.";
     rowAction = null;
+  } else if (version?.thisComputer !== true) {
+    // Installing and restarting act on the computer running Scenri, which a
+    // phone holding the code is refused, so a phone is told where instead.
+    rowBody = 'Updates are installed on the computer running Scenri.';
+    rowAction = null;
   } else if (!canOneClick(s)) {
     rowBody = (
       <>
