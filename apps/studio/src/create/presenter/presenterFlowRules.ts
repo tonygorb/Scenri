@@ -1194,7 +1194,7 @@ const lookComposer = (step: LookStep, handed: boolean): ComposerFor => ({
     ? (LOOK_SAYS_PLACEHOLDER[step] ?? 'In your words')
     : LOOK_COLOUR.has(step)
       ? 'Tap a swatch above, or say the colour'
-      : 'Tap one above, or describe it',
+      : 'Pick one above, or describe it',
   label: 'Describe it',
   action: 'Send',
   color: LOOK_COLOUR.has(step),
@@ -1208,8 +1208,8 @@ function traitComposer(qid: string, handed: boolean): ComposerFor {
   const said = trait?.part === 'where' ? 'Where it is, in your words' : (t?.saying ?? 'What it looks like');
   const beside =
     trait?.part === 'where'
-      ? 'Tap one above, or say where it is'
-      : `Tap one above, or ${(t?.saying ?? 'describe it').toLowerCase()}`;
+      ? 'Pick one above, or say where it is'
+      : `Pick one above, or ${(t?.saying ?? 'describe it').toLowerCase()}`;
   return { placeholder: handed ? said : beside, label: t?.saying ?? 'Describe it', action: 'Send' };
 }
 
@@ -1304,7 +1304,7 @@ function composerBase(
       // description, and the question closes itself if the words filled it.
       case 'gaps':
         return {
-          placeholder: 'Tap one above, or say it in your own words',
+          placeholder: 'Pick one above, or say it in your own words',
           label: 'Fill in what is missing',
           action: 'Send',
         };

@@ -146,8 +146,12 @@ const SAYS_ITSELF = new Set([
   COPY.failed,
   COPY.busyElsewhere,
 ]);
-/** A failure as the conversation says it: in words when Scenri knows it, else the engine's own. */
-const sayFailure = (error: string) => (SAYS_ITSELF.has(error) ? error : (failureWords(error) ?? error));
+/** A failure as the conversation says it: in words when Scenri knows it, else its own words in a sentence. */
+const sayFailure = (error: string) =>
+  SAYS_ITSELF.has(error) ? error : (failureWords(error) ?? COPY.failedKept(error.replace(/[.\s]+$/, '')));
+/** A person's own Stop is not a fault: said plainly, without the alarm, as the presenter says it. */
+const STOPS = new Set([COPY.stopped, COPY.stoppedRead, COPY.stoppedDraw, COPY.stoppedChange]);
+const alarm = (error: string) => (STOPS.has(error) ? {} : { tone: 'alert' as const });
 const retryPrompt = (error: string) => {
   if (SAYS_ITSELF.has(error)) return error;
   const words = failureWords(error);
@@ -453,7 +457,7 @@ export function turnsFor(args: FlowArgs): Turn[] {
         open = {
           id: 'retry',
           kind: 'confirm',
-          tone: 'alert',
+          ...alarm(studio.error),
           prompt: retryPrompt(studio.error),
           options: retryOptions(studio.error),
         };
@@ -461,7 +465,7 @@ export function turnsFor(args: FlowArgs): Turn[] {
       open = {
         id: 'retry',
         kind: 'confirm',
-        tone: 'alert',
+        ...alarm(studio.error),
         prompt: retryPrompt(studio.error),
         options: retryOptions(studio.error),
       };
@@ -471,7 +475,7 @@ export function turnsFor(args: FlowArgs): Turn[] {
           kind: 'scenri',
           id: `error-${studio.versions.length}`,
           text: sayFailure(studio.error),
-          tone: 'alert',
+          ...alarm(studio.error),
         });
       const quote = readingQuote(v.reading);
       if (!v.hash) {

@@ -675,6 +675,28 @@ describe('the conversation', () => {
     expect(keys(T)).toContain('you:ask-1');
   });
 
+  it('says a Stop plainly, and an error it cannot name in a sentence that keeps the picture', () => {
+    let studio = read(EMPTY, { hash: H('a') });
+    studio = reduce(studio, { type: 'error', text: 'Stopped. Nothing was drawn.' });
+    const stopped = turnsFor(args({ setup: setupOf(guided), studio })).find(
+      (t) => t.kind === 'scenri' && t.id.startsWith('error-'),
+    );
+    // a person's own Stop is not a fault: no alarm colour, as the presenter says it
+    expect(stopped?.kind === 'scenri' && [stopped.text, stopped.tone]).toEqual([
+      'Stopped. Nothing was drawn.',
+      undefined,
+    ]);
+    studio = reduce(studio, { type: 'error', text: 'unexpected error' });
+    const failed = turnsFor(args({ setup: setupOf(guided), studio })).find(
+      (t) => t.kind === 'scenri' && t.id.startsWith('error-'),
+    );
+    // the server's own words are not a sentence on their own
+    expect(failed?.kind === 'scenri' && [failed.text, failed.tone]).toEqual([
+      'That did not go through: unexpected error. The picture you had is kept.',
+      'alert',
+    ]);
+  });
+
   it('asks to read again when a changed place could not be read', () => {
     let studio = read(EMPTY, { hash: H('a') });
     studio = reduce(studio, { type: 'inputs', place: 'y', pictures: [] });
