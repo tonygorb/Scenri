@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, type PresenterDraft, type PresenterDraftView } from '../../api.js';
+import { useTaskCenter } from '../../app/TaskCenter.js';
 import { acceptsDraft } from './draftTransport.js';
 
 /**
@@ -15,6 +16,7 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
   // what did not draw. Null for anything else, and only read while `err` stands.
   const [errView, setErrView] = useState<PresenterDraftView | null>(null);
   const [busy, setBusy] = useState(false);
+  const { poke } = useTaskCenter();
   const alive = useRef(true);
 
   useEffect(() => {
@@ -101,6 +103,9 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
       readErr.current = false;
       try {
         take(await work());
+        // The bell reads presenter work from its one poll, which idles at five
+        // seconds: a draw, a decision or a stop reaches it now, not at its next look.
+        poke();
         return true;
       } catch (e: any) {
         if (!alive.current) return false;
@@ -125,7 +130,7 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
         if (alive.current) setBusy(false);
       }
     },
-    [take, load],
+    [take, load, poke],
   );
 
   /**
