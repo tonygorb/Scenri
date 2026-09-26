@@ -322,3 +322,27 @@ describe('a scene’s cover', () => {
     expect(coverViewOf(lost)).toBe('place');
   });
 });
+
+describe('a scene whose place changed after its hero was drawn', () => {
+  it('shows the place as it is now on every card, not the hero drawn in the place before (SS-H10)', () => {
+    // what a Use without a hero leaves: the new place, the old hero still filed from the old place, and the cover still naming the hero
+    const [s] = customScenesOf(
+      brandWith({
+        scenes: [
+          {
+            id: 'us-cover02',
+            name: 'Hall',
+            prompt: 'A hall.',
+            lighting: 'Soft',
+            preview: `asset:${HASH_C}`,
+            examples: [{ role: 'hero', file: `asset:${HASH_B}`, from: `asset:${HASH_A}`, product: 'vial' }],
+            cover: 'hero',
+          },
+        ],
+      }),
+    );
+    expect(s.examples?.[0].earlier).toBe(true);
+    expect(s.previewUrl).toBe(`/api/images/${HASH_C}`);
+    expect(coverViewOf(s)).toBe('place');
+  });
+});

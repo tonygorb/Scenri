@@ -1186,3 +1186,32 @@ describe('words kept about them', () => {
     expect(asKept('but')).toBe('but');
   });
 });
+
+describe('a candidate that carries a failure', () => {
+  const said = (T: Turn[]) =>
+    T.map((t) =>
+      t.kind === 'question' ? (t.question.kind === 'confirm' ? t.question.prompt : '') : 'text' in t ? t.text : '',
+    )
+      .join(' ')
+      .toLowerCase();
+  const withFront = (front: DraftLike['views']['front']) =>
+    draft({ name: 'Maren', views: { ...draft().views, portrait: approved('p1'), front } });
+  const answered = state({ ...TAPPED, traits: [] });
+
+  it('says a failed Try again on the full body, rather than asking about it as a new picture (PC-H16)', () => {
+    const d = withFront({ ...emptySlot(), status: 'candidate', hash: 'f1', attempts: 2, error: 'quota exceeded' });
+    expect(said(turns(answered, d))).toContain('quota exceeded');
+  });
+
+  it('says a refine cut short by a restart, rather than offering the picture as new (PC-H16)', () => {
+    // what the restart sweep leaves: the approved picture, now a candidate, with the reason on it
+    const d = withFront({
+      ...emptySlot(),
+      status: 'candidate',
+      hash: 'f1',
+      attempts: 1,
+      error: 'interrupted: server restarted mid-generation',
+    });
+    expect(said(turns(answered, d))).toContain('restarted');
+  });
+});

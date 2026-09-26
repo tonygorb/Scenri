@@ -626,3 +626,18 @@ describe('a draft the wall keeps', () => {
     expect(keptAsDraft(read)).toBe(true);
   });
 });
+
+describe('a poll that says nothing new', () => {
+  it('leaves the state as it was, so nothing renders or is stored again (SC-H18)', () => {
+    const running = () =>
+      job({ kind: 'again', status: 'running', phase: 'drawing', finishedAt: null, hash: null, phaseAt: 't1' });
+    const drawing = run(
+      EMPTY,
+      { type: 'inputs', place: 'a wet basalt shelf', pictures: [] },
+      { type: 'started', id: 'j1', kind: 'again', since: 't1' },
+      { type: 'progress', job: running() },
+    );
+    // the same answer again, as the next tick brings it back
+    expect(reduce(drawing, { type: 'progress', job: running() })).toBe(drawing);
+  });
+});

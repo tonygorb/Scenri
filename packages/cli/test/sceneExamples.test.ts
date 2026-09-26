@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
@@ -162,10 +163,19 @@ afterEach(async () => {
   rmSync(templatesDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
-const png = (shade: number) =>
-  sharp({ create: { width: 64, height: 80, channels: 3, background: { r: shade, g: shade, b: shade } } })
+const png = (shade: number, width = 64, height = 80) =>
+  sharp({ create: { width, height, channels: 3, background: { r: shade, g: shade, b: shade } } })
     .png()
     .toBuffer();
+
+/** Which example an edit is for, read off its instruction (sceneExamples.ts). */
+function roleOf(instruction: string): string {
+  if (instruction.startsWith('input.png is this place')) return 'hero';
+  if (instruction.startsWith('move the camera in close')) return 'close';
+  if (instruction.startsWith('a pair of anonymous hands')) return 'hands';
+  if (instruction.startsWith('the camera moves:')) return 'camera';
+  return 'other';
+}
 
 /** The demo engine with every call written down, and an edit that can be held open. */
 function spied(costUsd: number) {
@@ -176,6 +186,18 @@ function spied(costUsd: number) {
     open: () => {},
     /** Fail this call: the nth generate or edit. */
     fail: null as null | ((kind: 'generate' | 'edit', n: number) => boolean),
+    /** The error an edit for this role throws, the nth time it is asked for, if any. */
+    failRole: null as null | ((role: string, nth: number) => string | null),
+    /** A held edit that does not answer Stop at once, the way a codex child takes a moment to die. */
+    slowToDie: false,
+    /** Copy the edit's source first, as the codex engine does, so a missing file fails the way it does there. */
+    copySource: false,
+    /** The size of the picture an edit hands back. */
+    size: [64, 80] as [number, number],
+    /** Runs as an edit is about to hand its picture back. */
+    onReturn: null as null | ((role: string) => void),
+    /** The role of every edit, in order. */
+    roles: [] as string[],
   };
   const engine: EngineAdapter = {
     ...demo,
@@ -188,37 +210,55 @@ function spied(costUsd: number) {
     },
     edit: async (req, signal) => {
       calls.edit.push(req);
+      const role = roleOf(req.instruction);
+      gate.roles.push(role);
+      if (gate.copySource) await copyFile(req.sourceImage, join(home, 'edit-input.png'));
+      const refused = gate.failRole?.(role, gate.roles.filter((r) => r === role).length);
+      if (refused) throw new Error(refused);
       if (gate.fail?.('edit', calls.edit.length)) throw new Error('the engine fell over');
       if (gate.hold?.(calls.edit.length)) {
         await new Promise<void>((resolve, reject) => {
           gate.open = resolve;
-          signal?.addEventListener('abort', () => reject(new Error('cancelled')));
+          if (!gate.slowToDie) signal?.addEventListener('abort', () => reject(new Error('cancelled')));
         });
       }
       const r = await demo.edit(req, signal);
       // the demo engine answers the same edit with the same bytes; a real one never does
-      return { ...r, images: [core.images.save(await png(20 + calls.edit.length * 9))] };
+      const hash = core.images.save(await png(20 + calls.edit.length * 9, ...gate.size));
+      gate.onReturn?.(role);
+      return { ...r, images: [hash] };
     },
   };
   return { engine, calls, gate };
 }
 
-async function setup(costUsd = 0, library = true, opts: { presenter?: boolean } = {}) {
+const VIAL = {
+  id: 'vial',
+  name: 'Vial',
+  promptName: 'a glass perfume vial',
+  category: 'fragrance',
+  description: 'A glass perfume vial.',
+  width: 10,
+  height: 10,
+};
+/** A stand-in large enough that no example takes the small-product plate path: every example is one edit. */
+const LAMP = {
+  id: 'lamp',
+  name: 'Lamp',
+  promptName: 'a tall brass floor lamp',
+  category: 'fragrance',
+  description: 'A tall brass floor lamp.',
+  dimensions: '40 x 40 x 170 cm',
+  width: 10,
+  height: 10,
+};
+
+async function setup(costUsd = 0, library = true, opts: { presenter?: boolean; lamp?: boolean } = {}) {
+  const product = opts.lamp ? LAMP : VIAL;
   mkdirSync(join(templatesDir, 'demo-products'), { recursive: true });
-  writeFileSync(
-    join(templatesDir, 'demo-products', 'vial.json'),
-    JSON.stringify({
-      id: 'vial',
-      name: 'Vial',
-      promptName: 'a glass perfume vial',
-      category: 'fragrance',
-      description: 'A glass perfume vial.',
-      width: 10,
-      height: 10,
-    }),
-  );
+  writeFileSync(join(templatesDir, 'demo-products', `${product.id}.json`), JSON.stringify(product));
   if (library) {
-    const refDir = join(templatesDir, 'previews', 'demo-products', 'vial');
+    const refDir = join(templatesDir, 'previews', 'demo-products', product.id);
     mkdirSync(refDir, { recursive: true });
     writeFileSync(
       join(refDir, 'three-quarter.jpg'),
@@ -336,6 +376,18 @@ async function setup(costUsd = 0, library = true, opts: { presenter?: boolean } 
     await press(id);
     return settled(id);
   };
+  /** Until the run is drawing this role. */
+  const drawing = async (id: string, role: string) => {
+    for (const until = Date.now() + 20_000; Date.now() < until; ) {
+      if ((await status(id)).job?.current === role) return;
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    throw new Error(`${role} never started`);
+  };
+  const ask = (id: string, payload: Record<string, unknown>) => app.inject({ method: 'POST', url: url(id), payload });
+  /** What Activity says about the brand's studio work, and so what a toast says. */
+  const activity = async () =>
+    (await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/activity` })).json().studio as any[];
   return {
     app,
     calls,
@@ -349,6 +401,9 @@ async function setup(costUsd = 0, library = true, opts: { presenter?: boolean } 
     makeScene,
     press,
     drawn,
+    drawing,
+    ask,
+    activity,
     studio,
     studioUrl,
   };
@@ -789,5 +844,176 @@ describe('the hero comes first', { timeout: 30_000 }, () => {
       ['hero', `asset:${job.hero}`, `asset:${job.hash}`],
     ]);
     expect(scene.cover).toBe('hero');
+  });
+});
+
+/* ------------------------------------------------------------ retries, stops and failures */
+
+const RATE = 'OpenRouter request failed: HTTP 429: {"error":{"message":"Rate limit exceeded","code":429}}';
+const CODEX_401 = 'codex exited with code 1: ERROR: unexpected status 401 Unauthorized';
+
+describe("a scene's examples through retries, stops and failures", { timeout: 30_000 }, () => {
+  it('never leaves a hero on a scene after its file was let go, and the next example still draws (SS-H6)', async () => {
+    const { app, brandId, gate, sceneOf, settled, makeScene, ask } = await setup();
+    gate.copySource = true;
+    // Use of studio version A: the place and the hero drawn with it
+    const heroA = core.images.save(await png(111));
+    const id = await makeScene({ heroHash: heroA, heroWith: { product: 'vial' } });
+    expect(sceneOf(id).examples.map((e: any) => e.file)).toEqual([`asset:${heroA}`]);
+
+    // Try again on the hero: the new hero lands and the old one is let go
+    await ask(id, { roles: ['hero'] });
+    expect((await settled(id)).done).toEqual(['hero']);
+    expect(core.images.has(heroA)).toBe(false);
+
+    // the conversation still offers version A, and it is Used again
+    await app.inject({
+      method: 'PATCH',
+      url: `/api/brands/${brandId}/scenes/${id}`,
+      payload: { previewHash: hashOf(sceneOf(id).preview), anchor: true, heroHash: heroA },
+    });
+    const hero = sceneOf(id).examples.find((e: any) => e.role === 'hero');
+    expect(core.images.has(hashOf(hero.file))).toBe(true);
+    expect((await app.inject({ method: 'GET', url: `/api/images/${hashOf(hero.file)}` })).statusCode).toBe(200);
+
+    // and the next example drawn from the hero does not fail on a missing file
+    await ask(id, { roles: ['close'] });
+    const job = await settled(id);
+    expect(job.failed).toEqual([]);
+    expect(job.done).toContain('close');
+  });
+
+  it('draws a Try again pressed right after Stop, never absorbed by the run that is stopping (SS-H4)', async () => {
+    const { app, gate, sceneOf, settled, drawing, makeScene, ask, url } = await setup();
+    // the second edit is the close-up; hold it, and let it take a moment to die
+    gate.hold = (n) => n === 2;
+    gate.slowToDie = true;
+    const id = await makeScene();
+    await ask(id, { first: true });
+    await drawing(id, 'close');
+    const stopped = (await app.inject({ method: 'GET', url: url(id) })).json().job;
+    expect((await app.inject({ method: 'POST', url: url(id, '/stop') })).json()).toEqual({ ok: true });
+
+    const retry = await ask(id, { roles: ['close'] });
+    // the held edit answers now whatever the outcome, so the server can drain
+    gate.hold = null;
+    gate.open();
+    // refused while it stops, or a run of its own: never the run that is ending
+    if (retry.statusCode === 200) expect(retry.json().job.id).not.toBe(stopped.id);
+    else expect(retry.statusCode).toBe(409);
+    await settled(id);
+    if (retry.statusCode === 200) {
+      await settled(id);
+      expect(sceneOf(id).examples.map((e: any) => e.role)).toContain('close');
+    }
+  });
+
+  it('draws a role asked for three times once (SS-H5)', async () => {
+    const { calls, settled, makeScene, ask } = await setup();
+    const id = await makeScene();
+    await ask(id, { first: true });
+    await settled(id);
+    const before = calls.edit.length;
+    expect((await ask(id, { roles: ['close', 'close', 'close'] })).statusCode).toBe(200);
+    const job = await settled(id);
+    expect(calls.edit.length - before).toBe(1);
+    expect(job.done).toEqual(['close']);
+  });
+
+  it('draws hands once when Add more is pressed again while hands draws (SS-H5)', async () => {
+    const { gate, settled, drawing, makeScene, ask } = await setup();
+    const id = await makeScene();
+    await ask(id, { first: true });
+    await settled(id);
+    // the hero and the close-up are one edit each; hands is the third
+    gate.hold = (n) => n === 3;
+    await ask(id, { more: true });
+    await drawing(id, 'hands');
+    await ask(id, { more: true });
+    gate.hold = null;
+    gate.open();
+    const job = await settled(id);
+    expect(job.done.filter((r: string) => r === 'hands')).toHaveLength(1);
+  });
+
+  it('draws the hero once when "Draw it in use" is pressed again while the hero draws (OP-X8)', async () => {
+    const { gate, settled, drawing, makeScene, press } = await setup();
+    const id = await makeScene();
+    gate.hold = (n) => n === 1;
+    expect((await press(id)).statusCode).toBe(200);
+    await drawing(id, 'hero');
+    const again = await press(id);
+    expect(again.statusCode).toBe(200);
+    const queued = again.json().job.roles as string[];
+    gate.hold = null;
+    gate.open();
+    const job = await settled(id);
+    expect(queued.filter((r) => r === 'hero')).toHaveLength(1);
+    expect(job.done.filter((r: string) => r === 'hero')).toHaveLength(1);
+  });
+
+  it('spends only the picture a Try again on one example asks for, on a place that moved on (SC-H20)', async () => {
+    const { app, brandId, calls, settled, makeScene, press, ask } = await setup();
+    const id = await makeScene();
+    await press(id);
+    expect((await settled(id)).done).toEqual(['hero', 'close']);
+    // the place is drawn again: both examples now show it as it was
+    const next = core.images.save(await png(90));
+    await app.inject({ method: 'PATCH', url: `/api/brands/${brandId}/scenes/${id}`, payload: { previewHash: next } });
+    const before = calls.generate.length + calls.edit.length;
+
+    const res = await ask(id, { roles: ['close'] });
+    // refused, and said why: nothing spent behind the press
+    if (res.statusCode >= 400) return;
+    const job = await settled(id);
+    expect(job.roles).toEqual(['close']);
+    expect(calls.generate.length + calls.edit.length - before).toBe(1);
+  });
+
+  it('a set whose close-up failed while the hero landed is not reported as a clean finish (FAIL-X3, OP-X4)', async () => {
+    const s = await setup(0, true, { lamp: true });
+    s.gate.failRole = (role) => (role === 'close' ? RATE : null);
+    const id = await s.makeScene();
+    expect((await s.ask(id, { first: true })).statusCode).toBe(200);
+    const job = await s.settled(id);
+
+    // the work itself is right: the hero stands, the close-up says why it is missing
+    expect(s.gate.roles).toEqual(['hero', 'close']);
+    expect(s.sceneOf(id).examples.map((e: any) => e.role)).toEqual(['hero']);
+    expect(job.failed).toEqual([{ role: 'close', error: RATE }]);
+
+    // what Activity says, and so what the toast a person who left is given says
+    const row = (await s.activity()).find((w) => w.kind === 'examples');
+    expect(row.error).not.toBeNull();
+  });
+
+  it('asks a signed-out engine once for a set, not once per example (FAIL-X4)', async () => {
+    const s = await setup(0, true, { lamp: true });
+    const id = await s.makeScene();
+    await s.ask(id, { first: true });
+    await s.settled(id);
+    const before = s.gate.roles.length;
+    s.gate.failRole = () => CODEX_401;
+    await s.ask(id, { more: true });
+    await s.settled(id);
+    expect(s.gate.roles.length - before).toBe(1);
+  });
+
+  it('keeps an example off the scene when Stop reaches the server as it is being finished (FAIL-X5)', async () => {
+    const s = await setup(0, true, { lamp: true });
+    // a picture the size the engines hand back, so finishing it takes as long as it really does
+    s.gate.size = [1024, 1280];
+    const id = await s.makeScene();
+    let stop: Promise<{ json: () => { ok: boolean } }> | null = null;
+    s.gate.onReturn = (role) => {
+      // Stop is pressed as the provider answers: the request is on its way while the picture is finished
+      if (role === 'hero' && !stop) stop = s.app.inject({ method: 'POST', url: s.url(id, '/stop') });
+    };
+    await s.ask(id, { roles: ['hero'] });
+    const job = await s.settled(id);
+    const answered = await (stop as unknown as Promise<{ json: () => { ok: boolean } }>);
+    expect(answered.json().ok).toBe(true);
+    expect(job.status).toBe('cancelled');
+    expect((s.sceneOf(id).examples ?? []).map((e: any) => e.role)).toEqual([]);
   });
 });

@@ -298,3 +298,28 @@ describe('a draft that has just arrived', () => {
     expect(awaitingAnswers(inputs({ draftId: null, seededFor: null, state: EMPTY_STATE }))).toBe(false);
   });
 });
+
+describe('a change the draft cannot take', () => {
+  it('stays stepped over once the first face lands, so the face is not redrawn on its own (PC-H7)', () => {
+    const done = new Set<string>();
+    const at = (d: StepDraft) => inputs({ draft: d, done });
+    // whatever the reason the draft holds something else (a cap, a trim, a
+    // dropped picture), asking again cannot close the gap
+    const fresh = draft({ direction: 'what the server kept, which is not what was asked for' });
+    const first = nextStep(at(fresh));
+    expect(first?.kind).toBe('sync');
+    if (!first) return;
+    done.add(stepKey(first, at(fresh)));
+    const face = nextStep(at(fresh));
+    expect(face).toEqual({ kind: 'draw', view: 'portrait', decide: undefined });
+    if (!face) return;
+    done.add(stepKey(face, at(fresh)));
+    // the face lands as a candidate: a person decides it, nothing else happens on its own
+    const landed = draft({
+      direction: fresh.direction,
+      generations: 1,
+      views: { ...fresh.views, portrait: slot({ status: 'candidate', hash: 'p1', attempts: 1 }) },
+    });
+    expect(nextStep(at(landed))).toBeNull();
+  });
+});

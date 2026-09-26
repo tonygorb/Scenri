@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { mkdtempSync, rmSync, readFileSync, writeFileSync, existsSync, closeSync } from 'node:fs';
+import { createServer, type AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { appendLog, openLogFd } from '../src/desktop/log.js';
 
 let root: string;
@@ -50,4 +53,93 @@ describe('openLogFd', () => {
     expect(readFileSync(path, 'utf8')).toBe('fresh\n');
     expect(existsSync(`${path}.1`)).toBe(true);
   });
+});
+
+describe('a start from the desktop icon', () => {
+  const ROOT = fileURLToPath(new URL('../../..', import.meta.url));
+  let child: ChildProcess | null = null;
+
+  afterEach(async () => {
+    const c = child;
+    child = null;
+    if (c && c.exitCode === null) {
+      c.kill('SIGTERM');
+      await new Promise<void>((resolve) => {
+        c.once('exit', () => resolve());
+        setTimeout(() => {
+          c.kill('SIGKILL');
+          resolve();
+        }, 8000).unref();
+      });
+    }
+  });
+
+  /** A port nothing on this machine holds right now. */
+  const freePort = () =>
+    new Promise<number>((resolve, reject) => {
+      const probe = createServer();
+      probe.once('error', reject);
+      probe.listen(0, '127.0.0.1', () => {
+        const { port } = probe.address() as AddressInfo;
+        probe.close(() => resolve(port));
+      });
+    });
+
+  const answers = async (port: number, path: string): Promise<any | null> => {
+    try {
+      const res = await fetch(`http://127.0.0.1:${port}${path}`);
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
+    }
+  };
+
+  it('never writes the phone access code into scenri.log (SEC-H13)', async (ctx) => {
+    const port = await freePort();
+    const log = join(root, 'scenri.log');
+    // the descriptor desktop/open.ts hands the server: its stdout and stderr are the log
+    const fd = openLogFd(log);
+    // no SCENRI_HOST, as a desktop start has none: loopback plus a listener per Wi-Fi address
+    const { SCENRI_HOST: _host, ...withoutHost } = process.env;
+    child = spawn(process.execPath, ['--import', 'tsx', 'packages/cli/src/index.ts', 'serve'], {
+      cwd: ROOT,
+      stdio: ['ignore', fd, fd],
+      env: {
+        ...withoutHost,
+        SCENRI_HEADLESS: '1',
+        SCENRI_NO_OPEN: '1',
+        SCENRI_PORT: String(port),
+        SCENRI_HOME: join(root, 'lib'),
+        SCENRI_NO_UPDATE_CHECK: '1',
+        SCENRI_NO_GUIDE: '1',
+        SCENRI_NO_CONTENT_FETCH: '1',
+        SCENRI_NO_CODEX: '1',
+        SCENRI_NO_DESKTOP: '1',
+        OPENROUTER_API_KEY: '',
+        REPLICATE_API_TOKEN: '',
+        FAL_KEY: '',
+      },
+    });
+    closeSync(fd);
+    let phone: { code: string; address: string | null } | null = null;
+    let serving: string | undefined;
+    for (let i = 0; i < 150 && !phone; i++) {
+      serving = (await answers(port, '/api/version'))?.home;
+      phone = serving ? await answers(port, '/api/phone') : null;
+      if (!phone) await new Promise((r) => setTimeout(r, 200));
+    }
+    expect(phone, 'the headless server never answered').not.toBeNull();
+    expect(serving, 'another server holds the port').toBe(join(root, 'lib'));
+    // with no Wi-Fi address there is no phone line to write, so nothing to check
+    if (!phone?.address) return ctx.skip();
+    // the banner lands after listen; give it a moment to be written
+    for (let i = 0; i < 50 && !readFileSync(log, 'utf8').includes('data dir'); i++)
+      await new Promise((r) => setTimeout(r, 100));
+    const text = readFileSync(log, 'utf8');
+    expect(text, 'the banner reached the log at all').toContain('data dir');
+    const grouped = `${phone.code.slice(0, 3)} ${phone.code.slice(3)}`;
+    expect(text.includes(grouped) || text.includes(phone.code), 'the code is in scenri.log').toBe(false);
+    // the phone line is still there, pointing at Settings for the code
+    expect(text).toContain('code in Settings');
+  }, 60_000);
 });
