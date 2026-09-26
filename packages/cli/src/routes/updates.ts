@@ -5,7 +5,7 @@ import { SCHEMA_VERSION } from '@scenri/core';
 import { classify, isReleaseTriplet, type CheckResult, type UpdateChecker } from '../update/check.js';
 import { findNpm, stageVersion } from '../update/stage.js';
 import { compareSemver, newestStaged } from '../update/versionsDir.js';
-import { RELEASES, isNewsworthy, releaseFor } from '../release/notes.data.js';
+import { RELEASES, isNewsworthy, releaseFor, whatsNewWindow } from '../release/notes.data.js';
 import { repoSlug, type Meta } from '../meta.js';
 import type { InstallKind } from '../server.js';
 
@@ -260,25 +260,35 @@ export function registerUpdateRoutes(
   // newer Scenri" and ask you to act; this one answers "here is what you got"
   // and asks nothing. Fusing them is what made the old notes route describe a
   // version the user did not have, then vanish the moment they installed it.
+  // `whatsnew.seen` only ever moves forward. A rolled-back build, a second
+  // checkout sharing the home, or a stale tab acknowledging an older version
+  // must never make the newer notes read as new again.
+  const raiseSeen = (v: string) => {
+    const was = core.store.getSetting('whatsnew.seen');
+    if (!was || compareSemver(v, was) > 0) core.store.setSetting('whatsnew.seen', v);
+  };
+
   app.get('/api/release/notes', async () => {
     // A fresh install must not open a modal explaining changes to someone who
-    // has never seen the app. The first boot of a new home stamps both keys,
-    // so `seen` already equals the running version and nothing pops. The cost
-    // is one-time and known: the release that introduces this will not
-    // announce itself on an install that predates the marker.
-    if (!core.store.getSetting('install.firstVersion')) {
-      core.store.setSetting('install.firstVersion', meta.version);
-      core.store.setSetting('whatsnew.seen', meta.version);
-    }
+    // has never seen the app. The first boot of a new home stamps both keys
+    // (stampGuide), so `seen` already equals the running version and nothing
+    // pops. A home that predates the marker is stamped here, on its first read.
+    // Either way, a home with no `seen` at all counts itself as up to date.
+    const unmarked = !core.store.getSetting('install.firstVersion');
+    if (unmarked) core.store.setSetting('install.firstVersion', meta.version);
+    if (unmarked || !core.store.getSetting('whatsnew.seen')) raiseSeen(meta.version);
+    const seen = core.store.getSetting('whatsnew.seen') || null;
     return {
       version: meta.version,
       entry: releaseFor(meta.version),
-      seen: core.store.getSetting('whatsnew.seen') || null,
+      seen,
+      // The in-app history (`recent`), what in it is new here (`unseen`), and
+      // the one headline update allowed to open by itself (`lead`). All of it
+      // is in the build: nothing here reaches the network.
+      ...whatsNewWindow(RELEASES, meta.version, seen),
       // 0.0.0 is the placeholder release-please has not bumped yet. No tag has
       // ever existed for it, and the releases index of a project that has not
       // released is an empty page, so there is nowhere honest to point: null.
-      // Its absence is also what tells the dialog it is looking at a
-      // development build rather than a release nobody wrote notes for.
       // Every other version a user can be running was published, and
       // publishing is what creates the tag. The exceptions are the internal
       // 0.1.x builds: published, unpublished, never tagged. Their numbers are
@@ -287,11 +297,11 @@ export function registerUpdateRoutes(
         ghSlug && meta.version !== UNRELEASED && !UNTAGGED.has(meta.version)
           ? `https://github.com/${ghSlug}/releases/tag/v${meta.version}`
           : null,
-      // Where everything before the three in the dialog lives. The index, not
-      // a tag: this one is the archive, and it outlives the version running.
-      // Gated on there being an archive at all, so a project that has never
-      // published does not offer a link to an empty page. Never use it to
-      // decide whether *this build* was released — `changelogUrl` answers that.
+      // Full release notes: everything older than the in-app window, and every
+      // fix a record left out. The index, not a tag: this one is the archive,
+      // and it outlives the version running. Gated on there being an archive
+      // at all, so a project that has never published does not offer a link
+      // to an empty page.
       releasesUrl: ghSlug && RELEASES.some(isNewsworthy) ? `https://github.com/${ghSlug}/releases` : null,
     };
   });
@@ -299,9 +309,10 @@ export function registerUpdateRoutes(
   app.post('/api/release/seen', async (req) => {
     // The version is the client's, not ours: it acknowledges what it was shown,
     // which is the version it loaded. Anything else and a restart mid-read
-    // could mark the wrong release as read.
+    // could mark the wrong release as read. Something that is not a version
+    // acknowledges the running one.
     const v = (req.body as { version?: unknown } | undefined)?.version;
-    core.store.setSetting('whatsnew.seen', typeof v === 'string' && v ? v : meta.version);
+    raiseSeen(typeof v === 'string' && isReleaseTriplet(v) ? v : meta.version);
     return { ok: true };
   });
 }
