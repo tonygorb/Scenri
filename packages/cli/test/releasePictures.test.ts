@@ -28,6 +28,40 @@ const referenced = RELEASES.flatMap((r) =>
 );
 
 const KIB = 1024;
+/** Every picture is the capture's one window size, 16:9 (apps/studio/capture/shoot.ts). */
+const SIZE = { width: 1920, height: 1080 };
+/**
+ * The ceilings, KiB, the capture writes under (MAX_KIB in apps/studio/capture/shoot.ts), measured on
+ * the pictures shipped: the heaviest window, a wall of photographs, is 289; the heaviest isolated
+ * picture, a row of scene cards, is 149, and the rest of them are 17 to 64. Nine together are 689,
+ * so one more picture of either kind still fits the whole in 1 MiB.
+ */
+const MAX_KIB = { window: 320, isolated: 160 } as const;
+const TOTAL_KIB = 1024;
+
+type Kind = keyof typeof MAX_KIB;
+
+/**
+ * What a picture is, read from its alpha: a **window** is opaque to its edges but for its four
+ * rounded corners, which are see-through; an **isolated** picture is a component set on a clear
+ * canvas, so every pixel of its border is see-through. Anything else is a rectangle cut out of the
+ * interface, or a component cut by the edge of its canvas.
+ */
+async function kindOf(path: string): Promise<Kind | string> {
+  const { data, info } = await sharp(path).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const W = info.width;
+  const H = info.height;
+  const alphaAt = (x: number, y: number) => data[(y * W + x) * info.channels + 3];
+  let border = 0;
+  for (let x = 0; x < W; x++) border += Number(alphaAt(x, 0) > 0) + Number(alphaAt(x, H - 1) > 0);
+  for (let y = 1; y < H - 1; y++) border += Number(alphaAt(0, y) > 0) + Number(alphaAt(W - 1, y) > 0);
+  if (border === 0) return 'isolated';
+  const corners = [alphaAt(0, 0), alphaAt(W - 1, 0), alphaAt(0, H - 1), alphaAt(W - 1, H - 1)];
+  const middles = [alphaAt(W >> 1, 0), alphaAt(W >> 1, H - 1), alphaAt(0, H >> 1), alphaAt(W - 1, H >> 1)];
+  if (corners.every((a) => a <= 8) && middles.every((a) => a === 255)) return 'window';
+  if (corners.some((a) => a > 8)) return 'a corner is opaque: the capture cut a rectangle out of the interface';
+  return `${border} px of its border are painted but it is not a whole window: a component is cut by the canvas edge`;
+}
 
 describe(`the pictures in ${PICTURE_DIR}`, () => {
   it('are named as file names, never as paths', () => {
@@ -55,36 +89,54 @@ describe(`the pictures in ${PICTURE_DIR}`, () => {
     expect(orphans).toEqual([]);
   });
 
-  it('belong only to records the app still shows', () => {
+  it('belong only to records the app still shows, one picture to an update', () => {
     const inApp = new Set(whatsNewWindow(RELEASES, pkg.version).recent.map((r) => r.version));
     const stale = referenced
       .filter(({ version }) => !inApp.has(version))
       .map(({ file, version }) => `picture ${file}: release ${version} is outside What's New; delete the picture`);
     expect(stale).toEqual([]);
+    const twice = [...new Set(referenced.map((p) => p.version))].filter(
+      (v) => referenced.filter((p) => p.version === v).length > 1,
+    );
+    expect(twice, 'updates with more than one picture').toEqual([]);
   });
 
-  it('stay small: 150 KiB each, 1 MiB together', () => {
-    const sizes = files.map((f) => ({ f, bytes: statSync(join(dir, f)).size }));
-    const heavy = sizes
-      .filter(({ bytes }) => bytes > 150 * KIB)
-      .map(({ f, bytes }) => `${f} is ${Math.ceil(bytes / KIB)} KiB; 150 is the ceiling`);
-    expect(heavy).toEqual([]);
-    expect(sizes.reduce((sum, { bytes }) => sum + bytes, 0)).toBeLessThanOrEqual(1024 * KIB);
-  });
-
-  it('are still 16:10 WebP frames, 1024 to 1600 wide, with no metadata', async () => {
+  it(`are 1920x1080 WebP stills with alpha and no metadata, each a whole window or an isolated component`, async () => {
     const problems: string[] = [];
     for (const f of files) {
-      const m = await sharp(join(dir, f)).metadata();
+      const path = join(dir, f);
+      const m = await sharp(path).metadata();
       if (m.format !== 'webp') problems.push(`${f}: ${m.format}, not webp`);
-      const { width = 0, height = 0 } = m;
-      if (width * 10 !== height * 16) problems.push(`${f}: ${width}x${height} is not exactly 16:10`);
-      if (width < 1024 || width > 1600) problems.push(`${f}: ${width} wide; 1024 to 1600`);
+      if (m.width !== SIZE.width || m.height !== SIZE.height)
+        problems.push(`${f}: ${m.width}x${m.height}; every picture is ${SIZE.width}x${SIZE.height}`);
       if ((m.pages ?? 1) !== 1) problems.push(`${f}: ${m.pages} frames; one still`);
       for (const key of ['exif', 'xmp', 'iptc', 'icc'] as const) {
         if (m[key] !== undefined) problems.push(`${f}: carries ${key} metadata; strip it`);
       }
+      if (!m.hasAlpha) {
+        problems.push(`${f}: no alpha; a window's corners and an isolated picture's canvas are see-through`);
+        continue;
+      }
+      const kind = await kindOf(path);
+      if (kind !== 'window' && kind !== 'isolated') problems.push(`${f}: ${kind}`);
     }
     expect(problems).toEqual([]);
+  });
+
+  it(`stay small: ${MAX_KIB.window} KiB a window, ${MAX_KIB.isolated} KiB an isolated picture, ${TOTAL_KIB / KIB} MiB together`, async () => {
+    const heavy: string[] = [];
+    let total = 0;
+    for (const f of files) {
+      const bytes = statSync(join(dir, f)).size;
+      total += bytes;
+      const kind = await kindOf(join(dir, f));
+      if (kind !== 'window' && kind !== 'isolated') continue; // the shape test says why
+      if (bytes > MAX_KIB[kind] * KIB)
+        heavy.push(
+          `${f} is ${Math.ceil(bytes / KIB)} KiB; ${MAX_KIB[kind]} is the ceiling for ${kind === 'window' ? 'a window' : 'an isolated picture'}`,
+        );
+    }
+    expect(heavy).toEqual([]);
+    expect(total, 'every picture together, bytes').toBeLessThanOrEqual(TOTAL_KIB * KIB);
   });
 });
