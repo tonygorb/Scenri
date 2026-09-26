@@ -2267,6 +2267,16 @@ button.sc-convo-shot-do {
   color: var(--sc-fg3);
 }
 
+/* Off, the field's placeholder is the reason ("Retry above."), so it is not
+   faded like a disabled form field: the global .sc-in:disabled put
+   --sc-disabled on top of the placeholder grey. The card already says it is
+   off (quiet, or Stop while a draw runs); anything left in the field reads at
+   that same grey. */
+.sc-convo-card textarea.sc-in:disabled {
+  opacity: 1;
+  color: var(--sc-fg3);
+}
+
 .sc-convo-row {
   display: flex;
   justify-content: space-between;

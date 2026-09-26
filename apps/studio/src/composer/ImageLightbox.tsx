@@ -1,6 +1,6 @@
 import { type ReactNode, useRef, useState } from 'react';
-import { ImageSquare } from '@phosphor-icons/react';
-import { DialogSheet } from '../layout/DialogSheet.js';
+import { ImageSquare, X } from '@phosphor-icons/react';
+import { DialogSheet, SheetClose } from '../layout/DialogSheet.js';
 import type { PreviewKind } from './ChipPreview.js';
 import { PREVIEW_NOUN } from './ChipPreview.js';
 
@@ -70,6 +70,15 @@ export function ImageLightbox({
       }}
       onDismiss={onClose}
     >
+      {/* Past 768 the sheet has no grip, and Escape or a press on the scrim is
+          no door a tablet shows: the way out is the dialogs' own close. */}
+      <div className="sc-newdlg-head sc-lightbox-head">
+        <SheetClose>
+          <button type="button" className="sc-set-close sc-newdlg-close" aria-label="Close">
+            <X size={16} />
+          </button>
+        </SheetClose>
+      </div>
       <div className="sc-lightbox-frame" data-kind={kind}>
         {broken ? (
           <span className="sc-lightbox-blank">

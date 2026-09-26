@@ -3057,6 +3057,10 @@ test('a chip body opens its picture, and its caret gutter still takes the caret'
   expect(await lightboxSrc(page)).toBe(`/api/images/${second}`);
   await page.keyboard.press('Escape');
   await expect(lightbox(page)).toHaveCount(0);
+  // past 768 the sheet has no grip, so the way out is a close you can see
+  await chips(page).nth(1).click();
+  await lightbox(page).getByRole('button', { name: 'Close' }).click();
+  await expect(lightbox(page)).toHaveCount(0);
 
   // and the outer EDGE pixels are still prose: aiming at the seam beside a
   // chip has to reach the caret, or writing around a reference stops working

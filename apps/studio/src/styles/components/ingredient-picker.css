@@ -883,6 +883,12 @@ img.sc-swap-thumb {
   margin-top: var(--sc-space-6);
 }
 
+/* The close stands where the grip does not: a phone's sheet drags away. */
+.sc-lightbox-head {
+  display: none;
+  justify-content: flex-end;
+}
+
 /* And the card hugs the plate, rather than every picture arriving in the same
    880px box whatever shape it is. Below 768 the shell is a bottom sheet and
    full width is right, so this is the desktop half only. */
@@ -890,5 +896,9 @@ img.sc-swap-thumb {
   .sc-newdlg.sc-lightbox {
     width: fit-content;
     max-width: min(var(--sc-newdlg-max), calc(100vw - 48px));
+  }
+  .sc-lightbox-head {
+    display: flex;
+    margin-bottom: var(--sc-space-2);
   }
 }

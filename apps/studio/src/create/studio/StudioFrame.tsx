@@ -138,11 +138,37 @@ export function StudioFrame({
         }}
       >
         <div className="sc-pstudio-grid">
+          <Tip label="Close (esc)">
+            <button type="button" className="sc-pstudio-close" onClick={onClose} aria-label="Close">
+              <X size={13} />
+            </button>
+          </Tip>
+          <div className="sc-pstudio-head sc-newdlg-head">
+            <h2 id="sc-pstudio-title" className="sc-newdlg-title">
+              {title}
+            </h2>
+            {headAction}
+            <button type="button" className="sc-set-close sc-newdlg-close" onClick={onClose} aria-label="Close">
+              <X size={16} />
+            </button>
+          </div>
+          <div className="sc-pstudio-scroll">
+            {stage}
+            <div className="sc-pstudio-body" {...bodyProps}>
+              {body}
+            </div>
+          </div>
+          <div className="sc-pstudio-foot sc-dock" ref={setFootEl}>
+            {foot}
+          </div>
           {/* The seam between stage and rail is the handle, exactly as it is
               between a shot and its details: drag to size the rail,
               double-click to put it back, arrow keys from the keyboard. During
               a drag only the custom property moves; the preference is written
-              once, on release. */}
+              once, on release. Last in the markup, so last in the Tab order:
+              it was the first stop, before Close, and the rail's width is a
+              preference, not the work. It is placed absolutely wherever it
+              shows, so where it sits here moves nothing. */}
           {/* biome-ignore lint/a11y/useSemanticElements: an <hr> cannot be a focusable window splitter; ARIA's separator-as-widget pattern is exactly a focusable div with valuenow */}
           <div
             className="sc-pstudio-resize"
@@ -187,29 +213,6 @@ export function StudioFrame({
               e.preventDefault();
             }}
           />
-          <Tip label="Close (esc)">
-            <button type="button" className="sc-pstudio-close" onClick={onClose} aria-label="Close">
-              <X size={13} />
-            </button>
-          </Tip>
-          <div className="sc-pstudio-head sc-newdlg-head">
-            <h2 id="sc-pstudio-title" className="sc-newdlg-title">
-              {title}
-            </h2>
-            {headAction}
-            <button type="button" className="sc-set-close sc-newdlg-close" onClick={onClose} aria-label="Close">
-              <X size={16} />
-            </button>
-          </div>
-          <div className="sc-pstudio-scroll">
-            {stage}
-            <div className="sc-pstudio-body" {...bodyProps}>
-              {body}
-            </div>
-          </div>
-          <div className="sc-pstudio-foot sc-dock" ref={setFootEl}>
-            {foot}
-          </div>
         </div>
         {overlay}
       </div>
