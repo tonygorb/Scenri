@@ -101,6 +101,23 @@
 .sc-convo-brief-more:hover {
   color: var(--sc-fg);
 }
+/* On touch the words stay small and the target grows to the tap floor, as a
+   toast's actions do. */
+@media (pointer: coarse) {
+  .sc-convo-brief-more {
+    position: relative;
+  }
+  .sc-convo-brief-more::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    min-width: 100%;
+    width: var(--sc-tap);
+    height: var(--sc-tap);
+    transform: translate(-50%, -50%);
+  }
+}
 
 /* a finger has no hover: the way to copy is simply there */
 @media (hover: none) {

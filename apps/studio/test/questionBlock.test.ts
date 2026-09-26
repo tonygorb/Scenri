@@ -372,7 +372,12 @@ describe('a quote already read out', () => {
     expect(more.getAttribute('aria-expanded')).toBe('false');
     act(() => more.click());
     expect(text.hasAttribute('data-folded')).toBe(false);
-    expect(button('Show all')).toBeUndefined();
+    // a toggle that stays where it was, so the keyboard stays with it
+    expect(more.isConnected).toBe(true);
+    expect(more.textContent).toBe('Show less');
+    expect(more.getAttribute('aria-expanded')).toBe('true');
+    act(() => more.click());
+    expect(text.hasAttribute('data-folded')).toBe(true);
   });
   it('stands whole when it was not read out before', () => {
     render(decide());

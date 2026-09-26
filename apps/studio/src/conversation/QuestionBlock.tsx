@@ -734,9 +734,10 @@ function Quote({ text, label = 'The brief', folded = false }: { text: string; la
       <p className="sc-convo-brief-text" data-folded={!open || undefined}>
         {text}
       </p>
-      {!open && (
-        <button type="button" className="sc-convo-brief-more" aria-expanded={false} onClick={() => setOpen(true)}>
-          Show all
+      {/* a toggle that stays put, so a keyboard that pressed it is still on it */}
+      {folded && (
+        <button type="button" className="sc-convo-brief-more" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+          {open ? 'Show less' : 'Show all'}
         </button>
       )}
     </figure>
