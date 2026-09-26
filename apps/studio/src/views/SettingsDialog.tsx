@@ -295,7 +295,7 @@ function PageBody({
       return (
         <>
           <EnginesPane engines={engines} />
-          <Budget engines={engines} onSaved={onSaved} />
+          <Budget engines={engines} onSaved={onSaved} thisComputer={thisComputer} />
         </>
       );
     case 'appearance':

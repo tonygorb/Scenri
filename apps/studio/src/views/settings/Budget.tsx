@@ -3,7 +3,15 @@ import { api, type EngineInfo } from '../../api.js';
 import { engineTitle } from '../../engines/active.js';
 import { Group } from './Group.js';
 
-export function Budget({ engines, onSaved }: { engines: EngineInfo[]; onSaved: () => void }) {
+export function Budget({
+  engines,
+  onSaved,
+  thisComputer,
+}: {
+  engines: EngineInfo[];
+  onSaved: () => void;
+  thisComputer: boolean;
+}) {
   const paid = engines.filter((e) => !e.free);
   const [caps, setCaps] = useState<Record<string, string>>({});
   useEffect(() => {
@@ -32,7 +40,13 @@ export function Budget({ engines, onSaved }: { engines: EngineInfo[]; onSaved: (
   return (
     <Group
       title="Monthly caps"
-      sub="Your own API budget. Generation stops before a cap is crossed, so a runaway loop cannot spend your month."
+      sub={
+        // a cap guards the owner's keys, so like them it is set only on the
+        // computer running Scenri; a phone holding the code reads it
+        thisComputer
+          ? 'Your own API budget. Generation stops before a cap is crossed, so a runaway loop cannot spend your month.'
+          : 'Your own API budget. Generation stops before a cap is crossed. Caps are set on the computer running Scenri.'
+      }
     >
       {paid.map((e) => {
         const left = e.generationsLeft;
@@ -55,6 +69,7 @@ export function Budget({ engines, onSaved }: { engines: EngineInfo[]; onSaved: (
                   value={caps[e.id] ?? ''}
                   onChange={(ev) => setCaps((c) => ({ ...c, [e.id]: ev.target.value }))}
                   onBlur={() => void commit(e.id)}
+                  disabled={!thisComputer}
                   aria-label={`${engineTitle(e.displayName)} monthly cap in dollars`}
                 />
               </div>

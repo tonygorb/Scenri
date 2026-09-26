@@ -60,6 +60,12 @@ interface UpdateCenterValue {
   apply(): Promise<void>;
   /** The brand menu's Shut down: drain and stop, then this tab goes away. Resolves to the server's refusal, or null. */
   quit(): Promise<string | null>;
+  /**
+   * Whether this tab is on the computer running Scenri. Installing, restarting
+   * and Shut down act on that computer and a phone holding the code is refused
+   * them, so they are offered only there.
+   */
+  thisComputer: boolean;
   busy: 'idle' | 'applying' | 'restarting';
   applyError: string | null;
 }
@@ -77,6 +83,22 @@ export function UpdateCenterProvider({ children }: { children: ReactNode }) {
   const [checking, setChecking] = useState(false);
   const [dismissedVersion, setDismissedVersion] = useState<string | null>(readDismissed);
   const timer = useRef<number | undefined>(undefined);
+
+  // Asked once, as the studio loads. Until the answer comes nothing that acts
+  // on the machine is offered, so a phone never shows a button it is refused.
+  const [thisComputer, setThisComputer] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    api
+      .version()
+      .then((v) => alive && setThisComputer(v.thisComputer === true))
+      .catch(() => {
+        /* the server still refuses a phone */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -268,9 +290,24 @@ export function UpdateCenterProvider({ children }: { children: ReactNode }) {
   const onSetup = pathname === P.setup;
 
   return (
-    <Ctx.Provider value={{ status, checking, checkNow, checkError, dismissed, dismiss, apply, quit, busy, applyError }}>
+    <Ctx.Provider
+      value={{
+        status,
+        checking,
+        checkNow,
+        checkError,
+        dismissed,
+        dismiss,
+        apply,
+        quit,
+        thisComputer,
+        busy,
+        applyError,
+      }}
+    >
       {children}
-      {busy !== 'restarting' && floatVisible(status) && !dismissed && !onSetup && <UpdateFloat />}
+      {/* a phone gets the news from the help dot and Settings, never an Update it is refused */}
+      {busy !== 'restarting' && thisComputer && floatVisible(status) && !dismissed && !onSetup && <UpdateFloat />}
       {busy === 'restarting' && <RestartOverlay version={status?.stagedVersion ?? status?.latest ?? null} />}
     </Ctx.Provider>
   );

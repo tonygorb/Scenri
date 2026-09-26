@@ -163,6 +163,55 @@ test.describe
       await p.context().close();
     });
 
+    test('a device uses the studio, never what acts on this computer: no Shut down, no Update, caps to read', async ({
+      page,
+      browser,
+    }) => {
+      // an update waiting on a published install, so this computer has everything to offer
+      const updateWaiting = async (p: Page) => {
+        await p.route('**/api/version', async (route) => {
+          const real = await (await route.fetch()).json();
+          await route.fulfill({ json: { ...real, installKind: 'managed', supervised: true } });
+        });
+        await p.route('**/api/update/status', async (route) => {
+          const real = await (await route.fetch()).json();
+          await route.fulfill({
+            json: { ...real, latest: '99.9.9', available: true, kind: 'minor', canApply: true, blockReason: null },
+          });
+        });
+      };
+      const cap = (p: Page) => p.getByLabel(/monthly cap in dollars/).first();
+
+      // this computer: the float, Shut down, the Update button and a cap to type
+      await updateWaiting(page);
+      await page.goto(`/${slug}`);
+      await expect(page.locator('.sc-upd-float')).toBeVisible();
+      await page.locator('.sc-org-btn').click();
+      await expect(page.locator('.sc-menu-item[data-quit]')).toBeVisible();
+      await page.goto(`/${slug}?settings=updates`);
+      await expect(page.locator('.sc-set').getByRole('button', { name: 'Update', exact: true })).toBeVisible();
+      await page.goto(`/${slug}?settings=engines`);
+      await expect(cap(page)).toBeEnabled();
+
+      // a phone with the code: the news reaches it, the machine controls do not
+      const p = await device(browser);
+      await p.goto(phone.url ?? '');
+      await updateWaiting(p);
+      await p.goto(`${phone.address}/${slug}`);
+      await expect(p.locator('.sc-help-btn .sc-upd-dot')).toBeVisible();
+      await expect(p.locator('.sc-upd-float')).toHaveCount(0);
+      await p.locator('.sc-org-btn').click();
+      await expect(p.getByText('Set up a brand')).toBeVisible();
+      await expect(p.locator('.sc-menu-item[data-quit]')).toHaveCount(0);
+      await p.goto(`${phone.address}/${slug}?settings=updates`);
+      await expect(p.getByText('Updates are installed on the computer running Scenri.')).toBeVisible();
+      await expect(p.locator('.sc-set').getByRole('button', { name: 'Update', exact: true })).toHaveCount(0);
+      await p.goto(`${phone.address}/${slug}?settings=engines`);
+      await expect(p.getByText('Caps are set on the computer running Scenri.')).toBeVisible();
+      for (const field of await p.getByLabel(/monthly cap in dollars/).all()) await expect(field).toBeDisabled();
+      await p.context().close();
+    });
+
     test('the API refuses a device without the code', async ({ browser }) => {
       const p = await device(browser);
       const res = await p.request.get(`${phone.address}/api/brands`);

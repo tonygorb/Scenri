@@ -84,6 +84,18 @@ describe('GET /api/desktop', () => {
     res = await a.inject({ method: 'GET', url: '/api/desktop' });
     expect(res.json().declined).toBe(true);
   });
+
+  it('never tells a phone where the icon lives on this computer', async () => {
+    const { a } = build({ statusImpl: async () => status({ installed: true, path: '/Users/t/Desktop/Scenri.app' }) });
+    const res = await a.inject({
+      method: 'GET',
+      url: '/api/desktop',
+      headers: { host: '192.168.1.42:4747' },
+      remoteAddress: '192.168.1.50',
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ installed: true, path: null });
+  });
 });
 
 describe('POST /api/desktop/install', () => {
