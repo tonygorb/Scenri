@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createCore, type Core, type EngineAdapter } from '@scenri/core';
@@ -185,6 +185,37 @@ describe('cross-site request blocking', () => {
       headers: { host: '127.0.0.1:4747' },
     });
     expect(res.statusCode).not.toBe(403);
+  });
+});
+
+describe('what every answer carries', () => {
+  let app: FastifyInstance;
+  let dist: string;
+  beforeEach(() => {
+    dist = mkdtempSync(join(tmpdir(), 'sc-dist-'));
+    writeFileSync(join(dist, 'index.html'), '<!doctype html><title>Scenri</title>');
+    writeFileSync(join(dist, 'mark.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+  });
+  afterEach(() => rmSync(dist, { recursive: true, force: true }));
+
+  // No page may frame the studio (a click on Shut down under someone else's
+  // page), and no answer may be read as a type other than the one it names.
+  it('forbids framing and sniffing on the API, a refusal, the code page and the studio', async () => {
+    app = serve({ studioDist: dist });
+    const phone = { host: '192.168.1.20:4747', accept: 'text/html' };
+    const answers = {
+      api: await app.inject({ method: 'GET', url: '/api/brands' }),
+      refused: await app.inject({ method: 'GET', url: '/api/brands', headers: { host: 'evil.example' } }),
+      codePage: await app.inject({ method: 'GET', url: '/create', headers: phone, remoteAddress: '192.168.1.50' }),
+      studio: await app.inject({ method: 'GET', url: '/create', headers: { accept: 'text/html' } }),
+      file: await app.inject({ method: 'GET', url: '/mark.png' }),
+    };
+    expect(Object.values(answers).map((r) => r.statusCode)).toEqual([200, 403, 403, 200, 200]);
+    for (const [kind, res] of Object.entries(answers)) {
+      expect(res.headers['x-content-type-options'], kind).toBe('nosniff');
+      expect(res.headers['x-frame-options'], kind).toBe('DENY');
+      expect(res.headers['content-security-policy'], kind).toBe("frame-ancestors 'none'");
+    }
   });
 });
 
