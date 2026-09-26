@@ -24,7 +24,7 @@ export const CONTENT_VERSION = 3;
 export const CONTENT_TAG = 'content-v3';
 
 const DEFAULT_CONTENT_URL = `https://github.com/tonygorb/scenri/releases/download/${CONTENT_TAG}/scenri-content.zip`;
-const TIMEOUT_MS = 10 * 60 * 1000; // a ~95 MB archive on a slow line is fine; hung sockets are not
+const TIMEOUT_MS = 10 * 60 * 1000; // a ~155 MB archive on a slow line is fine; hung sockets are not
 
 export function resolveContentUrl(env: Record<string, string | undefined> = process.env, override?: string): string {
   return override ?? env.SCENRI_CONTENT_URL ?? DEFAULT_CONTENT_URL;
@@ -135,7 +135,7 @@ export function createContentFetcher(deps: {
     if (!deps.store.getSetting('content.disclosed')) {
       // Same doctrine as the update check: the app's self-initiated requests
       // announce themselves once, with the off switch in the same breath.
-      log('  fetching the Scenri library (~95 MB, once, cached; set SCENRI_NO_CONTENT_FETCH=1 to disable)');
+      log('  fetching the Scenri library (~155 MB, once, cached; set SCENRI_NO_CONTENT_FETCH=1 to disable)');
       deps.store.setSetting('content.disclosed', '1');
     }
     try {

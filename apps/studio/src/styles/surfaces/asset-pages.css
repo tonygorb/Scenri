@@ -389,7 +389,7 @@
   display: block;
   width: 100%;
   max-width: var(--sc-measure-title);
-  margin: 0 auto 16px;
+  margin: 0 auto var(--sc-space-5);
   padding: 0;
   border: 0;
   background: none;
@@ -409,7 +409,6 @@
 @media (max-width: 900px) {
   .sc-lookpage-titleedit {
     max-width: none;
-    margin-bottom: var(--sc-space-6);
   }
 }
 
@@ -865,6 +864,10 @@
   padding-top: 34px;
   border-top: 1px solid var(--sc-line);
   text-align: left;
+}
+/* The verb beat belongs to the identity. This row is the footer's delete. */
+.sc-ownedbits .sc-lookpage-acts {
+  margin-top: 0;
 }
 .sc-ownedbits-note {
   font-size: 12px;
@@ -1358,9 +1361,22 @@
   transform-origin: 50% 16%;
 }
 
-/* Where a presenter or a scene is filed. The app's chip, at rest: these say
-   what is true, and nothing here is pressed, so they carry no hover, no focus
-   and no aria-pressed. The verb that changes them lives in Details. */
+/* Where a presenter or a scene is filed, and, on a product, its size beside
+   that. The app's chip, at rest: these say what is true, and nothing here is
+   pressed, so they carry no hover, no focus and no aria-pressed. The verb
+   that changes them lives in Details. */
+.sc-lookpage-marks {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sc-space-3);
+  margin: 0 auto var(--sc-space-5);
+  max-width: var(--sc-measure-lede);
+}
+.sc-lookpage-marks .sc-lookpage-cats {
+  margin: 0;
+  max-width: none;
+}
 .sc-lookpage-cats {
   display: flex;
   flex-wrap: wrap;
@@ -1378,19 +1394,6 @@
 .sc-chip[data-static] {
   border-radius: var(--sc-radius);
   cursor: default;
-}
-
-/* Tight inside the identity, generous between it and what follows: the beats
-   are what say these are three things rather than nine. */
-.sc-presenterpage h1 {
-  margin-bottom: var(--sc-space-5);
-}
-.sc-presenterpage .sc-lookpage-lede {
-  margin-bottom: 0;
-}
-.sc-presenterpage .sc-lookpage-acts {
-  margin-top: var(--sc-space-8);
-  margin-bottom: 44px;
 }
 
 /* The record's last word: the disclosure it must carry, and the one verb
@@ -1485,6 +1488,18 @@
   outline: none;
   border-color: var(--sc-focus);
 }
+/* The category, as a field: the page shows it as a chip, and this is where
+   it is changed. Same box open as closed, so the sheet doesn't jump. */
+button.sc-pdetails-field.sc-catpick {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  text-align: left;
+}
+button.sc-pdetails-field.sc-catpick[data-state="open"] {
+  border-color: var(--sc-line-strong);
+}
 textarea.sc-pdetails-field {
   height: auto;
   min-height: 34px;
@@ -1499,4 +1514,39 @@ textarea.sc-pdetails-field {
 .sc-pdetails-hint b {
   font-weight: 500;
   color: var(--sc-fg2);
+}
+/* Height, width and depth. Each one is optional, and the unit lives in the field. */
+.sc-size {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.sc-size-dim {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.sc-size-name {
+  color: var(--sc-fg3);
+  font-size: var(--sc-text-caption);
+}
+.sc-size-box {
+  position: relative;
+}
+.sc-size-box .sc-pdetails-field {
+  width: 100%;
+  padding-right: 32px;
+  font-variant-numeric: tabular-nums;
+}
+.sc-size-unit {
+  position: absolute;
+  top: 0;
+  right: 10px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  color: var(--sc-fg3);
+  font-size: 13px;
+  pointer-events: none;
 }

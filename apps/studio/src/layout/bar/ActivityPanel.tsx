@@ -108,29 +108,37 @@ export function ActivityPanel({
   return (
     <>
       <div className="sc-menu-head">Activity</div>
-      <div className="sc-notif-scroll">
-        {running.length > 0 && (
-          <section aria-label="In progress">
-            <h3 className="sc-notif-label">In progress</h3>
-            {running.map((t) => (
-              <TaskRow
-                key={t.id}
-                task={t}
-                now={now}
-                onNavigate={onClose}
-                onCancel={cancelTask}
-                onOpenDetail={onOpenDetail}
-              />
-            ))}
-          </section>
-        )}
+      {running.length > 0 && (
+        <section aria-label="In progress">
+          <h3 className="sc-notif-label">In progress</h3>
+          {running.map((t) => (
+            <TaskRow
+              key={t.id}
+              task={t}
+              now={now}
+              onNavigate={onClose}
+              onCancel={cancelTask}
+              onOpenDetail={onOpenDetail}
+            />
+          ))}
+        </section>
+      )}
 
+      {feed.length === 0 && running.length === 0 ? (
+        // Nothing running and nothing finished: the head already names the
+        // panel, so a second heading over a sentence that says the same
+        // nothing is the list announcing itself twice.
+        <p ref={empty} tabIndex={-1} className="sc-notif-empty">
+          Work that finishes shows up here.
+        </p>
+      ) : (
         <section aria-label="Notifications">
-          {/* The list's own verbs sit on its own label row. Clear all empties
-              this list and nothing else, which is why it is here rather than in
-              the panel's head over In progress as well. It comes last, so it
-              keeps its place whether or not there is anything unread beside it,
-              and it is gone with the list, never a verb with nothing to act on.
+          {/* The list's own verbs sit on its own label row, above the rows, so
+              they stay put while the list scrolls. Clear all empties this list
+              and nothing else, which is why it is here rather than in the
+              panel's head over In progress as well. It comes last, so it keeps
+              its place whether or not there is anything unread beside it, and
+              it is gone with the list, never a verb with nothing to act on.
               No confirmation: the record is this browser's list of pointers to
               shots that are all still there. */}
           <div className="sc-notif-label">
@@ -150,13 +158,17 @@ export function ActivityPanel({
           </div>
           {feed.length === 0 ? (
             <p ref={empty} tabIndex={-1} className="sc-notif-empty">
-              You have no notifications yet.
+              Work that finishes shows up here.
             </p>
           ) : (
-            feed.map((n) => <FeedRow key={n.id} item={n} now={now} onNavigate={onClose} onSeen={onSeen} />)
+            <div className="sc-notif-scroll">
+              {feed.map((n) => (
+                <FeedRow key={n.id} item={n} now={now} onNavigate={onClose} onSeen={onSeen} />
+              ))}
+            </div>
           )}
         </section>
-      </div>
+      )}
     </>
   );
 }

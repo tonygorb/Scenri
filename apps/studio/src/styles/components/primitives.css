@@ -12,7 +12,7 @@
   color: var(--sc-fg2);
   cursor: pointer;
 }
-.sc-icon-btn:hover {
+.sc-icon-btn:hover:not(:active) {
   background: var(--sc-hover);
   color: var(--sc-fg);
 }
@@ -21,11 +21,6 @@
   background: var(--sc-raised);
   color: var(--sc-fg);
   border-color: var(--sc-line-strong);
-}
-/* Kept: the gold star a kept card wears (lookcard.css), on a record's page. */
-.sc-keep-btn[data-on],
-.sc-keep-btn[data-on]:hover {
-  color: var(--sc-star);
 }
 /* A verb that does not apply right now is dim and still, and does not light
    under the pointer: the arrow at the end of a row, the last step of a zoom.
@@ -106,7 +101,7 @@
   color: var(--sc-fg);
   border-color: var(--sc-line);
 }
-.sc-btn-ghost:hover {
+.sc-btn-ghost:hover:not(:active) {
   background: var(--sc-hover);
   border-color: var(--sc-line-strong);
 }
@@ -134,7 +129,7 @@
   padding: 5px 12px;
   cursor: pointer;
 }
-.sc-chip:hover {
+.sc-chip:not([data-static]):hover:not(:active) {
   background: var(--sc-hover);
   color: var(--sc-fg);
 }

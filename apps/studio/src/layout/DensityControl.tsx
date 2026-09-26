@@ -170,7 +170,15 @@ function DensityIcon({ cells }: { cells: number }) {
   );
 }
 
-/** Sets --sc-wall-cols for CSS auto-fill floor (desktop only via media query). */
+/**
+ * The wall's ceiling and its floor.
+ *
+ * `--sc-wall-cols` is at most how many columns (5 large, 7 compact).
+ * `--sc-tile-min` is the same floor the Create feed uses, so a column drops
+ * before a card goes under it. The wide rule in library.css reads both.
+ */
 export function densityWallStyle(cols: number): CSSProperties {
-  return { '--sc-wall-cols': String(normalizeDensity(cols)) } as CSSProperties;
+  const n = normalizeDensity(cols);
+  const min = (n === 5 ? TILE_STOPS[1] : TILE_STOPS[0]).min;
+  return { '--sc-wall-cols': String(n), '--sc-tile-min': `${min}px` } as CSSProperties;
 }

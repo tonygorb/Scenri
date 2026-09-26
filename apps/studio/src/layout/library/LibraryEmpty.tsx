@@ -1,4 +1,11 @@
 import type { ReactNode } from 'react';
+import { Star } from '@phosphor-icons/react';
+
+/**
+ * The keeper, drawn the way a card draws it before anything is kept.
+ * Outline, quiet ink. Gold is the star that is on, and an empty tab has none.
+ */
+export const keepersMark = <Star size={21} weight="regular" />;
 
 /**
  * The three states every library page can land in, sharing one component so
@@ -6,20 +13,23 @@ import type { ReactNode } from 'react';
  * to load — Retry), `cold` (the catalog is genuinely empty — a real
  * first-run moment, reuses the existing `.sc-canvas-empty` treatment), and
  * `zero` (nothing on the wall — either a filter that matched nothing or a tab
- * you have not filled yet; quiet centred text plus a real way out, the same
- * treatment the Create feed gives its own empty lenses).
+ * you have not filled yet). A title, when there is one, is the line; the
+ * body is the one sentence under it; the action is the way back.
  */
 export function LibraryEmpty({
   shape,
   title,
   body,
   action,
+  mark,
   onRetry,
 }: {
   shape: 'cold' | 'zero' | 'error';
   title?: ReactNode;
   body: ReactNode;
   action?: ReactNode;
+  /** A mark for a tab that is empty on purpose. A search that missed has none. */
+  mark?: ReactNode;
   onRetry?: () => void;
 }) {
   if (shape === 'error') {
@@ -48,6 +58,12 @@ export function LibraryEmpty({
 
   return (
     <div className="sc-lib-zero">
+      {mark && (
+        <span className="sc-lib-zero-mark" aria-hidden>
+          {mark}
+        </span>
+      )}
+      {title && <h3>{title}</h3>}
       <p>{body}</p>
       {action}
     </div>

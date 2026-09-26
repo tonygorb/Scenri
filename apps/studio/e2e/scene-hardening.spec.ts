@@ -97,6 +97,10 @@ async function draw(p: Page) {
 
 /** Drawn and named: the decide question on the floor. */
 async function named(p: Page, name: string) {
+  // The line takes nothing while the draw's start is still on its way (SC2-H11),
+  // so a name typed then was held back and the scene kept the reader's name on
+  // a loaded machine. The name question on the floor means the start landed.
+  await expect(openQ(p)).toHaveAttribute('data-turn', 'q:name', { timeout: 20_000 });
   await say(p, name);
   await expect(openQ(p)).toHaveAttribute('data-turn', /^q:decide-/, { timeout: 45_000 });
 }

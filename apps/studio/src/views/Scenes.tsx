@@ -33,7 +33,7 @@ import { DENSITY_DEFAULT, normalizeDensity, type DensityCols } from '../layout/m
 import { LibraryToolbar } from '../layout/library/LibraryToolbar.js';
 import { LibrarySearch } from '../layout/library/LibrarySearch.js';
 import { FacetFilter } from '../layout/library/FacetFilter.js';
-import { LibraryEmpty, LibraryZero } from '../layout/library/LibraryEmpty.js';
+import { keepersMark, LibraryEmpty, LibraryZero } from '../layout/library/LibraryEmpty.js';
 import { StarterDivider } from '../layout/library/StarterDivider.js';
 import { useLibraryQuery } from '../layout/library/useLibraryQuery.js';
 import { useLibraryPage } from '../layout/library/useLibraryPage.js';
@@ -624,9 +624,11 @@ export function ScenesView() {
           {loaded && !error && bookmarksMessage && (
             <LibraryEmpty
               shape="zero"
-              body="Nothing in Keepers yet. Add a scene to Keepers from its card and it stays here."
+              title="Nothing in Keepers yet"
+              body="Keep a scene from its card and it stays here."
+              mark={keepersMark}
               action={
-                <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setFacets({ bookmarked: null })}>
+                <button type="button" className="sc-btn sc-btn-primary" onClick={() => setFacets({ bookmarked: null })}>
                   Browse every scene
                 </button>
               }
