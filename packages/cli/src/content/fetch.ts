@@ -46,6 +46,8 @@ export function createContentFetcher(deps: {
   url?: string;
   env?: Record<string, string | undefined>;
   log?: (line: string) => void;
+  /** The whole download's bound, headers through last byte; tests shorten it. */
+  timeoutMs?: number;
 }): ContentFetcher {
   const env = deps.env ?? process.env;
   const log = deps.log ?? console.log;
@@ -67,16 +69,21 @@ export function createContentFetcher(deps: {
     }
     try {
       const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+      const timer = setTimeout(() => ctrl.abort(), deps.timeoutMs ?? TIMEOUT_MS);
       if (typeof timer === 'object') timer.unref?.();
-      let res: Response;
+      // The bytes are read inside the timer, and the signal aborts the body as
+      // well as the request: a server that sends headers and then goes quiet
+      // would otherwise hold this download, and every ensure() waiting on it,
+      // for as long as the process lives.
+      let bytes: Buffer;
       try {
-        res = await doFetch(url, { signal: ctrl.signal });
+        const res = await doFetch(url, { signal: ctrl.signal });
+        if (!res.ok) return { ok: false, updated: false, error: `archive answered ${res.status}` };
+        bytes = Buffer.from(await res.arrayBuffer());
       } finally {
         clearTimeout(timer);
       }
-      if (!res.ok) return { ok: false, updated: false, error: `archive answered ${res.status}` };
-      const zip = await JSZip.loadAsync(Buffer.from(await res.arrayBuffer()));
+      const zip = await JSZip.loadAsync(bytes);
 
       rmSync(staging, { recursive: true, force: true });
       mkdirSync(staging, { recursive: true });
