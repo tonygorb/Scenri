@@ -253,16 +253,17 @@ export function DetailOverlay({
   /**
    * A refinement made in here that has landed moves the stage onto itself,
    * the old picture under it until the new one has painted, but only while
-   * the stage is still on the shot it came from, or on the step itself: a
-   * person who has moved on to another shot is not pulled back. One that
-   * failed stays a warning tile beside its source and never takes the stage.
+   * the stage is still on the shot it came from: a person who has moved on
+   * to another shot is not pulled back, and one standing on the step itself
+   * already sees its record fill in. One that failed stays a warning tile
+   * beside its source and never takes the stage.
    */
   useEffect(() => {
     const landed = made.find((m) => m.status === 'done' && m.images[0]);
     if (!landed) return;
     setMade((cur) => cur.filter((m) => m.id !== landed.id));
     rememberStep(landed);
-    if (node.id === landed.parentId || node.id === landed.id) onSelect(landed.id);
+    if (node.id === landed.parentId) onSelect(landed.id);
   }, [made, node.id, onSelect]);
   /** This shot's own step in the trail: what the panel calls the record. */
   const here = useMemo(() => trail.find((s) => s.node.id === node.id) ?? null, [trail, node.id]);

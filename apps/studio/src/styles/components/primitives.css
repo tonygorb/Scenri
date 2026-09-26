@@ -197,8 +197,8 @@
     color-mix(in srgb, var(--sc-fg) 7%, transparent) 50%,
     transparent 70%
   );
-  transform: translateX(-100%);
-  animation: sc-rendering var(--sc-rendering-dur) cubic-bezier(0.45, 0, 0.3, 1) infinite;
+  transform: translateX(-70%);
+  animation: sc-rendering var(--sc-rendering-dur) cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 .sc-notif-thumb .sc-rendering,
 .sc-thumb-wait .sc-rendering,
@@ -206,12 +206,17 @@
 .sc-pstudio-slot-inner > .sc-rendering {
   --sc-rendering-dur: 1.6s;
 }
+/* The band enters at one edge and leaves at the other (its soft half-width is
+   a fifth of the box, so -70% and 70% are just outside), crossing at an even
+   pace for three quarters of the cycle and resting out of sight for the last
+   quarter: a pass and a pause, not a highlight that races and then hides. */
 @keyframes sc-rendering {
-  from {
-    transform: translateX(-100%);
+  0% {
+    transform: translateX(-70%);
   }
-  to {
-    transform: translateX(100%);
+  75%,
+  100% {
+    transform: translateX(70%);
   }
 }
 

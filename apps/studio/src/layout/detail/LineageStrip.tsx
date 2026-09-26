@@ -87,8 +87,13 @@ export function LineageStrip({
     // A narrower stage can leave the ringed step under a fade or past it:
     // slide it back, sideways only. Never scrollIntoView here, which on a
     // phone would also scroll the column whenever the keyboard resized it.
+    // While a refinement is being made it is the one kept in view: it appears
+    // at the end of the row while the shot it came from keeps the ring, and
+    // is the news, so it is seen where it renders rather than past the edge.
+    // Runs again when the row gains it, since the row's length is the key.
     const keep = () => {
-      const tile = el.querySelector<HTMLElement>('[aria-pressed="true"]');
+      const tile =
+        el.querySelector<HTMLElement>('[data-pending]') ?? el.querySelector<HTMLElement>('[aria-pressed="true"]');
       if (!tile) return;
       const t = tile.getBoundingClientRect();
       const b = el.getBoundingClientRect();
@@ -169,6 +174,7 @@ export function LineageStrip({
               // history the tiles show; the name alone when nothing was recorded
               aria-label={`${said[i] ? `${s.label}: ${said[i]}` : s.label}${pending ? ', still rendering' : ''}`}
               aria-pressed={active}
+              data-pending={pending || undefined}
               tabIndex={n.id === stop ? 0 : -1}
               onClick={() => {
                 // A step still being made opens onto its own place on the

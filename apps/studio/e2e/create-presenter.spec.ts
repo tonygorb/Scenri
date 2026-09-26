@@ -715,9 +715,11 @@ test.describe('a person from scratch', () => {
     await expect(answer(page, 'Not now')).toBeVisible({ timeout: 20_000 });
     const before = await draftOf(page, brand.id, draftId);
     await send(page, 'shorter hair');
-    // while it draws, the stage says so over the picture it is redrawing
+    // while it draws, the stage says so in its pill, and the picture it is
+    // redrawing stays whole: it is the face in use until the new one lands
     await expect(page.locator('.sc-pstudio-doing')).toContainText('Adjusting the face');
-    await expect(page.locator('.sc-pstudio-veil')).toHaveCount(1);
+    await expect(page.locator('.sc-pstudio-well > .sc-rendering')).toHaveCount(0);
+    await expect(page.locator('.sc-pstudio-well img')).toHaveCSS('opacity', '1');
     await expect(log(page)).toContainText('with the change', { timeout: 20_000 });
     await expect(page.locator('.sc-pstudio-doing')).toHaveCount(0);
     await expect(page.locator('.sc-pstudio-compare')).toBeVisible();
