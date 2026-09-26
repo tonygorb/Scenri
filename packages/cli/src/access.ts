@@ -182,6 +182,13 @@ export function registerAccessGuard(app: FastifyInstance, opts: AccessOptions = 
   const limiter = createLimiter(opts.now ?? Date.now);
 
   app.addHook('onRequest', async (req, reply) => {
+    // First, so every answer carries them, a refusal and the code page
+    // included: no page may frame the studio (a click on Shut down laid under
+    // someone else's page), and nothing is read as a type other than the one
+    // it names. Frame rules only, not a full content policy.
+    reply.header('x-content-type-options', 'nosniff');
+    reply.header('x-frame-options', 'DENY');
+    reply.header('content-security-policy', "frame-ancestors 'none'");
     const host = hostnameOf(req.headers.host);
     if (!host || !(named.has(host) || isIPv4Literal(host))) {
       return reply.status(403).send({ error: 'forbidden host' });
