@@ -101,6 +101,30 @@ test('the composer stays reachable with the keyboard up', async ({ page }) => {
   expect(box!.y + box!.height).toBeLessThanOrEqual(vh - 300 + 1);
 });
 
+// UXP-2: a small phone's keyboard shrinks the conversation before anything in
+// it overflows, so the first question's answers went under the composer.
+test('the first question stays above the composer when the keyboard comes up', async ({ page }) => {
+  test.skip(page.viewportSize()!.width >= 768, 'a phone concern');
+  const brand = await currentBrand(page);
+  // a small phone with its browser bars, as Android's resizes-content shrinks it
+  await page.setViewportSize({ width: 390, height: 664 });
+  await page.goto(`/${brand.slug}/presenters/new`);
+  await arrived(page);
+  const q = page.locator('.sc-convo-turn[data-turn="q:source"]');
+  await expect(q).toBeVisible({ timeout: 20_000 });
+  await page.locator('.sc-convo-card textarea').tap();
+  await page.setViewportSize({ width: 390, height: 664 - 336 });
+  const under = () =>
+    page.evaluate(() => {
+      const turn = document.querySelector('.sc-convo-turn[data-turn="q:source"]')!.getBoundingClientRect();
+      const card = document.querySelector('.sc-convo-card')!.getBoundingClientRect();
+      return Math.round(turn.bottom - card.top);
+    });
+  // at once, as a person sees it: not whenever something next happens to render
+  await page.waitForTimeout(700);
+  expect(await under()).toBeLessThanOrEqual(1);
+});
+
 test('a second picture of a view: the press to put one back stands on the picture, in the log', async ({ page }) => {
   test.skip(page.viewportSize()!.width >= 768, 'the phone is what has no hover');
   const brand = await currentBrand(page);
