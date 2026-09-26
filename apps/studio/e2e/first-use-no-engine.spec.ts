@@ -37,6 +37,7 @@ test("the first shot begins at the setup, and What's New waits and then counts a
     version: '9.9.9',
     date: '2026-09-17',
     title: 'Better picks in Create',
+    announce: true,
     sections: [
       {
         heading: 'Create',
@@ -55,6 +56,7 @@ test("the first shot begins at the setup, and What's New waits and then counts a
         entry: HEADLINE,
         seen,
         recent: [HEADLINE],
+        history: [HEADLINE],
         unseen,
         lead: unseen.length > 0 ? '9.9.9' : null,
         changelogUrl: null,
