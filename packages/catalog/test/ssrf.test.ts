@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { httpText } from '../src/http/fetch.js';
 
 /**
@@ -30,6 +30,22 @@ describe('where a crawl may go', () => {
     const fetchImpl = (async () => ok('<html>secrets</html>')) as typeof fetch;
     // `new URL` hands the host on as [::ffff:7f00:1]
     await expect(httpText('http://[::ffff:127.0.0.1]/', { fetchImpl, retries: 0 })).rejects.toThrow(/private network/);
+  });
+
+  /**
+   * Every production caller hands in the real fetch (`?? fetch`), so a guard
+   * that skips names whenever a fetch is handed in never looked one up.
+   */
+  describe('handed the real fetch', () => {
+    afterEach(() => vi.unstubAllGlobals());
+
+    it('looks a name up and refuses one that is this machine', async () => {
+      // the global answers like a server would, so only the guard can refuse
+      vi.stubGlobal('fetch', (async () => ok('<html>secrets</html>')) as typeof fetch);
+      await expect(httpText('http://localhost/', { fetchImpl: globalThis.fetch, retries: 0 })).rejects.toThrow(
+        /private network/,
+      );
+    });
   });
 
   it('refuses a scheme that is not http', async () => {

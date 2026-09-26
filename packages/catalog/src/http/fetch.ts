@@ -28,11 +28,11 @@ const ALLOW_PRIVATE = process.env.SCENRI_SCRAPE_ALLOW_PRIVATE === '1';
 
 /**
  * @param real whether this request is going to the actual network. A caller
- * that injects its own `fetchImpl` is a test double or an already-guarded
- * implementation, and resolving names for it would be both pointless and, for
- * the reserved `.example` domains tests use, slow enough to matter. A literal
- * address and the scheme are checked either way, because those need nobody's
- * help to be dangerous.
+ * that injects a `fetchImpl` other than the global is a test double or an
+ * already-guarded implementation, and resolving names for it would be both
+ * pointless and, for the reserved `.example` domains tests use, slow enough
+ * to matter. A literal address and the scheme are checked either way,
+ * because those need nobody's help to be dangerous.
  */
 async function assertReachable(url: string, real: boolean): Promise<void> {
   const u = new URL(url);
@@ -116,6 +116,11 @@ export async function httpGet(url: string, opts: HttpOptions = {}): Promise<Resp
   const retries = opts.retries ?? 3;
   const timeoutMs = opts.timeoutMs ?? 25_000;
   let lastErr: unknown;
+  // The real network whenever the fetch is the real one, handed in or not:
+  // every production caller hands in the global (`?? fetch` in pipeline.ts,
+  // candidates.ts, cli/src/catalogImport.ts and cli/src/routes/catalogImport.ts),
+  // and a name there must be looked up like any other.
+  const real = !opts.fetchImpl || opts.fetchImpl === globalThis.fetch;
 
   const host = hostOf(url);
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -133,7 +138,7 @@ export async function httpGet(url: string, opts: HttpOptions = {}): Promise<Resp
       let current = url;
       let res!: Response;
       for (let hop = 0; ; hop++) {
-        await assertReachable(current, !opts.fetchImpl);
+        await assertReachable(current, real);
         res = await fetchImpl(current, {
           redirect: 'manual',
           signal: ctrl.signal,
