@@ -277,9 +277,9 @@ function CodexPane({ engines, onSaved, onDone }: { engines: EngineInfo[]; onSave
   const [copied, setCopied] = useState(false);
   const [platform, setPlatform] = useState<SetupPlatform>('mac');
   // The probe's own sentence for a state that has more than one cause. An
-  // update is needed below Scenri's floor, and also when the Codex app has
-  // moved config.toml to a model this CLI predates; the wizard used to claim
-  // the first for both.
+  // update is needed below Scenri's floor, and also when this CLI predates the
+  // model Scenri runs it on (gpt-6-sol); the wizard used to claim the first
+  // for both.
   const [reason, setReason] = useState<string | null>(null);
   // Which variables are in the way, and which Scenri is already keeping out of
   // codex's environment. Names only; a value never crosses this boundary.
