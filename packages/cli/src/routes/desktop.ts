@@ -52,13 +52,14 @@ export function registerDesktopRoutes(
       return addToDesktop(runtime.entry);
     });
 
-  app.get('/api/desktop', async () => {
+  app.get('/api/desktop', async (req) => {
     const s = await status();
     return {
       supported: s.supported,
       platform: s.platform,
       installed: s.installed,
-      path: s.path,
+      // where the icon lives on this computer, for this computer only
+      path: fromThisComputer(req) ? s.path : null,
       declined: core.store.getSetting('desktop.prompt') === 'declined',
       installKind: runtime.installKind,
     };
