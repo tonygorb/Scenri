@@ -1,11 +1,21 @@
 import { EventEmitter } from 'node:events';
-import { writeFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { spawn } from 'node:child_process';
 import type { BrandContext, GenerateRequest } from '@scenri/core';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createCodexEngine } from '../src/index.js';
 import { createRunner, execArgs } from '../src/run.js';
+
+// The runner reads the MCP server names in $CODEX_HOME/config.toml; a
+// developer's own servers must never change the argv these tests pin.
+beforeEach(() => {
+  vi.stubEnv('CODEX_HOME', mkdtempSync(join(tmpdir(), 'sc-codex-empty-')));
+});
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 /**
  * The prompt rides stdin, on every platform. As an argv tail it hit cmd.exe's
@@ -69,6 +79,47 @@ describe('execArgs', () => {
     const args = execArgs('/work/dir', 'high');
     expect(args[args.indexOf('-m') + 1]).toBe('gpt-6-sol');
     expect(args.indexOf('-m')).toBeLessThan(args.indexOf('-'));
+  });
+});
+
+describe("the machine's own MCP servers", () => {
+  // Every codex exec loaded the user's own MCP servers from config.toml: their
+  // tool schemas rode along as tokens on each shot, and tools like computer-use
+  // sat within reach of an agent that reads text inside the attached pictures.
+  it('switches off each server config.toml names, for exec only', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'sc-codex-home-'));
+    writeFileSync(
+      join(home, 'config.toml'),
+      [
+        'model = "gpt-6-astra"',
+        '[mcp_servers.figma]',
+        'url = "http://127.0.0.1:3845/mcp"',
+        '[mcp_servers.computer-use]',
+        'command = "cu"',
+        '[mcp_servers.playwright.tools.browser_navigate]',
+        'approval_mode = "approve"',
+        '[mcp_servers."has.dot"]',
+        'command = "x"',
+      ].join('\n'),
+    );
+    const { spawnImpl, calls } = scriptedSpawn((call) => call.child.emit('exit', 0, null));
+    const runner = createRunner({ spawnImpl, platform: 'linux', env: { PATH: '/usr/bin', CODEX_HOME: home } });
+    await runner.run(execArgs('/tmp/x'), undefined, { stdin: 'p' });
+    const args = calls.at(-1)?.args ?? [];
+    expect(args[0]).toBe('exec');
+    expect(args).toContain('mcp_servers.figma.enabled=false');
+    expect(args).toContain('mcp_servers.computer-use.enabled=false');
+    expect(args.join(' ')).not.toContain('tools');
+    expect(args.join(' ')).not.toContain('has.dot');
+    expect(args.at(-1)).toBe('-');
+  });
+
+  it('adds nothing when there is no config.toml', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'sc-codex-home-'));
+    const { spawnImpl, calls } = scriptedSpawn((call) => call.child.emit('exit', 0, null));
+    const runner = createRunner({ spawnImpl, platform: 'linux', env: { PATH: '/usr/bin', CODEX_HOME: home } });
+    await runner.run(execArgs('/tmp/x'), undefined, { stdin: 'p' });
+    expect((calls.at(-1)?.args ?? []).join(' ')).not.toContain('mcp_servers');
   });
 });
 

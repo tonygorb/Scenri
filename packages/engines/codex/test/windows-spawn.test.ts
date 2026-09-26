@@ -1,8 +1,20 @@
 import { EventEmitter } from 'node:events';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { spawn } from 'node:child_process';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRunner } from '../src/run.js';
 import { createCodexSetup } from '../src/setup.js';
+
+// The runner reads the MCP server names in $CODEX_HOME/config.toml; a
+// developer's own servers must never change the argv these tests pin.
+beforeEach(() => {
+  vi.stubEnv('CODEX_HOME', mkdtempSync(join(tmpdir(), 'sc-codex-empty-')));
+});
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 /**
  * The win32 spawn contract. codex is codex.cmd there, which only runs through
