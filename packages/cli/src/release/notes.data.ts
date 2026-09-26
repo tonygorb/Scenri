@@ -51,6 +51,16 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.18.2',
+    date: '2026-09-26',
+    sections: [
+      {
+        heading: 'Fixes',
+        body: 'On a slow connection, the library download at first launch now finishes instead of giving up and leaving only the starter library.',
+      },
+    ],
+  },
+  {
     version: '0.18.1',
     date: '2026-09-26',
     sections: [
