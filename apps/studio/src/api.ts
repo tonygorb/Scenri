@@ -217,6 +217,8 @@ export const api = {
   quit: () => req<{ ok: true }>('POST', '/api/system/quit'),
   releaseNotes: () => req<ReleaseNotesResponse>('GET', '/api/release/notes'),
   releaseSeen: (version: string) => req<{ ok: true }>('POST', '/api/release/seen', { version }),
+  /** A feature was used where it lives. Called through `markUsed` (app/WhatsNew.tsx), never directly. */
+  releaseUsed: (feature: string) => req<{ ok: true }>('POST', '/api/release/used', { feature }),
   /** The reference frames a scene has on disk, if any. */
   sceneFrames: (id: string) =>
     req<{ frames: string[]; views: { view: SceneView; url: string }[] }>('GET', `/api/scene-previews/${id}`),

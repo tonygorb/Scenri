@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { api, type FirewallVerdict, type PhoneStatus } from '../../api.js';
+import { useWhatsNew } from '../../app/WhatsNew.js';
 import { copyText } from '../../clipboard.js';
 import { QrCode } from '../../layout/QrCode.js';
 import { useToasts } from '../../toasts.js';
@@ -34,6 +35,12 @@ const POLL_MS = 2000;
  * whichever Wi-Fi this computer is on now.
  */
 export function PhoneAccess() {
+  // Opening Local access is using it, so its New in the Settings index goes,
+  // before this page paints (DESIGN.md, "New").
+  const { markUsed } = useWhatsNew();
+  useLayoutEffect(() => {
+    markUsed('local-access');
+  }, [markUsed]);
   const [status, setStatus] = useState<PhoneStatus | null>(null);
   const [failed, setFailed] = useState(false);
   const [shownAt, setShownAt] = useState<number | null>(null);

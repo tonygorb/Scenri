@@ -382,6 +382,11 @@ export type ReleaseNotesResponse = {
   changelogUrl: string | null;
   /** The releases index — the archive behind "All releases". */
   releasesUrl: string | null;
+  /**
+   * The few features saying New on this install (DESIGN.md, "New"). Absent
+   * from a server older than the field, which reads as none.
+   */
+  newFeatures?: string[];
 };
 
 export interface AssetBuildCapabilities {
