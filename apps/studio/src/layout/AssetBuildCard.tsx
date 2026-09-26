@@ -2,6 +2,7 @@ import { ArrowClockwise, X } from '@phosphor-icons/react';
 import type { AssetBuild } from '../api.js';
 import { describeFailure } from '../failure.js';
 import { RunningTag } from './canvas/RunningTag.js';
+import { Rendering } from './Rendering.js';
 
 /**
  * A presenter or scene while it is still being built.
@@ -51,7 +52,7 @@ export function AssetBuildCard({
         <span className="sc-lookcard-blank" />
         {!failed && (
           <>
-            <span className="sc-shimmer" />
+            <Rendering since={build.startedAt} />
             <RunningTag since={build.startedAt} />
           </>
         )}

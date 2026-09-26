@@ -387,7 +387,8 @@ export function GuideHost() {
       finish('first-shot');
   }, [task, shot, nodes, finish]);
 
-  // A refinement moves the open shot onto the version it made: read the task
+  // A refinement moves the open shot onto the version it made once that
+  // version lands (it renders beside its source until then): read the task
   // again then, rather than waiting for the activity poll to mention it.
   useEffect(() => {
     if (task === 'refine' && shot) void refreshGuide();

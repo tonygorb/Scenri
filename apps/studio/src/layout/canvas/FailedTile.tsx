@@ -1,8 +1,9 @@
-import { memo } from 'react';
+import { memo, type CSSProperties } from 'react';
 import { Link } from 'react-router';
 import { nodeLabel, type FeedNode } from '../../api.js';
 import { describeCancelled, describeFailure } from '../../failure.js';
 import { FailureNote } from '../Failure.js';
+import { aspectOfFormat } from '../../composer/formats.js';
 
 /*
  * Cancelled and failed are one tile with two readings. They used to be
@@ -36,6 +37,9 @@ export const FailedTile = memo(function FailedTile({
       data-cancelled={cancelled || undefined}
       data-failed={!cancelled || undefined}
       data-selected={selected}
+      // The box it held while it rendered: a sibling that fails keeps its
+      // place, so the rest of the batch never moves when one of them stops.
+      style={n.brief?.format ? ({ '--sc-cell-ar': aspectOfFormat(n.brief.format) } as CSSProperties) : undefined}
     >
       <Link className="sc-cell-open" to={shotHref(n.id)} aria-label={`Open ${nodeLabel(n)}`} />
       <span className="sc-cell-failed">

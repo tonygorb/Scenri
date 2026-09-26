@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, type ShowcaseEntry } from './api.js';
 
 export interface ShowcaseData {
@@ -11,7 +11,13 @@ export interface ShowcaseData {
 }
 
 export interface UseShowcaseResult extends ShowcaseData {
-  refetch: () => void;
+  /**
+   * Read the catalog again. Quiet keeps what is on screen, and `loaded`, until
+   * the new answer replaces it, and keeps it if the read fails: for a catalog
+   * that has only gained pictures (the library download landing), where
+   * falling back to skeletons would be the flash this exists to avoid.
+   */
+  refetch: (opts?: { quiet?: boolean }) => void;
 }
 
 const EMPTY: ShowcaseData = { showcase: [], categories: [], loaded: false, error: false };
@@ -24,6 +30,7 @@ const EMPTY: ShowcaseData = { showcase: [], categories: [], loaded: false, error
 export function useShowcase(): UseShowcaseResult {
   const [data, setData] = useState<ShowcaseData>(EMPTY);
   const [tick, setTick] = useState(0);
+  const quiet = useRef(false);
 
   useEffect(() => {
     let alive = true;
@@ -33,15 +40,16 @@ export function useShowcase(): UseShowcaseResult {
         if (alive) setData({ showcase: r.showcase, categories: r.categories, loaded: true, error: false });
       })
       .catch(() => {
-        if (alive) setData((d) => ({ ...d, loaded: true, error: true }));
+        if (alive && !quiet.current) setData((d) => ({ ...d, loaded: true, error: true }));
       });
     return () => {
       alive = false;
     };
   }, [tick]);
 
-  const refetch = useCallback(() => {
-    setData((d) => ({ ...d, loaded: false, error: false }));
+  const refetch = useCallback((opts?: { quiet?: boolean }) => {
+    quiet.current = !!opts?.quiet;
+    if (!quiet.current) setData((d) => ({ ...d, loaded: false, error: false }));
     setTick((t) => t + 1);
   }, []);
 

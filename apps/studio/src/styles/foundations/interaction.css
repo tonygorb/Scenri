@@ -121,11 +121,6 @@
 .sc-btn-red:active {
   background: var(--sc-press);
 }
-/* Gold keeps its own tint, one step deeper, so the urgent variant does not go
-   grey under the finger. */
-.sc-btn-ghost[data-urgent]:active {
-  background: color-mix(in srgb, var(--sc-gold) 22%, transparent);
-}
 /* An inverse fill cannot take a light press surface, so it steps its opacity
    instead. Hover is 0.88, so the press has to land below it to read. */
 .sc-btn-primary:active {

@@ -1,4 +1,7 @@
+import { LandingThumb, RenderingMark } from '../rendering/LandingThumb.js';
+import { runSince } from '../../tasks.js';
 import { useLayoutEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { Rendering } from '../Rendering.js';
 import { WarningCircle } from '@phosphor-icons/react';
 import { nodeLabel, type FeedNode, thumbUrl } from '../../api.js';
 import { ChipPreview } from '../../composer/ChipPreview.js';
@@ -125,11 +128,10 @@ export function ShotRail({
                 className="sc-thumb-btn sc-shotrail-tile"
                 aria-label={running ? `${nodeLabel(n)}, still rendering` : nodeLabel(n)}
                 aria-pressed={active}
-                aria-disabled={running || undefined}
                 tabIndex={n.id === stop ? 0 : -1}
                 onClick={() => {
-                  // a picture that is not there yet cannot be looked at; the tile fills in when it lands
-                  if (running) return;
+                  // a shot still being made opens onto its own place on the
+                  // stage, with its clock and Cancel, as its feed tile does
                   peek.closeNow();
                   onSelect(n.id);
                 }}
@@ -138,19 +140,11 @@ export function ShotRail({
                 onFocus={(e) => keyboardFocus(e.currentTarget) && ready && peekAt(n, e.currentTarget)}
               >
                 {ready ? (
-                  <img
-                    src={thumbUrl(n.images[0], 'micro')}
-                    alt=""
-                    className="sc-thumb"
-                    loading="lazy"
-                    decoding="async"
-                    data-active={active}
-                    width={52}
-                    height={52}
-                  />
+                  <LandingThumb id={n.id} src={thumbUrl(n.images[0], 'micro')} active={active} />
                 ) : running ? (
                   <span className="sc-thumb sc-thumb-wait" data-active={active}>
-                    <span className="sc-shimmer" />
+                    <Rendering since={runSince(n)} />
+                    <RenderingMark id={n.id} />
                   </span>
                 ) : (
                   <span className="sc-thumb sc-thumb-failed" data-active={active}>

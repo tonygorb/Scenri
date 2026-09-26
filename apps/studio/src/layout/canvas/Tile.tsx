@@ -1,3 +1,4 @@
+import { parseTime, runSince } from '../../tasks.js';
 import { memo } from 'react';
 import { Link } from 'react-router';
 import { ContextMenu } from '@radix-ui/themes';
@@ -127,7 +128,13 @@ export const Tile = memo(function Tile({
               }
             }}
           >
-            <FeedImage src={thumbUrl(n.images[0], 'tile')} fallback={imgUrl(n.images[0])} {...aspectOfImage(n, 0)} />
+            <FeedImage
+              src={thumbUrl(n.images[0], 'tile')}
+              fallback={imgUrl(n.images[0])}
+              arrival={justMade(n)}
+              index={n.batchIndex}
+              {...aspectOfImage(n, 0)}
+            />
           </Link>
           <ShotChrome
             node={n}
@@ -158,3 +165,11 @@ export const Tile = memo(function Tile({
     </ContextMenu.Root>
   );
 });
+
+/** A shot that finished in the last ninety seconds: its picture lands rather than fading in. */
+function justMade(n: FeedNode): boolean {
+  // counted from when this run started, not from when the shot was first made:
+  // a Try again after a stop or a failure re-runs the same shot, hours later perhaps
+  const made = parseTime(runSince(n));
+  return Number.isFinite(made) && Date.now() - (made + (n.durationMs ?? 0)) < 90_000;
+}

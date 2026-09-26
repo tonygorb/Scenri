@@ -1549,6 +1549,11 @@ button.sc-convo-shot-do {
 .sc-token[data-busy] img {
   animation: sc-convo-breathe 1.4s var(--sc-ease) infinite;
 }
+@media (prefers-reduced-motion: reduce) {
+  .sc-token[data-busy] img {
+    animation: none;
+  }
+}
 /* While one answer is being changed, the rest of the conversation steps back:
    the exchange being changed is what the next tap belongs to, and the dim says
    so without taking anything away. Everything stays readable and reachable. */
