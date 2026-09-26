@@ -101,8 +101,74 @@ describe('capReferenceEdge', () => {
     expect(await capReferenceEdge(core, path, 1024)).toBe(capped);
   });
 
-  it('an unreadable path comes back unchanged: the engine surfaces that error, not us', async () => {
+  it('a missing path comes back unchanged: the engine surfaces that error, not us', async () => {
     const ghost = join(home, 'not-there.png');
     expect(await capReferenceEdge(core, ghost, 1024)).toBe(ghost);
+  });
+
+  // A catalog import keeps the bytes the store served, and OpenAI reads PNG,
+  // JPEG, WebP and GIF only. An AVIF inside the cap went to Codex as it was,
+  // under a .png name; Codex put a line of text where the picture should have
+  // been and drew anyway, so the shot came back without the product.
+  it('re-encodes an AVIF inside the cap to a lossless PNG in the store, and memoises it', async () => {
+    const avif = await sharp(await png(64, 48))
+      .avif()
+      .toBuffer();
+    // Saved the way a catalog import saves it: named for what sharp reads.
+    const path = core.images.pathFor(core.images.save(avif, 'heif'));
+    const sent = await capReferenceEdge(core, path, 1024);
+    expect(sent).not.toBe(path);
+    const m = await sharp(sent).metadata();
+    expect([m.format, m.width, m.height]).toEqual(['png', 64, 48]);
+    // Lossless: the pixels sent are exactly the pixels the AVIF decodes to.
+    expect((await sharp(sent).raw().toBuffer()).equals(await sharp(avif).raw().toBuffer())).toBe(true);
+    expect(await capReferenceEdge(core, path, 1024)).toBe(sent);
+  });
+
+  it('hands JPEG, WebP and GIF inside the cap back as they are', async () => {
+    for (const fmt of ['jpeg', 'webp', 'gif'] as const) {
+      const path = core.images.pathFor(
+        core.images.save(
+          await sharp(await png(500, 400))
+            .toFormat(fmt)
+            .toBuffer(),
+          fmt,
+        ),
+      );
+      expect(await capReferenceEdge(core, path, 1024)).toBe(path);
+    }
+  });
+
+  // Stray bytes before a marker are a harmless libjpeg warning that browsers
+  // and engines read through, but they fail a downscale under sharp's default
+  // failOn. A JPEG like that is still a JPEG: it goes on as it is, as it always
+  // did, and is never refused as a format that cannot be read.
+  it('hands back a sendable picture whose downscale trips a decoder warning, never refuses it', async () => {
+    const jpeg = await sharp(await png(3000, 2000))
+      .jpeg()
+      .toBuffer();
+    const marker = jpeg.indexOf(Buffer.from([0xff, 0xdb]));
+    const warned = Buffer.concat([jpeg.subarray(0, marker), Buffer.from([1, 2, 3]), jpeg.subarray(marker)]);
+    const path = core.images.pathFor(core.images.save(warned, 'jpeg'));
+    await expect(capReferenceEdge(core, path, 2048)).resolves.toBe(path);
+  });
+
+  // An HEVC HEIC the bundled sharp cannot open fell through to the raw bytes.
+  // Two stand-ins cover both places sharp gives up: bytes that are no picture
+  // at all, and an AVIF cut short, whose header still reads but whose pixels
+  // do not, which is where an unsupported codec shows.
+  it('refuses a picture it cannot decode with a sentence a person can act on, never the raw bytes', async () => {
+    const avif = await sharp(await png(64, 48))
+      .avif()
+      .toBuffer();
+    const cut = avif.subarray(0, avif.length - 16);
+    expect((await sharp(cut).metadata()).format).toBe('heif');
+    for (const buf of [Buffer.from('not a picture at all'), cut]) {
+      const path = core.images.pathFor(core.images.save(buf, 'heif'));
+      await expect(capReferenceEdge(core, path, 1024)).rejects.toMatchObject({
+        statusCode: 400,
+        message: expect.stringMatching(/Save it as a JPEG or PNG/),
+      });
+    }
   });
 });

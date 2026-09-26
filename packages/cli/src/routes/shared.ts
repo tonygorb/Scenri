@@ -94,6 +94,10 @@ export const toMarkPng = async (buf: Buffer): Promise<Buffer> => {
   return out;
 };
 
+/** What every engine reads as it is: OpenAI documents PNG, JPEG, WebP and GIF input only. */
+const SENDABLE_FORMATS = new Set(['png', 'jpeg', 'webp', 'gif']);
+const cappedRefs = new Map<string, string>();
+
 /**
  * A reference copy no larger than the engine wants to read.
  *
@@ -102,33 +106,58 @@ export const toMarkPng = async (buf: Buffer): Promise<Buffer> => {
  * inside the exec's own time budget. The stored original is untouched — the
  * downscaled copy goes back into the content-addressed store (same source,
  * same derived hash every run) and is memoised so repeats skip the re-encode.
- * A source already inside the cap is handed back as-is.
+ * A source already inside the cap, in a format every engine reads, is handed
+ * back as-is.
+ *
+ * The format matters as much as the size. A catalog import keeps the bytes the
+ * store served, AVIF and HEIC included, and OpenAI reads PNG, JPEG, WebP and
+ * GIF only. An AVIF inside the cap went to Codex under a .png name, Codex put a
+ * line of text where the picture should have been and drew anyway, and the
+ * shot came back without the product. Anything else is re-encoded to PNG,
+ * losslessly and at its own size, down the same path as the downscale.
  */
-const cappedRefs = new Map<string, string>();
-export async function capReferenceEdge(core: Core, path: string, maxEdge: number): Promise<string> {
+export async function capReferenceEdge(core: Pick<Core, 'images'>, path: string, maxEdge: number): Promise<string> {
   const key = `${path}#${maxEdge}`;
   const hit = cappedRefs.get(key);
   // A copy is let go of once the draw that needed it is done (presenter
   // drafts), so a remembered one is made again rather than handed over missing.
   if (hit && existsSync(hit)) return hit;
-  let out = path;
+  let format: string | undefined;
+  let buf: Buffer | null = null;
   try {
     const meta = await sharp(path).metadata();
-    if ((meta.width ?? 0) > maxEdge || (meta.height ?? 0) > maxEdge) {
-      const buf = await sharp(path)
+    format = meta.format;
+    const oversized = (meta.width ?? 0) > maxEdge || (meta.height ?? 0) > maxEdge;
+    if (oversized || !SENDABLE_FORMATS.has(String(format))) {
+      buf = await sharp(path)
         .resize({ width: maxEdge, height: maxEdge, fit: 'inside', withoutEnlargement: true })
         .png()
         .toBuffer();
-      out = core.images.pathFor(core.images.save(buf));
     }
   } catch {
-    // An unreadable reference is the engine's error to surface, not ours to eat
-    // here — but it is NOT a result worth remembering. Memoising the fallback
-    // pinned the full-resolution original for that key for the life of the
-    // process, so one transient sharp failure quietly degraded every later run
-    // that touched the same reference. Return it, do not record it.
-    return path;
+    // Neither outcome here is remembered. Memoising a fallback once pinned the
+    // full-resolution original for that key for the life of the process, so
+    // one sharp failure quietly degraded every later run on that reference.
+    //
+    // A file that is not there is still the engine's error to surface, and a
+    // picture in a format every engine reads goes on as it is: a JPEG whose
+    // downscale trips a harmless decoder warning (stray bytes, a short tail)
+    // is still a JPEG the engine reads.
+    if (!existsSync(path) || SENDABLE_FORMATS.has(String(format))) return path;
+    // A file in any other format that cannot be decoded (an HEVC HEIC the
+    // bundled sharp has no codec for) used to go on raw, and the engine drew
+    // without it: a shot paid for and wasted. Saying so before anything is
+    // spent is the one outcome a person can act on.
+    throw Object.assign(
+      new Error(
+        'One of the reference pictures is in a format that cannot be read. Save it as a JPEG or PNG and add it again.',
+      ),
+      { statusCode: 400 },
+    );
   }
+  // Outside the decode on purpose: a store that cannot write is a fault of its
+  // own, never a picture in a format that cannot be read.
+  const out = buf ? core.images.pathFor(core.images.save(buf)) : path;
   cappedRefs.set(key, out);
   return out;
 }

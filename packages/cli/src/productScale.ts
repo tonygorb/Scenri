@@ -1,5 +1,6 @@
-import type { BrandContext, EngineAdapter, EngineResult, GenerateRequest, OnImageLanded } from '@scenri/core';
+import type { BrandContext, Core, EngineAdapter, EngineResult, GenerateRequest, OnImageLanded } from '@scenri/core';
 import type { ScalePlan } from './brief.js';
+import { capReferenceEdge } from './routes/shared.js';
 
 /**
  * A product alone in a place, at its real size.
@@ -220,7 +221,7 @@ export function resolveSize(dimensions: unknown, stored: KnownSize | null): Know
  */
 export async function drawAtScale(o: {
   engine: EngineAdapter;
-  images: { pathFor(hash: string): string };
+  images: Core['images'];
   brand: BrandContext;
   plan: ScalePlan;
   size: ProductSize;
@@ -231,13 +232,24 @@ export async function drawAtScale(o: {
   onImage: OnImageLanded;
 }): Promise<EngineResult> {
   const span = spanCm(o.size.largestCm);
+  // The place and the product never bigger than the engine reads
+  // (`maxReferenceEdge`), as on every other draw: a person's own photograph is
+  // kept at up to 8192 px, and Codex reads a referenced path at its full size.
+  // The plate is the picture each placement edits, so it keeps its pixels, as
+  // a refinement's source frame does.
+  const edge = o.engine.capabilities().maxReferenceEdge;
+  const [scenePath, productPath] = await Promise.all(
+    [o.plan.sceneHash, o.plan.productHash]
+      .map((h) => o.images.pathFor(h))
+      .map((p) => (edge ? capReferenceEdge({ images: o.images }, p, edge) : p)),
+  );
   const plates: GenerateRequest = {
     prompt: platePrompt({ span, picture: true, light: o.plan.light, shot: o.plan.shot }),
     brand: o.brand,
     width: o.width,
     height: o.height,
     count: o.count,
-    referenceImages: [o.images.pathFor(o.plan.sceneHash)],
+    referenceImages: [scenePath],
     referenceRoles: ['scene'],
   };
   const instruction = placeInstruction({
@@ -278,7 +290,7 @@ export async function drawAtScale(o: {
             instruction,
             sourceImage: o.images.pathFor(plate),
             brand: o.brand,
-            referenceImages: [o.images.pathFor(o.plan.productHash)],
+            referenceImages: [productPath],
             referenceRoles: ['product'],
             width: o.width,
             height: o.height,

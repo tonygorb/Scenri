@@ -188,10 +188,26 @@ const tasks = new Map<string, Promise<void>>();
  * What this server read each picture as holding (`SceneDraft.holds`). A
  * reading the studio hands back carries its holds, and "holds nothing" turns
  * the scrub off (`drawSceneAnchor`), so that is believed only of pictures read
- * here. After a restart the cost is one clear edit, never a kept person.
+ * here. The same verdict is kept in the settings store, by picture, so a
+ * restart does not put a clear edit back on every Try again; only the
+ * reader's own verdict is ever written there, never one a studio sent.
  */
 const readHolds = new Map<string, SceneHold[]>();
 const READ_HOLDS_KEPT = 500;
+const holdsKey = (hash: string) => `scene-holds:${hash}`;
+
+/** What this server read a picture as holding, or undefined when it never read it. */
+function heldIn(deps: AssetBuildDeps, hash: string): SceneHold[] | undefined {
+  const known = readHolds.get(hash);
+  if (known) return known;
+  try {
+    const kept = deps.core.store.getSetting(holdsKey(hash));
+    return kept ? holdsFrom(JSON.parse(kept)) : undefined;
+  } catch {
+    // an unreadable verdict is no verdict, and the picture is scrubbed
+    return undefined;
+  }
+}
 
 const fail = (message: string, statusCode = 400) => Object.assign(new Error(message), { statusCode });
 
@@ -524,7 +540,13 @@ export function startSceneStudioJob(deps: AssetBuildDeps, input: StudioJobInput)
     if (!checked.ok) throw fail(checked.error);
     reading = checked.reading;
     // Unknown is scrubbed: "holds nothing" stands only for pictures this server read as holding nothing.
-    if (reading.holds?.length === 0 && !hashes.every((h) => readHolds.get(h)?.length === 0)) delete reading.holds;
+    if (reading.holds?.length === 0 && !hashes.every((h) => heldIn(deps, h)?.length === 0)) delete reading.holds;
+    // A saved scene's words never carry holds (the record does not keep them),
+    // so a Try again from its record paid the clear edit on pictures this
+    // server had already read as clean. Its own verdict stands in when the
+    // words say nothing.
+    else if (reading.holds === undefined && hashes.length && hashes.every((h) => heldIn(deps, h)?.length === 0))
+      reading.holds = [];
   }
   const ask = oneLine(input.ask, ASK_MAX);
   if (kind === 'make') {
@@ -618,7 +640,14 @@ async function read(
     // revises already knew.
     const holds = imagePaths.length ? holdsFrom(draft.holds) : prior?.holds;
     if (imagePaths.length && holds) {
-      for (const h of hashes) readHolds.set(h, holds);
+      for (const h of hashes) {
+        readHolds.set(h, holds);
+        try {
+          deps.core.store.setSetting(holdsKey(h), JSON.stringify(holds));
+        } catch {
+          // Only a cache: a verdict not kept is read again as unknown, and scrubbed.
+        }
+      }
       while (readHolds.size > READ_HOLDS_KEPT) readHolds.delete(readHolds.keys().next().value as string);
     }
     const hero = read.hero ?? prior?.hero;
