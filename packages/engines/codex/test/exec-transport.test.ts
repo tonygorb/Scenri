@@ -64,6 +64,12 @@ describe('execArgs', () => {
     expect(args).toContain('never');
     expect(args).toContain('/work/dir');
   });
+
+  it("runs every exec on gpt-6-sol, whatever the machine's own codex default is", () => {
+    const args = execArgs('/work/dir', 'high');
+    expect(args[args.indexOf('-m') + 1]).toBe('gpt-6-sol');
+    expect(args.indexOf('-m')).toBeLessThan(args.indexOf('-'));
+  });
 });
 
 describe('stdin transport', () => {

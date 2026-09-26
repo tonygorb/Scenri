@@ -127,6 +127,16 @@ export async function readLeftFile(path: string, name: string): Promise<Buffer> 
 }
 
 /**
+ * The model every exec runs on. Scenri used to pass none, so each run took the
+ * machine's codex default (gpt-6-astra since the Codex app moved config.toml),
+ * and on 2026-09-26 eight images cost 56% of a Team plan's 5-hour window, about
+ * four fifths of it the text model's own tokens. gpt-6-sol is the cheaper
+ * frontier model on the same plan. A codex too old to know it refuses before
+ * drawing, and the runner already turns that refusal into "update Codex".
+ */
+export const CODEX_MODEL = 'gpt-6-sol';
+
+/**
  * Shared exec args. The positional tail is `-`, codex's own marker for "read
  * the prompt from stdin": as an argv tail the prompt hit cmd.exe's 8191-char
  * line limit and the win32 quoting substitutions; stdin carries exact bytes on
@@ -140,6 +150,8 @@ export function execArgs(dir: string, effort: ReasoningEffort = 'low'): string[]
     'workspace-write',
     '--color',
     'never',
+    '-m',
+    CODEX_MODEL,
     '-c',
     `model_reasoning_effort="${effort}"`,
     '-C',

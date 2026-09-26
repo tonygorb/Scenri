@@ -87,6 +87,8 @@ describe('the connection check', () => {
       'workspace-write',
       '--color',
       'never',
+      '-m',
+      'gpt-6-sol',
       '-c',
       'model_reasoning_effort="low"',
       '-C',
