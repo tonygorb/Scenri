@@ -1156,7 +1156,10 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     }
     return list;
   });
-  app.put('/api/caps', async (req) => {
+  app.put('/api/caps', async (req, reply) => {
+    // A cap is what stands between a runaway loop and the owner's keys, so it
+    // is the owner's, like the keys themselves: `capUsd: null` removes it.
+    if (!fromThisComputer(req)) return reply.status(403).send({ error: 'Only on the computer running Scenri.' });
     const { engineId, capUsd } = req.body as any;
     core.ledger.setCap(String(engineId), capUsd === null ? null : Number(capUsd));
     return { ok: true };

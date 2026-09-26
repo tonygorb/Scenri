@@ -91,3 +91,31 @@ describe('PUT /api/settings', () => {
     expect(core.store.getSetting('replicate_api_token')).toBe('r8-mine');
   });
 });
+
+describe('PUT /api/caps', () => {
+  // A cap is what stands between a runaway loop and the owner's keys, so it is
+  // the owner's too: `capUsd: null` would remove it outright.
+  const phone = { headers: { host: '192.168.1.20:4747', 'x-access-token': CODE }, remoteAddress: '192.168.1.50' };
+  const here = { headers: { host: '127.0.0.1:4747' } };
+  const setCap = (app: ReturnType<typeof serve>, capUsd: number | null, from: typeof phone | typeof here) =>
+    app.inject({ method: 'PUT', url: '/api/caps', ...from, payload: { engineId: 'openrouter', capUsd } });
+
+  it('refuses a cap from a phone with the code, and keeps the one set', async () => {
+    const app = serve();
+    core.ledger.setCap('openrouter', 20);
+    for (const capUsd of [500, null]) {
+      const res = await setCap(app, capUsd, phone);
+      expect(res.statusCode).toBe(403);
+      expect(res.json().error).toBe('Only on the computer running Scenri.');
+    }
+    expect(core.ledger.capFor('openrouter')).toBe(20);
+  });
+
+  it('still takes a cap on the computer running Scenri', async () => {
+    const app = serve();
+    expect((await setCap(app, 15, here)).statusCode).toBe(200);
+    expect(core.ledger.capFor('openrouter')).toBe(15);
+    expect((await setCap(app, null, here)).statusCode).toBe(200);
+    expect(core.ledger.capFor('openrouter')).toBeNull();
+  });
+});
