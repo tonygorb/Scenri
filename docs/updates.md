@@ -135,8 +135,8 @@ It has two surfaces, one for each reason to look:
   release with something to say, newest first, every update set in the same
   sizes (a headline stands out by its picture, never by bigger type), ten at a
   time with the next ten loading as you scroll (or from the Show older updates
-  button). The recent releases are open; the ones before them are folded to
-  their title and open to the words they shipped with. It ends with **Full
+  button). Every release is open and set the same way, the recent ones and the
+  ones before them alike, as a changelog is. It ends with **Full
   release notes**, the GitHub releases page, which is the archive for every fix
   a record left out. Help → What's new and Settings → Updates open it. It is not
   a place in the top bar. An update has at most one picture, and on the page it
