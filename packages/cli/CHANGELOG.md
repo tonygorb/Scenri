@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.19.0](https://github.com/tonygorb/Scenri/compare/v0.18.2...v0.19.0) (2026-09-26)
+
+
+### Features
+
+* the refreshed Scenri library, every picture at 1536x1920 ([b6d54b3](https://github.com/tonygorb/Scenri/commit/b6d54b314731ad5c30de477bb57b593edda2db28))
+
+
+### Bug Fixes
+
+* **studio:** cards read sharp at every size they are shown ([88a32eb](https://github.com/tonygorb/Scenri/commit/88a32ebc73da2c3ad99bdeebd5f2dd10326a32a5))
+
+
+### Performance Improvements
+
+* **studio:** a first Home cuts its cards once, at the width shown ([04d6c08](https://github.com/tonygorb/Scenri/commit/04d6c08c403d14f789d88ecf8d12501d8fa72469))
+
 ## [0.18.2](https://github.com/tonygorb/Scenri/compare/v0.18.1...v0.18.2) (2026-09-26)
 
 
