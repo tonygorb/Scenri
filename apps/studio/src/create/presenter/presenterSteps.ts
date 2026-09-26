@@ -152,9 +152,11 @@ function candidates(i: StepInputs): Step[] {
   if (!i.canDraw || !readyToDraw(state, ctx)) return [];
   // A person described in words starts drawing the moment nothing is left to
   // ask. The rows end at a read-back and a tap, and the photographs at a
-  // Continue: those two begin from the press, never from here.
+  // Continue: those two begin from the press, never from here. So does a
+  // description said while nothing could draw (`held`): once something can,
+  // it is drawn on Draw the presenter, not the moment the engine appears.
   const src = state.answers.source;
-  return src?.door === 'scratch' && src.via !== 'taps' ? [{ kind: 'start' }] : [];
+  return src?.door === 'scratch' && src.via !== 'taps' && !state.held ? [{ kind: 'start' }] : [];
 }
 
 /**

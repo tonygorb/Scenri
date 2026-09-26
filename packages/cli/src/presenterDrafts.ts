@@ -11,9 +11,10 @@
  *
  * Two sources, one flow. `synthetic` rolls an identity from a sentence and
  * locks it at portrait approval; `photos` starts from the user's own
- * photographs, which stay the truth: a photograph the analyzer files as a
- * usable view fills that slot as the original and is never redrawn, and
- * the rest are generated from the approved views plus the photographs.
+ * photographs, which are evidence: every view, the face included, is drawn
+ * from them and decided like any other, and the originals stay the record's
+ * sources. Either way a person is what an engine draws, so neither starts
+ * without one, and a save never takes a photograph as a view.
  */
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
@@ -699,12 +700,14 @@ export async function createPresenterDraft(
     ...new Set((input.imageHashes ?? []).map(String).filter((h) => HASH.test(h) && core.images.has(h))),
   ].slice(0, SOURCES_MAX);
   if (source === 'synthetic' && !direction) throw fail('describe who they are in a sentence', 400);
-  // A person from a description is nothing but what an engine draws.
-  if (source === 'synthetic' && !deps.engine) throw fail('no engine here can draw a person', 400);
   if (source === 'photos' && !sources.length) throw fail('add at least one photo of this person', 400);
   if (source === 'photos' && !input.attestation) {
     throw fail("confirm you have permission to use this person's likeness", 400);
   }
+  // A person is what an engine draws, from a sentence or from photographs
+  // alike. Photographs used to start a draft anyway, and with nothing to draw
+  // the first upload was saved as the face: a logo became a presenter.
+  if (!deps.engine) throw fail('no engine here can draw a person', 400);
   // Photographs start a read, and a read started now is past the drain's abort.
   if (source === 'photos' && closing) throw restarting();
   // The same conversation asking again is answered with the draft it already made.
@@ -1747,34 +1750,6 @@ export async function redoView(deps: AssetBuildDeps, id: string, view: Presenter
   });
 }
 
-/** One of the user's own photographs, put in a slot by hand. The original is the truth; nothing is drawn. */
-export async function usePhotoForView(
-  deps: AssetBuildDeps,
-  id: string,
-  view: PresenterView,
-  hash: string,
-): Promise<PresenterDraftRecord> {
-  if (!isView(view)) throw fail('no such view', 400);
-  if (running.has(id)) throw fail('a view is still being drawn', 409);
-  const rec = getPresenterDraft(deps.core, id);
-  if (!rec) throw fail('draft not found', 404);
-  if (rec.source !== 'photos' || !rec.sources.includes(hash)) throw fail('that is not one of their photos', 400);
-  return mutate(deps.core, id, (r) => {
-    const slot = r.views[view];
-    if (slot.hash === hash && slot.origin === 'photo') return;
-    const gone = [slot.hash, slot.prior].filter((h): h is string => !!h && !r.sources.includes(h));
-    r.views[view] = {
-      ...emptySlot(),
-      attempts: slot.attempts,
-      rejected: [...slot.rejected, ...gone],
-      status: 'approved',
-      hash,
-      origin: 'photo',
-    };
-    staleDependents(r, view);
-  });
-}
-
 /** The words around the person, and the extras switch. None of these touch a view. */
 export async function updatePresenterDraft(
   core: Core,
@@ -1868,27 +1843,20 @@ async function saveNew(
   const { core } = deps;
   const id = rec.id;
   if (!rec.name.trim()) throw fail('give them a name', 400);
-  // Without an engine the photographs are the presenter: the portrait leads
-  // and the rest follow as they are. Fewer views than a drawn set has, but a
-  // working person rather than a blocked flow, exactly the old build's
-  // fallback. Read off the draft, never the probe alone: a probe that times
-  // out at save time saved a drawn set as its face and dropped the rest.
-  const drawnSet = CORE_VIEWS.some(
-    (v) => v !== 'portrait' && rec.views[v].origin === 'generated' && !!rec.views[v].hash,
-  );
-  const blind = !deps.engine && !drawnSet;
-  // In save order: the core views, then whichever extras were drawn.
-  const required: PresenterView[] = blind
-    ? ['portrait']
-    : [...CORE_VIEWS, ...EXTRA_VIEWS.filter((v) => rec.views[v].status !== 'empty')];
+  // In save order: the core views, then whichever extras were drawn. The same
+  // set with or without an engine: saving draws nothing, so a set drawn before
+  // the engine went away still saves, and a set that was never drawn does not.
+  const required: PresenterView[] = [...CORE_VIEWS, ...EXTRA_VIEWS.filter((v) => rec.views[v].status !== 'empty')];
   for (const v of required) {
     const s = rec.views[v];
     if (s.status === 'stale') throw fail(`redo the ${VIEW_LABEL[v]}: it was built on a view you changed`, 400);
     if (s.status !== 'approved' || !s.hash) throw fail(`approve the ${VIEW_LABEL[v]} first`, 400);
+    // A photograph is evidence, never a view: a draft that holds one as a view
+    // (the old no-engine door left the face that way) is drawn first.
+    if (rec.sources.includes(s.hash)) throw fail(`draw the ${VIEW_LABEL[v]} first`, 400);
   }
-  const approved = required.map((v) => rec.views[v].hash as string);
-  const shots = blind ? [...approved, ...rec.sources.filter((h) => !approved.includes(h))] : approved;
-  const angles = blind ? ['portrait'] : [...required];
+  const shots = required.map((v) => rec.views[v].hash as string);
+  const angles = [...required];
   const portraitFile = `asset:${shots[0]}`;
   const sourceFiles = rec.sources.map((h) => `asset:${h}`);
   const mode = presenterCropMode(portraitFile, sourceFiles, 'portrait');

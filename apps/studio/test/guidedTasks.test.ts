@@ -279,7 +279,6 @@ describe('the later tasks', () => {
       'identity',
       'extras',
       'save',
-      'blind',
       null,
     ];
     for (const open of ids) {
@@ -293,7 +292,6 @@ describe('the later tasks', () => {
       identity: 'face',
       revision: 'face',
       save: 'save',
-      blind: 'save',
     });
     expect(presenterMoment({ studio: { open: 'source' } })).toMatchObject({
       voice: 'ask',

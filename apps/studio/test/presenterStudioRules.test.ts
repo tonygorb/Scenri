@@ -77,25 +77,23 @@ describe('the order: face, full body, three-quarter, then back, left, right', ()
 
 describe('phases', () => {
   it('is identity until the face is used, build until everything stands, then review', () => {
-    expect(phaseOf(draft(), true)).toBe('identity');
-    expect(phaseOf(draft({ views: { portrait: candidate('c') } }), true)).toBe('identity');
-    expect(phaseOf(draft({ views: { portrait: approved('p') } }), true)).toBe('build');
+    expect(phaseOf(draft())).toBe('identity');
+    expect(phaseOf(draft({ views: { portrait: candidate('c') } }))).toBe('identity');
+    expect(phaseOf(draft({ views: { portrait: approved('p') } }))).toBe('build');
     const done = draft({ views: allSix });
-    expect(phaseOf(done, true)).toBe('review');
+    expect(phaseOf(done)).toBe('review');
     // a revision pending on an approved view is not review
-    expect(phaseOf({ ...done, views: { ...done.views, portrait: candidate('c', { prior: 'p' }) } }, true)).toBe(
-      'build',
-    );
+    expect(phaseOf({ ...done, views: { ...done.views, portrait: candidate('c', { prior: 'p' }) } })).toBe('build');
     // drawing is never review
-    expect(phaseOf({ ...done, activeView: 'portrait', stage: 'drawing' }, true)).toBe('build');
+    expect(phaseOf({ ...done, activeView: 'portrait', stage: 'drawing' })).toBe('build');
   });
 
-  it('with no engine, a photos draft with its face is ready to save', () => {
+  it('a photos draft with only its face is never ready to save, whatever can draw', () => {
+    // The old no-engine save took the face alone; with a photograph there, a
+    // logo was saved as somebody's face. The set is the set either way.
     const d = draft({ source: 'photos', sources: ['a'], views: { portrait: approved('a', 'photo') } });
-    expect(phaseOf(d, false)).toBe('review');
-    expect(phaseOf(d, true)).toBe('build');
-    expect(saveBlocker(d, 'Noor', false)).toBeNull();
-    expect(saveBlocker(d, 'Noor', true)).toBe('Use the full body first');
+    expect(phaseOf(d)).toBe('build');
+    expect(saveBlocker(d, 'Noor')).toBe('Use the full body first');
   });
 });
 
@@ -148,7 +146,7 @@ describe('which views a draft is building', () => {
     const d = draft({ views: { portrait: approved('p'), front: approved('f'), back: approved('b') } });
     expect(viewsOf(d)).toEqual(['portrait', 'front', 'three-quarter', 'back']);
     expect(stripItems(d, 'portrait')).toHaveLength(4);
-    expect(saveBlocker({ ...d, views: { ...d.views, 'three-quarter': approved('t') } }, 'Noor', true)).toBeNull();
+    expect(saveBlocker({ ...d, views: { ...d.views, 'three-quarter': approved('t') } }, 'Noor')).toBeNull();
   });
 
   it('asking for the set puts every view in play, drawn or not', () => {
@@ -335,7 +333,7 @@ describe('photos', () => {
       readError: 'the usage limit is used up until 11:17 PM',
       views: { portrait: approved('a', 'photo') },
     });
-    const line = coverageLine(d, true);
+    const line = coverageLine(d);
     expect(line?.tone).toBe('warn');
     expect(line?.text).toBe(
       'The photos could not be read: the usage limit is used up until 11:17 PM. Their face is drawn from them anyway.',
@@ -344,31 +342,22 @@ describe('photos', () => {
 
   it('the coverage line says which views the photos are, and warns about a second person', () => {
     const one = draft({ source: 'photos', sources: ['a'], views: { portrait: approved('a', 'photo') } });
-    expect(coverageLine(one, true)?.text).toBe(
-      'Face from your photo. Full body and three-quarter view are drawn from them.',
-    );
-    // Nothing that can draw: only the face is kept, and the line says so. It
-    // used to claim every view was saved from the photos as they are, which
-    // promised a set that is never made and left the save refusing for a face
-    // nothing had placed.
-    expect(coverageLine(one, false)?.text).toBe('Face from your photo. The other views need an engine that can draw.');
-    // and before anything is placed, it says where the face will come from
+    expect(coverageLine(one)?.text).toBe('Face from your photo. Full body and three-quarter view are drawn from them.');
+    // Before anything is drawn it promises no face from the photo: the face is
+    // drawn from it. It used to say "The face is kept from your photo as it is"
+    // when nothing could draw, and then saved the upload as the face.
     const none = draft({ source: 'photos', sources: ['a'] });
-    expect(coverageLine(none, false)?.text).toBe(
-      'The face is kept from your photo as it is. The other views need an engine that can draw.',
-    );
+    expect(coverageLine(none)?.text).toBe('Face, full body and three-quarter view are drawn from them.');
     const two = draft({
       source: 'photos',
       sources: ['a', 'b'],
       views: { portrait: approved('a', 'photo'), front: approved('b', 'photo') },
     });
-    expect(coverageLine(two, true)?.text).toBe(
-      'Face and full body from your photos. Three-quarter view is drawn from them.',
-    );
-    expect(coverageLine({ ...one, stage: 'analyzing' }, true)).toBeNull();
-    expect(coverageLine(draft(), true)).toBeNull();
+    expect(coverageLine(two)?.text).toBe('Face and full body from your photos. Three-quarter view is drawn from them.');
+    expect(coverageLine({ ...one, stage: 'analyzing' })).toBeNull();
+    expect(coverageLine(draft())).toBeNull();
     const conflict = { ...one, analysis: { conflict: 'the second photo has a rounder face' } };
-    expect(coverageLine(conflict, true)).toEqual({
+    expect(coverageLine(conflict)).toEqual({
       text: 'These photos may show more than one person: the second photo has a rounder face',
       tone: 'warn',
     });

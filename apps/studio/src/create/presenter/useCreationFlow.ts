@@ -78,6 +78,7 @@ import {
   VIEW_NAME,
   worthKeeping,
 } from './presenterStudioRules.js';
+import { NO_ENGINE } from '../../failure.js';
 import { type StepInputs, awaitingAnswers, nextStep, stepKey } from './presenterSteps.js';
 import { usePresenterDraft } from './usePresenterDraft.js';
 
@@ -206,7 +207,16 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
   const setupOpen = useDialogParam('setup').value;
   const settingsOpen = useDialogParam('settings').value;
   const away = !!setupOpen || !!settingsOpen;
-  const canDraw = !!caps?.canGenerate;
+  /**
+   * The server refused a start because nothing can draw, though the studio's
+   * capabilities said something could (a login that lapsed since they were
+   * read). Believed until the capabilities are asked again, so the refusal is
+   * the setup line rather than a raw error under the composer.
+   */
+  const [refused, setRefused] = useState(false);
+  // a fresh answer is what clears it
+  useEffect(() => setRefused(false), [caps]);
+  const canDraw = !!caps?.canGenerate && !refused;
 
   const [state, dispatch] = useReducer(reduce, { brandId: brand.id, convoKey }, (at) => {
     const back = deserialize(session.read(setupKey(at.brandId, at.convoKey)));
@@ -217,6 +227,7 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
           revision: back.revision,
           asides: back.asides,
           extrasDeclined: !!back.extrasDeclined,
+          held: !!back.held,
         }
       : EMPTY_STATE;
   });
@@ -380,10 +391,22 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
    * The draft, made from the answers as they stand. If the answers moved
    * while it was being made, the draft is of somebody else and is let go.
    */
+  /** A start the server refused for want of an engine holds at the setup line; anything else is said as it came. */
+  const refusedOr = useCallback((message: string) => {
+    if (!NO_ENGINE.test(message)) {
+      setAskErr(message);
+      return;
+    }
+    setRefused(true);
+    dispatch({ type: 'hold', held: true });
+  }, []);
+
   const startScratch = useCallback(async () => {
     const st = stateRef.current;
     if (!canDraw || busySetup) return;
     const rev = st.revision;
+    // the press this was held for
+    dispatch({ type: 'hold', held: false });
     setBusySetup(true);
     setAskErr(null);
     try {
@@ -403,16 +426,25 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
       }
       openDraft(draft.id);
     } catch (e: any) {
-      setAskErr(String(e?.message ?? e));
+      refusedOr(String(e?.message ?? e));
     } finally {
       setBusySetup(false);
     }
-  }, [brand.id, canDraw, busySetup, openDraft, convoKey]);
+  }, [brand.id, canDraw, busySetup, openDraft, convoKey, refusedOr]);
 
   const startPhotos = useCallback(async () => {
     const st = stateRef.current;
     const photos = st.answers.photos;
     if (!photos?.hashes.length || !photos.attested || busySetup) return;
+    // Continue draws the face from them, so with nothing to draw it stops here,
+    // the photographs kept, and asks for Set up: exactly where a description
+    // stops. It used to open a draft anyway and offer to save the first upload
+    // as the face, which is how a logo became somebody's presenter.
+    if (!canDraw) {
+      dispatch({ type: 'hold', held: true });
+      return;
+    }
+    dispatch({ type: 'hold', held: false });
     const rev = st.revision;
     setBusySetup(true);
     setAskErr(null);
@@ -429,11 +461,11 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
       }
       openDraft(draft.id);
     } catch (e: any) {
-      setAskErr(String(e?.message ?? e));
+      refusedOr(String(e?.message ?? e));
     } finally {
       setBusySetup(false);
     }
-  }, [brand.id, busySetup, openDraft, convoKey]);
+  }, [brand.id, canDraw, busySetup, openDraft, convoKey, refusedOr]);
 
   /**
    * The photographs a person just chose, taken one at a time.
@@ -492,15 +524,18 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
   const commitAnswer = useCallback(
     (patch: Partial<Answers>) => {
       dispatch({ type: 'answer', patch, ctx });
+      // A description said while nothing can draw waits for Draw the presenter
+      // once something can, rather than drawing the moment an engine appears.
+      if (!canDraw && patch.describe !== undefined) dispatch({ type: 'hold', held: true });
     },
-    [ctx],
+    [ctx, canDraw],
   );
 
   const save = useCallback(
     async (from?: PresenterDraft) => {
       const draft = from ?? d;
       if (!draft || saving) return;
-      const blocker = saveBlocker(draft, draft.name, canDraw);
+      const blocker = saveBlocker(draft, draft.name);
       if (blocker) {
         setSaveErr(blocker);
         return;
@@ -524,36 +559,6 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
     },
     [d, saving, canDraw, brand.id, facets, clearSetup, onStarted, applyBrand],
   );
-
-  /**
-   * No engine, and photographs: the face is one of their own pictures.
-   *
-   * Nothing here can draw, and `filePhotos` deliberately adopts nothing, so
-   * the face slot is empty and stays empty. This path offered "Save with
-   * photos", refused it with "Use the face first", and had no control anywhere
-   * that placed one: a dead end reachable by anyone who opens Scenri before
-   * setting an engine up. The first photograph is the face, placed here, and
-   * the save runs against the draft that comes back rather than the one this
-   * closure was rendered with.
-   */
-  const saveFromPhotos = useCallback(async () => {
-    if (!d || saving) return;
-    const first = d.sources?.[0];
-    if (!first || d.views.portrait.status === 'approved') {
-      void save();
-      return;
-    }
-    setSaving(true);
-    setSaveErr(null);
-    try {
-      const placed = await api.placeDraftPhoto(brand.id, d.id, 'portrait', first);
-      setSaving(false);
-      await save(placed);
-    } catch (e: any) {
-      setSaving(false);
-      setSaveErr(String(e?.message ?? e));
-    }
-  }, [d, saving, brand.id, save]);
 
   /**
    * Begin again, without throwing drawn work away.
@@ -782,7 +787,8 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
         }
         case 'noengine':
           if (a.kind === 'confirm' && a.id === 'setup') openSetup();
-          if (a.kind === 'confirm' && a.id === 'photos') commitAnswer({ source: { door: 'photos', via: 'taps' } });
+          // back to the photographs, every one still there
+          if (a.kind === 'confirm' && a.id === 'change') dispatch({ type: 'hold', held: false });
           return;
         case 'agree': {
           if (a.kind !== 'confirm') return;
@@ -854,11 +860,6 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
           if (a.kind !== 'confirm') return;
           if (a.id === 'add') void s.update({ extras: true });
           if (a.id === 'save') dispatch({ type: 'extras-declined' });
-          return;
-        case 'blind':
-          if (a.kind !== 'confirm') return;
-          if (a.id === 'save') void saveFromPhotos();
-          if (a.id === 'setup') openSetup();
           return;
         case 'save':
           void save();

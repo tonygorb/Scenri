@@ -84,6 +84,13 @@ export interface CreationState {
   unsure: Unsure | null;
   /** "Not now" was chosen once; the extras question is not asked again. */
   extrasDeclined: boolean;
+  /**
+   * Drawing was asked for while nothing could draw: Continue on the
+   * photographs, or a description that was whole. The photographs stay, the
+   * way on is Set up, and once something can draw the draft still waits for
+   * its own press (Continue, Draw the presenter), never starting by itself.
+   */
+  held: boolean;
   /** Uploads in flight. */
   uploading: number;
 }
@@ -100,6 +107,7 @@ export const EMPTY_STATE: CreationState = {
   asides: [],
   unsure: null,
   extrasDeclined: false,
+  held: false,
   uploading: 0,
 };
 
@@ -139,10 +147,19 @@ export type Action =
   | { type: 'remove-photo'; hash: string }
   | { type: 'attest'; checked: boolean }
   | { type: 'extras-declined' }
+  /** Drawing was asked for and nothing can draw; or the press that draws, or Change photos, lets it go. */
+  | { type: 'hold'; held: boolean }
   /** Everything goes, except words to start the next person from. */
   | { type: 'start-over'; text?: string }
   /** What the session remembered, at a reload. */
-  | { type: 'restore'; answers: Answers; revision: number; asides?: Aside[]; extrasDeclined?: boolean };
+  | {
+      type: 'restore';
+      answers: Answers;
+      revision: number;
+      asides?: Aside[];
+      extrasDeclined?: boolean;
+      held?: boolean;
+    };
 
 const same = (x: unknown, y: unknown) => JSON.stringify(x) === JSON.stringify(y);
 
@@ -459,6 +476,8 @@ export function reduce(s: CreationState, action: Action): CreationState {
     }
     case 'extras-declined':
       return { ...s, extrasDeclined: true };
+    case 'hold':
+      return s.held === action.held ? s : { ...s, held: action.held };
     case 'start-over':
       return { ...EMPTY_STATE, revision: s.revision + 1, text: action.text ?? '' };
     case 'restore':
@@ -468,6 +487,7 @@ export function reduce(s: CreationState, action: Action): CreationState {
         revision: action.revision,
         asides: action.asides ?? [],
         extrasDeclined: !!action.extrasDeclined,
+        held: !!action.held,
       };
   }
 }
@@ -507,6 +527,9 @@ export function serialize(s: CreationState): string {
     // again after every reload, one Enter or click from three draws. Optional,
     // so a copy written before it reads back unchanged.
     ...(s.extrasDeclined ? { extrasDeclined: true } : {}),
+    // Also a decision: a reload after Set up must not draw what the press
+    // that was refused asked for. Optional, like the one above.
+    ...(s.held ? { held: true } : {}),
   });
 }
 
@@ -573,7 +596,7 @@ function upgrade(id: Qid, v: unknown): unknown {
 
 export function deserialize(
   raw: string | null,
-): { answers: Answers; revision: number; asides: Aside[]; extrasDeclined?: true } | null {
+): { answers: Answers; revision: number; asides: Aside[]; extrasDeclined?: true; held?: true } | null {
   if (!raw) return null;
   try {
     const p = JSON.parse(raw) as {
@@ -582,6 +605,7 @@ export function deserialize(
       revision?: number;
       asides?: unknown;
       extrasDeclined?: unknown;
+      held?: unknown;
     };
     // v2 wrote the last-moment detail as bare words; it carries a picture now.
     // v3 kept no asides, and reads back with none rather than being thrown away.
@@ -605,6 +629,7 @@ export function deserialize(
       revision: typeof p.revision === 'number' ? p.revision : 0,
       asides,
       ...(p.extrasDeclined === true ? { extrasDeclined: true as const } : {}),
+      ...(p.held === true ? { held: true as const } : {}),
     };
   } catch {
     return null;

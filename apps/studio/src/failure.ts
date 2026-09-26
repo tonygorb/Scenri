@@ -60,6 +60,9 @@ export interface Failure {
  */
 const SOME_ENGINE = 'the engine';
 
+/** The server's refusal to start a person with nothing that can draw one (`presenterDrafts.ts`). */
+export const NO_ENGINE = /no engine here can draw/i;
+
 /**
  * The table. Ordered — first match wins — so the specific patterns come before
  * the general ones they would otherwise be swallowed by. Every `re` here is
@@ -219,6 +222,28 @@ const RULES: Rule[] = [
   },
 
   // ---- the machine ----
+  /**
+   * Nothing here can draw, or read pictures, and the server said so: the
+   * studio checks first, so these arrive only when what it knew went stale
+   * (a login that lapsed after the studio opened). Said as the setup line the
+   * studio shows before a press, with its one way on, never as a bare 400.
+   */
+  {
+    re: NO_ENGINE,
+    kind: 'setup',
+    title: () => 'Image generation is not set up yet.',
+    fix: 'Set it up, and this goes on from where it stopped.',
+    remedy: { label: 'Set up', opens: 'setup' },
+    retryable: false,
+  },
+  {
+    re: /reading pictures needs codex/i,
+    kind: 'setup',
+    title: () => 'Reading pictures needs Codex, which is not set up yet.',
+    fix: 'Set it up, and the pictures are read from where they are.',
+    remedy: { label: 'Set up', opens: 'setup' },
+    retryable: false,
+  },
   {
     re: /failed to spawn codex|codex.*enoent|command not found/i,
     kind: 'setup',

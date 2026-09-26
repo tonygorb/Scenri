@@ -14,7 +14,6 @@ import {
   revertView,
   savePresenterDraft,
   updatePresenterDraft,
-  usePhotoForView,
   type PresenterDraftRecord,
 } from '../presenterDrafts.js';
 import { PRESENTER_VIEWS, type PresenterView } from '../presenterPrompts.js';
@@ -191,14 +190,6 @@ export function registerPresenterDraftRoutes(
     if (!draft) return;
     const hash = String((req.body as { hash?: unknown } | null)?.hash ?? '');
     return answer(reply, async () => restoreView(await buildDeps(), draft.id, viewOf(req), hash));
-  });
-  app.post('/api/brands/:id/presenter-drafts/:draftId/views/:view/use-photo', async (req, reply) => {
-    const draft = draftOr404(req, reply);
-    if (!draft) return;
-    const body = (req.body ?? {}) as any;
-    return answer(reply, async () =>
-      usePhotoForView(await buildDeps(), draft.id, viewOf(req), String(body.hash ?? '')),
-    );
   });
   app.post('/api/brands/:id/presenter-drafts/:draftId/save', async (req, reply) => {
     const draft = draftOr404(req, reply);

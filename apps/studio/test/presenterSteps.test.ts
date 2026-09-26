@@ -170,6 +170,13 @@ describe('what the flow does next', () => {
     expect(fresh?.kind === 'sync' && fresh.redo).toBeNull();
   });
 
+  it('a description said while nothing could draw waits for its press once something can', () => {
+    // held: said at the setup wall. The engine arriving is not a press, so the
+    // read-back asks Draw the presenter instead of drawing on its own.
+    expect(nextStep(inputs({ state: { ...EMPTY_STATE, answers: TYPED, held: true } }))).toBeNull();
+    expect(nextStep(inputs({ state: { ...EMPTY_STATE, answers: TYPED, held: true }, canDraw: false }))).toBeNull();
+  });
+
   it('starts a draft from a description the moment nothing is left to ask, and never from the rows', () => {
     expect(nextStep(inputs({ state: { ...EMPTY_STATE, answers: TYPED } }))).toEqual({ kind: 'start' });
     // the rows end at a read-back and a tap: the press starts it, not this

@@ -40,6 +40,18 @@ const REAL = {
 };
 
 describe('describeFailure', () => {
+  it('reads a server refusal for want of an engine or a reader as the setup, never a retry', () => {
+    for (const raw of [
+      'no engine here can draw a person',
+      'Reading pictures needs Codex. Describe the place in words, or set up Codex.',
+    ]) {
+      const f = describeFailure(raw);
+      expect(f.kind).toBe('setup');
+      expect(f.remedy).toEqual({ label: 'Set up', opens: 'setup' });
+      expect(f.retryable).toBe(false);
+    }
+  });
+
   it('names the missing key, and does not offer a retry that cannot work', () => {
     const f = describeFailure(REAL.openrouter401, 'OpenRouter');
     expect(f.kind).toBe('auth');
