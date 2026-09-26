@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { isolate } from './harness.js';
+import { expectOneRhythm, readChapters, settledChapters } from './homeChapters.js';
 
 /**
  * Home without the dock.
@@ -78,4 +79,10 @@ test('a tablet keeps the docked composer on Home', async ({ page }) => {
   await expect(startToast(page).first()).toBeVisible();
   expect(new URL(page.url()).pathname).toBe(hub);
   await expect(dock(page)).toBeVisible();
+});
+
+test('the shelves keep the wall grid and one section beat', async ({ page }) => {
+  // touch puts a name under a shelf card, and the chapters still keep one beat
+  await settledChapters(page);
+  expectOneRhythm(await readChapters(page));
 });

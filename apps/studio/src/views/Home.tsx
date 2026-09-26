@@ -18,7 +18,7 @@ import { PREF, useLocalPref } from '../prefs.js';
 import { useToasts } from '../toasts.js';
 import { showcaseCategoryLabel, sortShowcaseCategories } from '../showcaseCategories.js';
 import { DensityControl, WallDensityCtx, densitySize, densityWallStyle } from '../layout/DensityControl.js';
-import { DENSITY_DEFAULT, normalizeDensity, type DensityCols } from '../layout/masonry.js';
+import { DENSITY_DEFAULT, SHELF_LENGTH, normalizeDensity, type DensityCols } from '../layout/masonry.js';
 import { Composer } from '../layout/Composer.js';
 import { ComposerDock } from '../layout/ComposerDock.js';
 import { ImportBar } from '../layout/ImportBar.js';
@@ -92,6 +92,8 @@ export function HomeView() {
   const setDensity = (cols: DensityCols) => setDensityRaw(cols);
   const wallStyle = densityWallStyle(density);
   const densityAttr = densitySize(density);
+  /** The shelves share the wall's columns, so their length follows its density. */
+  const shelfLength = SHELF_LENGTH[density];
 
   /** Every way in lands on the same hub, differing only in what it carries. */
   const toCreate = (qs?: Record<string, string>) => {
@@ -205,8 +207,8 @@ export function HomeView() {
     toCreate(sceneId ? { scene: sceneId, attach: 'products', compose: '1' } : { attach: 'products', compose: '1' });
   };
 
-  /** The Scenes shelf: bookmarked first, catalog order under that. Eight tiles
-   * is a glance, and the ones you shortlisted are the ones worth glancing at.
+  /** The Scenes shelf: bookmarked first, catalog order under that. A shelf is
+   * a glance, and the ones you shortlisted are the ones worth glancing at.
    * Read per render rather than held in state — the shelf is rebuilt on every
    * visit to Home, which is exactly when a bookmark set on /scenes should show
    * up. */
@@ -214,8 +216,8 @@ export function HomeView() {
    * wall and in the picker. It read the catalog alone, so somebody cast a
    * moment ago was structurally absent from the one page that opens the app. */
   const shelfPresenters = useMemo(
-    () => withCustomFirst(customPresentersOf(brand), presenters).slice(0, 8),
-    [brand, presenters],
+    () => withCustomFirst(customPresentersOf(brand), presenters).slice(0, shelfLength),
+    [brand, presenters, shelfLength],
   );
 
   const shelfScenes = useMemo(() => {
@@ -227,8 +229,8 @@ export function HomeView() {
     return withCustomFirst(
       customScenesOf(brand),
       bookmarkedFirst(templates, (s) => marks.includes(s.id)),
-    ).slice(0, 8);
-  }, [templates, brand]);
+    ).slice(0, shelfLength);
+  }, [templates, brand, shelfLength]);
 
   /** Curated create-strip heroes — preferred showcase/scene ids in quality
    * order. Claimed uniquely so the row never repeats a still. */
@@ -340,108 +342,124 @@ export function HomeView() {
             />
           </div>
 
-          {!showcaseLoaded && (
-            <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle} aria-hidden>
-              <ShowcaseCardSkeleton size="grid" count={8} />
-            </div>
-          )}
-
-          {showcaseLoaded && showcaseError && (
-            <p className="sc-feed-empty">
-              Couldn't load the showcase gallery.{' '}
-              <button type="button" className="sc-sec-more" onClick={() => refetchShowcase()}>
-                Retry
-              </button>
-            </p>
-          )}
-
-          {showcaseLoaded && !showcaseError && showcase.length > 0 && (
-            <>
-              <LibraryToolbar
-                filters={<FacetFilter mode="tabs" group={categoryFacet} />}
-                search={
-                  showcase.length >= SEARCH_MIN && (
-                    <LibrarySearch value={q} onChange={setQ} noun="examples" total={showcase.length} />
-                  )
-                }
-                density={<DensityControl value={density} onChange={setDensity} />}
-              />
-
-              {shownShowcase.length > 0 && (
-                <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
-                  {shownShowcase.map((s) => (
-                    <ShowcaseCard
-                      key={s.id}
-                      entry={s}
-                      size="grid"
-                      hideRecipe
-                      onOpen={openShowcase}
-                      productHref={(id) => productPath(brand, id)}
-                      presenterHref={(id) => presenterPath(brand, id)}
-                      sceneHref={(id) => scenePath(brand, id)}
-                      {...recipeOf(s)}
-                    />
-                  ))}
+          {/* Three chapters, each its own section: the wall with the row that
+            filters it, then the two shelves. The row sticks only as far as its
+            section runs, and home.css spaces each section from the one above. */}
+          {(!showcaseLoaded || showcaseError || showcase.length > 0) && (
+            <section>
+              {!showcaseLoaded && (
+                <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle} aria-hidden>
+                  <ShowcaseCardSkeleton size="grid" count={8} />
                 </div>
               )}
 
-              {shownShowcase.length === 0 &&
-                (searching ? (
-                  <LibraryZero
-                    noun="examples"
-                    q={q}
-                    facet={category ? showcaseCategoryLabel(category) : null}
-                    onClearSearch={clearSearch}
-                    onClearAll={clear}
+              {showcaseLoaded && showcaseError && (
+                <p className="sc-feed-empty">
+                  Couldn't load the showcase gallery.{' '}
+                  <button type="button" className="sc-sec-more" onClick={() => refetchShowcase()}>
+                    Retry
+                  </button>
+                </p>
+              )}
+
+              {showcaseLoaded && !showcaseError && showcase.length > 0 && (
+                <>
+                  <LibraryToolbar
+                    filters={<FacetFilter mode="tabs" group={categoryFacet} />}
+                    search={
+                      showcase.length >= SEARCH_MIN && (
+                        <LibrarySearch value={q} onChange={setQ} noun="examples" total={showcase.length} />
+                      )
+                    }
+                    density={<DensityControl value={density} onChange={setDensity} />}
                   />
-                ) : (
-                  <p className="sc-looks-empty">No example carries that category yet.</p>
-                ))}
-            </>
+
+                  {shownShowcase.length > 0 && (
+                    <div
+                      className="sc-masonry"
+                      data-wall
+                      data-density
+                      data-density-size={densityAttr}
+                      style={wallStyle}
+                    >
+                      {shownShowcase.map((s) => (
+                        <ShowcaseCard
+                          key={s.id}
+                          entry={s}
+                          size="grid"
+                          hideRecipe
+                          onOpen={openShowcase}
+                          productHref={(id) => productPath(brand, id)}
+                          presenterHref={(id) => presenterPath(brand, id)}
+                          sceneHref={(id) => scenePath(brand, id)}
+                          {...recipeOf(s)}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {shownShowcase.length === 0 &&
+                    (searching ? (
+                      <LibraryZero
+                        noun="examples"
+                        q={q}
+                        facet={category ? showcaseCategoryLabel(category) : null}
+                        onClearSearch={clearSearch}
+                        onClearAll={clear}
+                      />
+                    ) : (
+                      <p className="sc-looks-empty">No example carries that category yet.</p>
+                    ))}
+                </>
+              )}
+            </section>
           )}
 
-          {!presentersLoaded && (
-            <div className="sc-masonry" aria-hidden>
-              <PresenterCardSkeleton size="grid" count={8} />
-            </div>
-          )}
-
-          {presentersLoaded && shelfPresenters.length > 0 && (
-            <>
+          {/* A shelf keeps its heading while its cards load, so nothing arrives
+            above its grid, and the grid reads the wall's density the way every
+            library grid does, so the columns agree down the page. */}
+          {(!presentersLoaded || shelfPresenters.length > 0) && (
+            <section>
               <div className="sc-sec-head">
-                <span className="sc-sec-title">Presenters</span>
+                <h2 className="sc-sec-title">Presenters</h2>
                 <Link className="sc-sec-more" to={presentersPath(brand)}>
                   Browse presenters
                 </Link>
               </div>
-              <div className="sc-masonry">
-                {shelfPresenters.map((p) => (
-                  <PresenterCard key={p.id} presenter={p} variant="navigate" size="grid" onOpen={applyPresenter} />
-                ))}
-              </div>
-            </>
+              {presentersLoaded ? (
+                <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle}>
+                  {shelfPresenters.map((p) => (
+                    <PresenterCard key={p.id} presenter={p} variant="navigate" size="grid" onOpen={applyPresenter} />
+                  ))}
+                </div>
+              ) : (
+                <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle} aria-hidden>
+                  <PresenterCardSkeleton size="grid" count={shelfLength} />
+                </div>
+              )}
+            </section>
           )}
 
-          {!scenesLoaded && (
-            <div className="sc-masonry" aria-hidden>
-              <SceneCardSkeleton size="grid" count={8} />
-            </div>
-          )}
-
-          {scenesLoaded && templates.length > 0 && (
-            <>
+          {(!scenesLoaded || shelfScenes.length > 0) && (
+            <section>
               <div className="sc-sec-head">
-                <span className="sc-sec-title">Scenes</span>
+                <h2 className="sc-sec-title">Scenes</h2>
                 <Link className="sc-sec-more" to={scenesPath(brand)}>
                   Browse scenes
                 </Link>
               </div>
-              <div className="sc-masonry">
-                {shelfScenes.map((s) => (
-                  <SceneCard key={s.id} scene={s} variant="navigate" size="grid" onOpen={applyScene} />
-                ))}
-              </div>
-            </>
+              {scenesLoaded ? (
+                <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle}>
+                  {shelfScenes.map((s) => (
+                    <SceneCard key={s.id} scene={s} variant="navigate" size="grid" onOpen={applyScene} />
+                  ))}
+                </div>
+              ) : (
+                <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle} aria-hidden>
+                  <SceneCardSkeleton size="grid" count={shelfLength} />
+                </div>
+              )}
+            </section>
           )}
         </main>
 
