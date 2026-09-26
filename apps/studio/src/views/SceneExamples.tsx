@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react';
 import { WarningCircle } from '@phosphor-icons/react';
-import { api, type SceneView, thumbOf } from '../api.js';
+import { api, type SceneView, thumbOf, tileSrcSet } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useApplyScene } from '../app/useApplyScene.js';
 import { type CustomScene, coverViewOf } from '../brandAssets.js';
@@ -170,7 +170,7 @@ export function SceneExamples({
             aria-label={`${place.label}, open`}
             onClick={() => setOpen(place)}
           >
-            <Shown src={thumbOf(place.src, 'tile')} />
+            <Shown src={thumbOf(place.src, 'tile')} srcSet={tileSrcSet(place.src)} />
           </button>
           <SceneViewActions
             variant="tile"
@@ -228,7 +228,7 @@ export function SceneExamples({
           aria-label={`The place${coverView === 'place' ? ', the cover' : ''}, open`}
           onClick={() => setOpen(place)}
         >
-          <Shown src={thumbOf(place.src, 'small')} />
+          <Shown src={thumbOf(place.src, 'tile')} srcSet={tileSrcSet(place.src)} />
         </button>
         <SceneViewActions
           variant="tile"
@@ -262,7 +262,7 @@ export function SceneExamples({
               <li>
                 {t.state === 'drawing' ? (
                   <span className="sc-refset-tile" data-state="drawing" role="img" aria-label={`${label}, drawing`}>
-                    {t.url && <Shown src={thumbOf(t.url, 'small')} />}
+                    {t.url && <Shown src={thumbOf(t.url, 'tile')} srcSet={tileSrcSet(t.url)} />}
                     <span className="sc-shimmer" aria-hidden />
                   </span>
                 ) : t.state === 'failed' ? (
@@ -284,7 +284,7 @@ export function SceneExamples({
                       aria-label={`${label}${coverView === t.role ? ', the cover' : ''}, open`}
                       onClick={openTile}
                     >
-                      <Shown src={thumbOf(t.url as string, 'small')} />
+                      <Shown src={thumbOf(t.url as string, 'tile')} srcSet={tileSrcSet(t.url)} />
                     </button>
                     <SceneViewActions
                       variant="tile"

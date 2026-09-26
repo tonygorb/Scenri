@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
@@ -243,6 +243,36 @@ describe('presenter catalog + direct-attach API', () => {
     expect(ok.headers['content-type']).toBe('image/jpeg');
     const missing = await app.inject({ method: 'GET', url: '/api/presenter-thumbnails/nope.jpg' });
     expect(missing.statusCode).toBe(404);
+  });
+
+  it("cuts the card's sized copies from the full-size portrait once the library has it", async () => {
+    const before = await app.inject({ method: 'GET', url: '/api/presenter-thumbnails/sana.jpg?w=640' });
+    expect(before.headers.etag).toMatch(/^"presenter-sana-\d+-w640"$/);
+    const urlBefore = (await app.inject({ method: 'GET', url: '/api/presenters' })).json().presenters[0].previewUrl;
+
+    const portrait = join(refDir, 'portrait.jpg');
+    writeFileSync(
+      portrait,
+      await sharp({ create: { width: 800, height: 1000, channels: 3, background: '#778899' } })
+        .jpeg()
+        .toBuffer(),
+    );
+    const later = new Date(Date.now() + 60_000);
+    utimesSync(portrait, later, later);
+
+    const sized = await app.inject({ method: 'GET', url: '/api/presenter-thumbnails/sana.jpg?w=640' });
+    expect(sized.headers.etag).toMatch(/^"presenter-portrait-sana-\d+-w640"$/);
+    expect((await sharp(sized.rawPayload).metadata()).width).toBe(640);
+    // the 960 is a width like the others, and a small source is never enlarged to it
+    const large = await app.inject({ method: 'GET', url: '/api/presenter-thumbnails/sana.jpg?w=960' });
+    expect((await sharp(large.rawPayload).metadata()).width).toBe(800);
+    // the plain JPEG is still the card an install carries
+    const full = await app.inject({ method: 'GET', url: '/api/presenter-thumbnails/sana.jpg' });
+    expect((await sharp(full.rawPayload).metadata()).width).toBe(4);
+    // and the card's URL moves with the portrait, so no browser keeps the small copy's derivative
+    const urlAfter = (await app.inject({ method: 'GET', url: '/api/presenters' })).json().presenters[0].previewUrl;
+    expect(urlAfter).toBe(`/api/presenter-thumbnails/sana.jpg?v=${later.getTime()}`);
+    expect(urlAfter).not.toBe(urlBefore);
   });
 
   it("lists a presenter's reference frames, and answers empty rather than 404 for one with no set", async () => {

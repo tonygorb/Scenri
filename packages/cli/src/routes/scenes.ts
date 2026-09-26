@@ -14,6 +14,19 @@ export function registerSceneRoutes(
 ): void {
   const { templatesRoot, scenes, thumbs, core } = deps;
   const previewPath = (id: string) => contentFile(templatesRoot, 'previews', `${id}.jpg`);
+  // The card is the scene's cover picture, whole, at 720 wide so an install can
+  // carry it. Its derivatives come from the library's full-size cover once that
+  // is here, under the frame's own key, so the card and the page share one file.
+  const coverSlot = (id: string) => slotOfView(scenes.find((s) => s.id === id)?.cover ?? 'place');
+  const coverPath = (id: string) => {
+    const slot = coverSlot(id);
+    return slot ? contentFile(templatesRoot, 'previews', id, `${slot}.jpg`) : previewPath(id);
+  };
+  const cardSource = (id: string) => {
+    const slot = coverSlot(id);
+    const path = coverPath(id);
+    return slot && existsSync(path) ? { path, key: fileKey('scene-frame', `${id}-${slot}`, path) } : undefined;
+  };
   // chips tint from their template's own preview; extracted once per process
   const previewColors = new Map<string, string | null>();
   const previewColor = async (id: string) => {
@@ -25,7 +38,9 @@ export function registerSceneRoutes(
   };
   const decorate = async (s: Scene) => ({
     ...s,
-    previewUrl: existsSync(previewPath(s.id)) ? `/api/scene-thumbnails/${s.id}.jpg${mtimeQS(previewPath(s.id))}` : null,
+    previewUrl: existsSync(previewPath(s.id))
+      ? `/api/scene-thumbnails/${s.id}.jpg${mtimeQS(previewPath(s.id), coverPath(s.id))}`
+      : null,
     previewColor: await previewColor(s.id),
   });
   app.get('/api/scenes', async () => ({
@@ -39,7 +54,7 @@ export function registerSceneRoutes(
     if (!m || !existsSync(previewPath(m[1]))) return reply.status(404).send({ error: 'no preview' });
     // `?w=` for the cards and the picker: a 720px preview is 90 KB, a page of them 4 MB
     const path = previewPath(m[1]);
-    return serveJpegSized(req, reply, path, thumbs, fileKey('scene', m[1], path));
+    return serveJpegSized(req, reply, path, thumbs, fileKey('scene', m[1], path), cardSource(m[1]));
   });
   // A scene's reference set: several frames sharing one light, one per subject.
   // Both segments are pattern-guarded, so nothing outside previews/ is reachable.

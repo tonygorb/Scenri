@@ -418,6 +418,23 @@ describe('product uploads + scene generation via API', () => {
     expect((await app.inject({ method: 'GET', url: '/api/scene-previews/../../etc' })).statusCode).toBe(404);
   });
 
+  it("sizes a scene's card from its full-size cover, and keeps the card itself for a plain ask", async () => {
+    const scene = (await app.inject({ method: 'GET', url: '/api/scenes' }))
+      .json()
+      .scenes.find((s: any) => s.id === 'waterline-caustics');
+    const { views } = (await app.inject({ method: 'GET', url: '/api/scene-previews/waterline-caustics' })).json();
+    const cover = views.find((v: any) => v.view === (scene.cover ?? 'place'));
+    const slot = /(ref-\d\d)\.jpg/.exec(cover.url)?.[1];
+    // the card and the cover's own frame are one derivative, cut from the full-size picture
+    const sized = await app.inject({ method: 'GET', url: '/api/scene-thumbnails/waterline-caustics.jpg?w=960' });
+    expect(sized.statusCode).toBe(200);
+    expect(sized.headers.etag).toMatch(new RegExp(`^"scene-frame-waterline-caustics-${slot}-\\d+-w960"$`));
+    expect((await sharp(sized.rawPayload).metadata()).width).toBe(960);
+    const full = await app.inject({ method: 'GET', url: '/api/scene-thumbnails/waterline-caustics.jpg' });
+    expect(full.headers['content-type']).toBe('image/jpeg');
+    expect((await sharp(full.rawPayload).metadata()).width).toBe(720);
+  });
+
   it('names each frame by what it shows, and hands one to a shot as a picture in the store', async () => {
     const { views } = (await app.inject({ method: 'GET', url: '/api/scene-previews/waterline-caustics' })).json();
     expect(views.map((v: any) => v.view)).toEqual(['place', 'hero', 'close', 'angle', 'bold']);

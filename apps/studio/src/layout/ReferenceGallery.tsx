@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { CaretLeft, CaretRight, ImageSquare } from '@phosphor-icons/react';
-import { nodeLabel, type FeedNode, thumbUrl } from '../api.js';
+import { nodeLabel, type FeedNode, TILE_SIZES, thumbUrl } from '../api.js';
 
 /**
  * Shared between `ScenePage` and `PresenterPage`: the reference-frame grid,
@@ -35,7 +35,7 @@ export function RefFrame({ src }: { src: string }) {
  * older than a sweep), and without this the browser drew its own broken glyph
  * instead of saying so.
  */
-export function Shown({ src, crop }: { src: string; crop?: string }) {
+export function Shown({ src, srcSet, crop }: { src: string; srcSet?: string; crop?: string }) {
   const [broken, setBroken] = useState(false);
   if (broken)
     return (
@@ -46,6 +46,7 @@ export function Shown({ src, crop }: { src: string; crop?: string }) {
   return (
     <img
       src={src}
+      {...(srcSet ? { srcSet, sizes: TILE_SIZES } : {})}
       alt=""
       loading="lazy"
       decoding="async"

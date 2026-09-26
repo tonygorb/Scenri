@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { api, type Scene, type SceneSetup, type SceneView, thumbOf } from '../api.js';
+import { api, type Scene, type SceneSetup, type SceneView, thumbOf, tileSrcSet } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useMadeWith } from './useMadeWith.js';
@@ -446,7 +446,7 @@ export function ScenePage() {
                     aria-label={`${f.label}, open`}
                     onClick={() => setOpen(f)}
                   >
-                    <Shown src={thumbOf(f.src, 'small')} />
+                    <Shown src={thumbOf(f.src, 'tile')} srcSet={tileSrcSet(f.src)} />
                   </button>
                   {f.view && (
                     <SceneViewActions
@@ -471,7 +471,7 @@ export function ScenePage() {
               aria-label={`${frames[0].label}, open`}
               onClick={() => setOpen(frames[0])}
             >
-              <Shown src={thumbOf(frames[0].src, 'tile')} />
+              <Shown src={thumbOf(frames[0].src, 'tile')} srcSet={tileSrcSet(frames[0].src)} />
             </button>
           </div>
         ) : (

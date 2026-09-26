@@ -2,15 +2,34 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { assetThumbUrl, imgUrl, thumbOf, thumbUrl } from '../src/apiUploads.js';
+import { assetThumbUrl, imgUrl, thumbOf, thumbUrl, tileSrcSet } from '../src/apiUploads.js';
 
 const HASH = 'a'.repeat(32);
 
+describe('a card offers two widths and lets the browser choose', () => {
+  it('pairs the 640 with the 960 for any picture with a derivative route', () => {
+    const scene = '/api/scene-thumbnails/linen.jpg?v=7';
+    expect(tileSrcSet(scene)).toBe(`${scene}&w=640 640w, ${scene}&w=960 960w`);
+    // already sized: the same two, never a third
+    expect(tileSrcSet(`${scene}&w=160`)).toBe(`${scene}&w=640 640w, ${scene}&w=960 960w`);
+    expect(tileSrcSet(imgUrl(HASH))).toBe(`${thumbUrl(HASH, 'tile')} 640w, ${thumbUrl(HASH, 'large')} 960w`);
+    expect(tileSrcSet(thumbUrl(HASH, 'tile'))).toBe(`${thumbUrl(HASH, 'tile')} 640w, ${thumbUrl(HASH, 'large')} 960w`);
+  });
+
+  it('offers nothing for a picture it cannot size', () => {
+    expect(tileSrcSet('blob:http://localhost/abc')).toBeUndefined();
+    expect(tileSrcSet('/api/presenter-previews/sana/ref-01.jpg?v=3')).toBeUndefined();
+    expect(tileSrcSet(null)).toBeUndefined();
+    expect(tileSrcSet(undefined)).toBeUndefined();
+  });
+});
+
 describe('derivative URLs', () => {
-  it('names the three widths and the original', () => {
+  it('names the four widths and the original', () => {
     expect(thumbUrl(HASH, 'tile')).toBe(`/api/images/${HASH}/thumb?w=640`);
     expect(thumbUrl(HASH, 'small')).toBe(`/api/images/${HASH}/thumb?w=320`);
     expect(thumbUrl(HASH, 'micro')).toBe(`/api/images/${HASH}/thumb?w=160`);
+    expect(thumbUrl(HASH, 'large')).toBe(`/api/images/${HASH}/thumb?w=960`);
     expect(assetThumbUrl(`asset:${HASH}`, 'tile')).toBe(thumbUrl(HASH, 'tile'));
     expect(assetThumbUrl('/curated/cup.png', 'tile')).toBeNull();
     expect(assetThumbUrl(undefined, 'micro')).toBeNull();

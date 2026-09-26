@@ -18,11 +18,19 @@ export function registerPresenterRoutes(
 ): void {
   const { templatesRoot, presenters, thumbs } = deps;
   const presenterThumbPath = (id: string) => contentFile(templatesRoot, 'previews', 'presenters', `${id}.jpg`);
+  // The card is the portrait, whole, at 564 wide so an install can carry it. Its
+  // derivatives come from the library's full-size portrait once that is here:
+  // a card laid out wider than 564 device pixels was the small copy enlarged.
+  const portraitPath = (id: string) => contentFile(templatesRoot, 'previews', 'presenters', id, 'portrait.jpg');
+  const cardSource = (id: string) => {
+    const path = portraitPath(id);
+    return existsSync(path) ? { path, key: fileKey('presenter-portrait', id, path) } : undefined;
+  };
   const avatarPath = (id: string) => presenterAvatarPath(templatesRoot, id);
   const decoratePresenter = (p: Presenter) => ({
     ...p,
     previewUrl: existsSync(presenterThumbPath(p.id))
-      ? `/api/presenter-thumbnails/${p.id}.jpg${mtimeQS(presenterThumbPath(p.id))}`
+      ? `/api/presenter-thumbnails/${p.id}.jpg${mtimeQS(presenterThumbPath(p.id), portraitPath(p.id))}`
       : null,
     // Square portrait for small/square surfaces. Null when absent so every
     // consumer can fall back to previewUrl and nothing breaks without one.
@@ -38,7 +46,7 @@ export function registerPresenterRoutes(
     const m = /^([a-z0-9-]+)\.jpg$/.exec(String((req.params as any).file));
     if (!m || !existsSync(presenterThumbPath(m[1]))) return reply.status(404).send({ error: 'no preview' });
     const path = presenterThumbPath(m[1]);
-    return serveJpegSized(req, reply, path, thumbs, fileKey('presenter', m[1], path));
+    return serveJpegSized(req, reply, path, thumbs, fileKey('presenter', m[1], path), cardSource(m[1]));
   });
   app.get('/api/presenter-avatars/:file', async (req, reply) => {
     const m = /^([a-z0-9-]+)\.jpg$/.exec(String((req.params as any).file));

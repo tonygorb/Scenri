@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState, type ReactElement } from 'react';
-import { thumbOf } from '../api.js';
+import { TILE_SIZES, thumbOf, tileSrcSet } from '../api.js';
 import { useHoverNone } from '../useMediaQuery.js';
 import { Link } from 'react-router';
 import { ContextMenu, DropdownMenu } from '@radix-ui/themes';
@@ -146,7 +146,14 @@ function CatalogCardInner({
 
   const preview =
     previewUrl && !broken ? (
-      <img src={thumbOf(previewUrl, 'tile')} alt="" loading="lazy" onError={() => setBroken(true)} />
+      <img
+        src={thumbOf(previewUrl, 'tile')}
+        srcSet={tileSrcSet(previewUrl)}
+        sizes={TILE_SIZES}
+        alt=""
+        loading="lazy"
+        onError={() => setBroken(true)}
+      />
     ) : pending ? (
       <span className="sc-shimmer" />
     ) : (

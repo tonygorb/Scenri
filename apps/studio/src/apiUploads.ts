@@ -108,8 +108,8 @@ export const assetUrl = (ref?: string) => (ref?.startsWith('asset:') ? imgUrl(re
  * the pixels the engine made. A tile used to fetch the same 2 MB PNG the
  * stage does, so one screen of feed was ten megabytes of decode.
  */
-export type ThumbSize = 'tile' | 'small' | 'micro';
-const THUMB_WIDTH: Record<ThumbSize, number> = { tile: 640, small: 320, micro: 160 };
+export type ThumbSize = 'large' | 'tile' | 'small' | 'micro';
+const THUMB_WIDTH: Record<ThumbSize, number> = { large: 960, tile: 640, small: 320, micro: 160 };
 export const thumbUrl = (hash: string, size: ThumbSize) => `${imgUrl(hash)}/thumb?w=${THUMB_WIDTH[size]}`;
 /** Renders an `asset:<hash>` brand ref at a derivative size, or null. */
 export const assetThumbUrl = (ref: string | undefined, size: ThumbSize) =>
@@ -141,5 +141,26 @@ export function thumbOf<T extends string | null | undefined>(url: T, size: Thumb
   if (size === 'full') return base as T;
   return `${base}${c[2] ? '&' : '?'}w=${THUMB_WIDTH[size]}` as T;
 }
+
+/**
+ * A card's picture as a choice of two, for the browser to pick by the width it
+ * actually lays the card out at. The 640 derivative is the card at the Compact
+ * density on a 2x screen; the Large density and a scene's page lay a card out
+ * at 700 device pixels and more, where the 640 was enlarged and read soft
+ * (measured 2026-09-26). Undefined for a URL with no derivative route.
+ */
+export function tileSrcSet(url: string | null | undefined): string | undefined {
+  const tile = thumbOf(url, 'tile');
+  const large = thumbOf(url, 'large');
+  if (!tile || !large || tile === large) return undefined;
+  return `${tile} 640w, ${large} 960w`;
+}
+
+/**
+ * The layout width a card's srcset is chosen for. `auto` is the card's own
+ * box, for a lazy image in a browser that knows the keyword; one that does not
+ * falls through to the Compact card's width, which picks the 640 as before.
+ */
+export const TILE_SIZES = 'auto, (max-width: 720px) 50vw, 240px';
 
 /** True when a brand has made nothing at all yet — any status, not just done-and-imaged. Every caller pairs this with `loaded`: check `loaded` first so a cold fetch isn't mistaken for a genuinely empty brand. */

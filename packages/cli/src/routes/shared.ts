@@ -172,7 +172,11 @@ export const readImagePart = async (
 // URL the browser has never cached anything under. That makes it safe to
 // cache aggressively again — correctness now comes from the URL changing,
 // not from asking the server to re-check.
-export const mtimeQS = (path: string) => (existsSync(path) ? `?v=${Math.round(statSync(path).mtimeMs)}` : '');
+/** A URL's cache-busting version: the newest of the files behind it, so a change to any one of them is a new URL. */
+export const mtimeQS = (...paths: string[]) => {
+  const times = paths.filter((p) => existsSync(p)).map((p) => statSync(p).mtimeMs);
+  return times.length ? `?v=${Math.round(Math.max(...times))}` : '';
+};
 export const serveJpeg = (req: FastifyRequest, reply: FastifyReply, path: string) => {
   const etag = `"${statSync(path).mtimeMs}"`;
   reply.header('cache-control', 'public, max-age=31536000, immutable').header('etag', etag);
@@ -202,15 +206,22 @@ export const serveJpegSized = async (
   path: string,
   thumbs: ThumbStore,
   key: string,
+  /**
+   * A larger file of the same picture to cut the derivatives from, when the
+   * JPEG at `path` is a small copy of it: a bundled card beside the library's
+   * full-size picture. The JPEG itself still answers without `w`.
+   */
+  sized?: { path: string; key: string },
 ) => {
   const raw = (req.query as { w?: unknown } | undefined)?.w;
   if (raw === undefined || raw === '') return serveJpeg(req, reply, path);
   const w = Number(raw);
   if (!isThumbWidth(w)) return reply.status(400).send({ error: `w must be one of ${THUMB_WIDTH_LIST}` });
   const immutable = 'public, max-age=31536000, immutable';
-  const etag = `"${key}-w${w}"`;
+  const from = sized ?? { path, key };
+  const etag = `"${from.key}-w${w}"`;
   if (req.headers['if-none-match'] === etag) return reply.status(304).header('cache-control', immutable).send();
-  const made = await thumbs.ensureFile(key, path, w);
+  const made = await thumbs.ensureFile(from.key, from.path, w);
   const size = made ? await fileSize(made) : null;
   if (!made || size === null) {
     const back = new URL(req.url, 'http://scenri.local');
