@@ -322,9 +322,9 @@ export function ScenePage() {
 
   const ways = owned?.setups ?? [];
   /**
-   * The uploads it was read from, without the one already standing above as
-   * the place: a scene saved before its picture was drawn falls back to its
-   * first upload for the preview, which showed the same photograph twice.
+   * The uploads it was read from. The place is only ever a drawn picture, so
+   * none of them stands above as the place; the filter stays for a record
+   * whose preview and one of its references are the same stored picture.
    */
   const sources = (owned?.refs ?? []).filter((src) => src !== owned?.placeUrl);
   /**
