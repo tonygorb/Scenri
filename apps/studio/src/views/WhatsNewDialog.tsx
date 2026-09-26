@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { type MouseEvent, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { ArrowRight, X } from '@phosphor-icons/react';
 import { useDialogParam } from '../app/AppShell.js';
@@ -7,67 +7,96 @@ import { useWhatsNew } from '../app/WhatsNew.js';
 import { moreLabel } from '../app/whatsNewRules.js';
 import { DialogSheet, SheetClose, SheetDescription, SheetTitle } from '../layout/DialogSheet.js';
 import { whatsNewPath } from '../routes.js';
-import { pictureUrl } from '../whatsNewPictures.js';
-import { FAILED, NOTHING_YET, ON_THE_PAGE, ReleaseMeta, WhatsNewPicture, heroOf } from './WhatsNewParts.js';
+import fallbackArt from '../assets/whatsnew-fallback.svg';
+import {
+  FAILED,
+  NOTHING_YET,
+  ON_THE_PAGE,
+  ReleaseMeta,
+  VersionChip,
+  WhatsNewFallback,
+  WhatsNewPicture,
+  pictureOf,
+} from './WhatsNewParts.js';
 
 /**
  * One update, introduced once.
  *
  * It opens by itself only for a headline update this computer has not read,
- * and it always shows the newest one: the picture of what changed, when, the
- * headline, and its areas as short lines. Everything else (the small updates,
- * the earlier headlines) is the What's New page, one link away. `?whatsnew`
- * opens the same update by hand.
+ * and it always shows the newest one as an excerpt: its picture on the media
+ * stage, when, and the headline. The excerpt is one link to that release on the
+ * What's New page, where its areas, its release notes and everything else
+ * (the small updates, the earlier headlines) are. `?whatsnew` opens the same
+ * update by hand. It stands behind the app's darker scrim (`tone="dim"`, no
+ * blur), so a bright card under it never reads as the dialog's own edge.
  *
- * Nothing here asks the user to do anything. Every way out is an
- * acknowledgement (Escape, the X, the backdrop, Got it, Back, and the link to
- * the page), so there is no way to read it and still be shown it again.
+ * `?whatsnew=preview` shows it the way it would introduce itself and reads
+ * nothing: closing a preview leaves this computer's read state as it was.
+ * `preview:<version>` shows an earlier headline in the history instead. Help
+ * offers the preview in a development build.
+ *
+ * Nothing here asks the user to do anything. Every way out of a real showing
+ * is an acknowledgement (Escape, the X, the backdrop, Got it, Back, and both
+ * links to the page), so there is no way to read it and still be shown it again.
  */
 export function WhatsNewDialog() {
   const param = useDialogParam('whatsnew');
   const { brand } = useBrand();
-  const { status, featured, unseen, lead, recent, markSeen } = useWhatsNew();
+  const { status, featured, recent, unseen, lead, running, markSeen } = useWhatsNew();
   // The read is local and quick; opening only once it has answered keeps the
   // dialog from arriving as a sentence and then jumping to a picture.
   const open = param.value !== null && status !== 'loading';
+  const preview = param.value?.startsWith('preview') ?? false;
+  const asked = preview ? param.value?.split(':')[1] : undefined;
+  // A preview may name any recent update, to see how one without a picture
+  // would introduce itself; a real showing is always the newest headline.
+  const shown = (asked && recent.find((r) => r.version === asked)) || featured;
+
+  // Counted as it opens: how many other updates wait, and whether this is a
+  // preview. Acknowledging clears the first while the dialog animates away, and
+  // the address that said "preview" is already gone when the close lands.
+  const snap = useRef({ open: false, more: 0, preview: false });
+  if (open && !snap.current.open) {
+    snap.current = { open: true, more: unseen.filter((v) => v !== shown?.version).length, preview };
+  } else if (!open) snap.current.open = false;
 
   const close = () => {
-    markSeen();
+    if (!snap.current.preview) markSeen();
     param.close();
   };
 
-  // Browser Back, and the link to the page, close it without any of the
+  // Browser Back, and the links to the page, close it without any of the
   // dialog's own ways out, and each is still a close: read once, never again.
   const wasOpen = useRef(open);
   useEffect(() => {
-    if (wasOpen.current && !open) markSeen();
+    if (wasOpen.current && !open && !snap.current.preview) markSeen();
     wasOpen.current = open;
   }, [open, markSeen]);
 
-  // How many other updates are waiting, counted as it opens: acknowledging
-  // clears them while the dialog is still animating away.
-  const snap = useRef({ open: false, more: 0 });
-  if (open && !snap.current.open) {
-    snap.current = { open: true, more: unseen.filter((v) => v !== featured?.version).length };
-  } else if (!open) snap.current.open = false;
-
-  // The settle before it opens by itself is time enough to decode its picture.
-  const hero = heroOf(featured);
-  const heroUrl = hero ? pictureUrl(hero.file) : null;
+  // A picture that fails to load gives way to the fallback, as one that was never there.
+  const [broken, setBroken] = useState<string | null>(null);
+  const picture = shown && broken !== shown.version ? pictureOf(shown) : null;
+  // The settle before it opens by itself is time enough to decode its picture,
+  // or the artwork that stands in for one.
+  const heroUrl = picture?.src ?? fallbackArt;
   useEffect(() => {
     if (lead && heroUrl) new Image().src = heroUrl;
   }, [lead, heroUrl]);
 
-  // Leaving by the link hands the keyboard to the page, not back to whatever
-  // the dialog opened over.
+  // Leaving by a link hands the keyboard to the page, not back to whatever
+  // the dialog opened over. A modified click opens the page elsewhere and
+  // leaves this dialog open, so it hands nothing.
   const toPage = useRef(false);
-  const named = featured !== null && featured.sections.length > 1;
+  const leave = (e: MouseEvent) => {
+    if (!e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) toPage.current = true;
+  };
 
   return (
     <DialogSheet
       open={open}
       className="sc-wn"
-      maxWidth="480px"
+      tone="dim"
+      maxWidth="520px"
       described
       onDismiss={close}
       onCloseAutoFocus={(e) => {
@@ -79,6 +108,11 @@ export function WhatsNewDialog() {
     >
       <div className="sc-newdlg-head">
         <SheetTitle className="sc-newdlg-title">What's new</SheetTitle>
+        {/* The version this computer runs, lit, once in the dialog: here when the
+            update introduced is an earlier one (the newest headline, with a
+            smaller update after it), on the update itself when it is this one.
+            So the dialog and the page never disagree about where you are. */}
+        {running && shown && shown.version !== running && <VersionChip version={running} current />}
         <SheetClose>
           <button type="button" className="sc-set-close sc-newdlg-close" aria-label="Close">
             <X size={16} />
@@ -87,27 +121,24 @@ export function WhatsNewDialog() {
       </div>
 
       <div className="sc-newdlg-body">
-        {featured ? (
-          <>
-            {hero && <WhatsNewPicture key={hero.file} image={hero} eager />}
-            <ReleaseMeta entry={featured} />
+        {shown ? (
+          // One link, stretched over the excerpt: the picture, the date and the
+          // headline are one target and one stop for the keyboard.
+          <article className="sc-wn-ex">
+            {picture ? (
+              <WhatsNewPicture key={shown.version} picture={picture} eager onBroken={() => setBroken(shown.version)} />
+            ) : (
+              <WhatsNewFallback version={shown.version} current={shown.version === running} />
+            )}
+            <ReleaseMeta entry={shown} current={shown.version === running} hideVersion={!picture} />
             <SheetDescription asChild>
-              <h3 className="sc-wn-hed">{featured.title}</h3>
+              <h3 className="sc-wn-hed">
+                <Link className="sc-wn-ex-link" to={`${whatsNewPath(brand)}#v${shown.version}`} replace onClick={leave}>
+                  {shown.title}
+                </Link>
+              </h3>
             </SheetDescription>
-            <ul className="sc-wn-hls">
-              {featured.sections.map((s) => (
-                <li key={s.heading} className="sc-wn-hl">
-                  {named && (
-                    <>
-                      <b className="sc-wn-hl-h">{s.heading}</b>
-                      <span className="sc-vh">:</span>{' '}
-                    </>
-                  )}
-                  {s.body}
-                </li>
-              ))}
-            </ul>
-          </>
+          </article>
         ) : (
           <SheetDescription className="sc-wn-txt">
             {status === 'failed' ? FAILED : recent.length > 0 ? ON_THE_PAGE : NOTHING_YET}
@@ -117,15 +148,7 @@ export function WhatsNewDialog() {
 
       <div className="sc-newdlg-foot sc-wn-foot">
         {recent.length > 0 && (
-          <Link
-            className="sc-wn-link"
-            to={whatsNewPath(brand)}
-            replace
-            onClick={(e) => {
-              // a modified click opens the page elsewhere and leaves this dialog open
-              if (!e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) toPage.current = true;
-            }}
-          >
+          <Link className="sc-wn-link" to={whatsNewPath(brand)} replace onClick={leave}>
             {moreLabel(snap.current.more)}
             <ArrowRight size={13} aria-hidden="true" />
           </Link>

@@ -1,36 +1,184 @@
 /* ---------- what's new ----------
-   One update in a dialog (views/WhatsNewDialog.tsx), the recent ones on a page
-   (views/WhatsNewPage.tsx). The picture is the real app and the brightest thing
-   here; type and spacing do the rest of the hierarchy. No serif, no badges, no
-   rules around a paragraph. The only gold in this feature is the unread dot. */
+   One update in a dialog (views/WhatsNewDialog.tsx), the history on a page
+   (views/WhatsNewPage.tsx), and one media stage for every picture in both.
+   The picture is the real app and the brightest thing here; type and spacing
+   do the rest. No serif, no badges, no rules around a paragraph. The only gold
+   in this feature is the unread dot. */
 
-/* the picture: the real app, its shape held on the well until it decodes */
-.sc-wn-pic {
+/* The media stage: every picture is the whole app at one window, 16:9
+   (apps/studio/capture/), on a soft painted sky (src/assets/whatsnew-stage.webp),
+   with the same margin on all four sides, so the dark window reads as an
+   object set on it. The picture is contained, never covered: a crop is the
+   capture's decision, never the renderer's. The stage holds its shape before
+   the picture decodes; the picture fades in. On the page it is a button that
+   opens the picture larger; in the dialog it sits inside the excerpt's link.
+   Its shape is fixed, 400:239: the 16:9 picture across 92% of its width with
+   4% of margin all round (0.92 x 9/16 + 0.08 = 0.5975). */
+.sc-wn-media {
   position: relative;
-  flex: none;
-  margin: 0;
-  aspect-ratio: 16 / 10;
-  overflow: hidden;
-  border-radius: var(--sc-radius-lg);
-  background: var(--sc-well);
-}
-.sc-wn-pic::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  box-shadow: inset 0 0 0 1px var(--sc-line);
-  pointer-events: none;
-}
-.sc-wn-pic img {
   display: block;
+  box-sizing: border-box;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  aspect-ratio: 400 / 239;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-raised) url("../../assets/whatsnew-stage.webp") center / cover no-repeat;
+  font: inherit;
+  overflow: hidden;
+  /* the margin below is a share of the stage's own width, whatever column it sits in */
+  container-type: inline-size;
+  transition: filter 0.45s cubic-bezier(0.2, 0.6, 0.2, 1);
+}
+/* the page's stage opens the picture larger, so it asks for the magnifier:
+   the platform's pointer for every button would say it goes somewhere */
+button.sc-wn-media {
+  cursor: zoom-in;
+}
+/* The picture carries its own shape: whole windows captured with their rounded
+   corners as transparency, so no radius or ring is added here, and the shadow
+   is a drop-shadow that follows those corners. Three soft layers, tinted to
+   the cool painted sky rather than black. The same margin on all four sides
+   (4% of the stage), and the window's shape held before it decodes: its box
+   is set in the stage's own units (cqi, a hundredth of the stage's width). */
+.sc-wn-media img {
+  position: absolute;
+  top: 4cqi;
+  left: 4cqi;
+  display: block;
+  width: 92cqi;
+  height: 51.75cqi;
+  margin: 0;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 1px rgb(24 28 48 / 0.1)) drop-shadow(0 6px 12px rgb(24 28 48 / 0.14))
+    drop-shadow(0 18px 36px rgb(24 28 48 / 0.16));
   opacity: 0;
   transition: opacity var(--sc-dur-slow) var(--sc-ease);
 }
-.sc-wn-pic[data-ready] img {
+.sc-wn-media[data-ready] img {
+  opacity: 1;
+}
+/* Under the pointer the stage brightens a step, and nothing moves: the
+   pickers' own answer and their reason (.sc-ap-card, "a zoom read as
+   sloppy. Nothing moves, nothing scales"). Measured on this stage, a picture
+   of the app that grows either blurs (a transform draws it from a cached,
+   softer copy, an eighth of its detail mid-growth) or wobbles (a resized box
+   steps a pixel at a time and its sides round apart). The step is clearer
+   than the pickers' 1.06, which is set for photographs and moved this pale
+   sky ten levels: 1.12 lights the sky clearly and stays calm, and never
+   darkens anything. The excerpt (the dialog) or the stage (the page) is the
+   target. On the page, where the stage opens the picture larger, the scene
+   page's corner control (.sc-sceneview-frame .sc-corner .sc-cell-ctl) says
+   so: the same glass disc, size, lift and timing, as a mark, because the
+   whole stage is the button. The keyboard gets all of it, and the ring. */
+@media (hover: hover) {
+  .sc-wn-ex:hover .sc-wn-media,
+  button.sc-wn-media:hover {
+    filter: brightness(1.12);
+  }
+  button.sc-wn-media:hover .sc-wn-open {
+    opacity: 1;
+    transition-delay: 0s;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+}
+:where(:root:not([data-input="pointer"])) button.sc-wn-media:focus-visible {
+  filter: brightness(1.12);
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
+}
+:where(:root:not([data-input="pointer"])) button.sc-wn-media:focus-visible .sc-wn-open {
+  opacity: 1;
+  transition-delay: 0s;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+.sc-wn-open {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-glass);
+  color: var(--sc-fg);
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.08),
+    0 3px 8px rgb(0 0 0 / 0.14);
+  opacity: 0;
+  pointer-events: none;
+  /* in at once, out a beat later, as the corner control does */
+  transition: opacity var(--sc-dur-fast) var(--sc-ease) 100ms;
+}
+
+/* The fallback: the og-image as the picture, with a window picture's corners
+   (20 px on 1920, so 0.958cqi on this 92cqi picture), and the release's
+   version on it where the artwork leaves room, its top-left, inset the way
+   the stage insets the picture. */
+.sc-wn-fallback img {
+  border-radius: 0.958cqi;
+}
+.sc-wn-fallback-chip {
+  position: absolute;
+  top: calc(4cqi + 3cqi);
+  left: calc(4cqi + 3cqi);
+  display: flex;
+}
+
+/* The picture larger, and nothing else: the app's scrim, the picture as large
+   as the window allows at its own shape, and a press anywhere closes it. */
+.sc-wn-lb-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  background: var(--sc-scrim);
+  animation: sc-fade-in var(--sc-dur-slow) var(--sc-ease) both;
+}
+.sc-wn-lb {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: grid;
+  /* one track the size of the window, so the picture's 100% is the room it has */
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  place-items: center;
+  box-sizing: border-box;
+  padding: max(var(--sc-space-8), 4vmin);
+  cursor: zoom-out;
+  outline: none;
+}
+/* The same stage as the page's, larger: as wide as the window allows and no
+   taller than it. A stage is 0.5975 of its width tall (the 16:9 picture on
+   92% of it, and the 4% margin above and below). */
+.sc-wn-lb .sc-wn-lb-stage {
+  width: min(100%, calc((100dvh - 2 * max(var(--sc-space-8), 4vmin)) / 0.5975));
+  box-shadow: var(--sc-shadow-3);
+  cursor: inherit;
+  animation: sc-fade-in var(--sc-dur-slow) var(--sc-ease) both;
+}
+/* for the keyboard and a screen reader: a pointer closes it by pressing anywhere */
+.sc-wn-lb-close {
+  position: fixed;
+  top: max(var(--sc-space-6), env(safe-area-inset-top));
+  right: max(var(--sc-space-6), env(safe-area-inset-right));
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-panel);
+  color: var(--sc-fg);
+  box-shadow: var(--sc-shadow-2);
+  cursor: pointer;
+  opacity: 0;
+}
+:where(:root:not([data-input="pointer"])) .sc-wn-lb-close:focus-visible {
   opacity: 1;
 }
 
@@ -46,59 +194,47 @@
   line-height: 1.4;
   color: var(--sc-fg2);
 }
-.sc-wn-ver {
-  font-weight: 400;
+/* a date is one line in its column at every width */
+.sc-wn-when time {
+  white-space: nowrap;
+}
+/* The version: a traditional version tag, a pill with the number in figures
+   that line up, a label and never a control. The version this computer runs is
+   the same tag lit, the chips' on-state fill, the one mark of where you are. */
+.sc-wn-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border: 1px solid var(--sc-line-strong);
+  border-radius: var(--sc-radius-full);
+  font-size: var(--sc-text-body);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--sc-fg2);
   font-variant-numeric: tabular-nums;
-  color: var(--sc-fg3);
+  white-space: nowrap;
+}
+.sc-wn-chip[data-on] {
+  border-color: transparent;
+  background: var(--sc-inv-bg);
+  color: var(--sc-inv-fg);
+}
+/* in the dialog's head, beside the title, before the X */
+.sc-wn .sc-newdlg-head .sc-wn-chip {
+  margin-right: var(--sc-space-3);
 }
 
-/* the dialog: picture, when, headline, the areas as lines */
-.sc-wn .sc-wn-pic {
-  margin-bottom: var(--sc-space-6);
-}
-.sc-wn-hed {
-  margin: var(--sc-space-3) 0 0;
-  max-width: 30ch;
-  font-size: var(--sc-text-title);
-  font-weight: 600;
-  line-height: 1.25;
-  letter-spacing: -0.015em;
-  color: var(--sc-fg);
-  text-wrap: balance;
-}
-.sc-wn-hls {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sc-space-4);
-  margin: var(--sc-space-5) 0 0;
-  padding: 0;
-  list-style: none;
-}
-.sc-wn-hl,
-.sc-wn-txt,
-.sc-wn-line {
+.sc-wn-txt {
   margin: 0;
   font-size: var(--sc-text-control);
   line-height: 1.55;
   color: var(--sc-fg2);
   text-wrap: pretty;
 }
-.sc-wn-hl-h,
-.sc-wn-line b {
-  font-weight: 600;
-  color: var(--sc-fg);
-}
 
-.sc-wn-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.sc-wn-foot > .sc-btn:only-child {
-  margin-left: auto;
-}
-.sc-wn-link {
+/* the way to one version's full notes, and to the page: quiet, never a button */
+.sc-wn-link,
+.sc-wn-notes {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -108,33 +244,107 @@
   text-decoration: none;
   transition: color var(--sc-dur-fast) var(--sc-ease);
 }
-.sc-wn-link:hover:not(:active) {
+.sc-wn-notes {
+  color: var(--sc-fg3);
+}
+.sc-wn-link:hover:not(:active),
+.sc-wn-notes:hover:not(:active) {
   color: var(--sc-fg);
 }
 
-/* the page: its own name, then the releases down a date column */
+/* The dialog is an excerpt: the picture on its stage, when, the headline.
+   One link, stretched over all three, opens the release on the page. */
+.sc-wn-ex {
+  position: relative;
+  border-radius: var(--sc-radius-lg);
+}
+.sc-wn-ex .sc-wn-media {
+  margin-bottom: var(--sc-space-6);
+}
+.sc-wn-hed {
+  margin: var(--sc-space-2) 0 0;
+  max-width: 32ch;
+  font-size: var(--sc-text-title);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  color: var(--sc-fg);
+  text-wrap: balance;
+}
+/* The headline says it is a link the way the app's links do (.sc-sec-more):
+   underlined under the pointer, anywhere on the excerpt. */
+.sc-wn-ex-link {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .sc-wn-ex:hover .sc-wn-ex-link {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+.sc-wn-ex-link::after {
+  content: "";
+  position: absolute;
+  /* a little past the excerpt, so the keyboard's ring clears the words */
+  inset: calc(-1 * var(--sc-space-3));
+  z-index: 1;
+  border-radius: calc(var(--sc-radius-lg) + var(--sc-space-3));
+}
+/* the keyboard's ring goes round the whole excerpt it opens, not the words */
+:where(:root:not([data-input="pointer"])) .sc-wn-ex-link:focus-visible {
+  outline: none;
+}
+:where(:root:not([data-input="pointer"])) .sc-wn-ex-link:focus-visible::after {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
+}
+.sc-wn-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.sc-wn-foot > .sc-btn:only-child {
+  margin-left: auto;
+}
+
+/* The page, in three levels and one rhythm. Its own name is a page's name
+   (the detail pages' 42px, 600, stepping down with the window); every update's
+   title is the app's title size (20/600), the newest and the oldest alike;
+   each area is a heading of its own over its sentence at the read-back size
+   (15), the name in ink and the words in the second ink. The date column is
+   the quiet one. Space says what belongs together: 20px after a title or a
+   picture, 16px between areas, 48px and a hairline between updates. */
 .sc-wn-page {
+  /* the positioned ancestor of the visually hidden words in every row, so they
+     stay inside the scroll pane instead of stretching the window's own scroll */
+  position: relative;
+  --sc-text-h1: 42px;
   max-width: 920px;
   margin: 0 auto;
-  padding: 40px max(32px, env(safe-area-inset-right)) 120px max(32px, env(safe-area-inset-left));
+  padding: 48px max(32px, env(safe-area-inset-right)) 120px max(32px, env(safe-area-inset-left));
 }
 .sc-wn-page-head {
-  margin: 0 0 40px;
+  margin: 0 0 48px;
 }
 .sc-wn-page-head h1 {
   margin: 0;
-  font-size: var(--sc-text-title);
-  font-weight: 600;
-  line-height: 1.2;
-  letter-spacing: -0.015em;
+  font: 600 var(--sc-text-h1) / 1.14 var(--sc-font);
+  letter-spacing: -0.035em;
   color: var(--sc-fg);
 }
 .sc-wn-page-head p {
-  margin: var(--sc-space-2) 0 0;
-  font-size: var(--sc-text-body);
-  line-height: 1.45;
+  margin: var(--sc-space-4) 0 0;
+  font-size: var(--sc-text-input);
+  line-height: 1.5;
   color: var(--sc-fg2);
 }
+.sc-wn-page > .sc-wn-txt {
+  max-width: var(--sc-measure-prose);
+}
+
 .sc-wn-list {
   margin: 0;
   padding: 0;
@@ -143,113 +353,233 @@
 .sc-wn-row {
   display: grid;
   grid-template-columns: 160px minmax(0, 1fr);
-  column-gap: 40px;
+  column-gap: 48px;
   align-items: first baseline;
 }
-.sc-wn-row + .sc-wn-row {
-  margin-top: 32px;
-  padding-top: 32px;
+.sc-wn-row > .sc-wn-when,
+.sc-wn-side > .sc-wn-when {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sc-space-3);
+}
+/* a recent release's date column also carries the way to its full notes */
+.sc-wn-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sc-space-4);
+}
+.sc-wn-list > .sc-wn-row + .sc-wn-row {
+  margin-top: 48px;
+  padding-top: 48px;
   border-top: 1px solid var(--sc-line);
 }
-/* small updates in a run read as one list, not as separate releases walled off */
-.sc-wn-row[data-kind="small"] + .sc-wn-row[data-kind="small"] {
-  margin-top: var(--sc-space-7);
-  padding-top: 0;
-  border-top: 0;
-}
-.sc-wn-row > .sc-wn-when {
-  flex-direction: column;
-  gap: var(--sc-space-1);
-}
-/* a date is one line in its column at every width */
-.sc-wn-when time {
-  white-space: nowrap;
-}
 .sc-wn-what {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   min-width: 0;
-  max-width: 656px;
+  max-width: 600px;
 }
-.sc-wn-row-hed {
-  margin: 0 0 var(--sc-space-5);
-  font-size: var(--sc-text-title-s);
+/* every update's title, open or folded, recent or years old: one size */
+.sc-wn-row-hed,
+.sc-wn-old-hed {
+  font-size: var(--sc-text-title);
   font-weight: 600;
-  line-height: 1.3;
-  letter-spacing: -0.01em;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
   color: var(--sc-fg);
   text-wrap: balance;
 }
-.sc-wn-row[data-lead] .sc-wn-row-hed {
-  margin-bottom: var(--sc-space-6);
-  font-size: 24px;
-  line-height: 1.2;
-  letter-spacing: -0.02em;
+.sc-wn-row-hed {
+  margin: 0;
 }
-.sc-wn-area + .sc-wn-area {
-  margin-top: var(--sc-space-5);
+/* one picture per update, straight under its title, the width of its words:
+   the evidence first, then what each area changed. A headline stands out by
+   its picture, never by bigger type. */
+.sc-wn-what .sc-wn-media {
+  margin-top: var(--sc-space-7);
 }
-.sc-wn-row .sc-wn-line {
-  max-width: var(--sc-measure-prose);
+/* each area a heading over its sentence, never run into it */
+.sc-wn-areas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-6);
+  margin-top: var(--sc-space-7);
 }
-.sc-wn-row[data-lead] .sc-wn-line {
+.sc-wn-area h3 {
+  margin: 0;
   font-size: var(--sc-text-input);
-  line-height: 1.55;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--sc-fg);
 }
-.sc-wn-row .sc-wn-pic {
-  max-width: 400px;
-  margin-top: var(--sc-space-5);
+.sc-wn-area p {
+  margin: var(--sc-space-1) 0 0;
+  font-size: var(--sc-text-input);
+  line-height: 1.6;
+  color: var(--sc-fg2);
+  text-wrap: pretty;
 }
-.sc-wn-row[data-lead] .sc-wn-pic {
-  max-width: none;
-  margin: var(--sc-space-6) 0 var(--sc-space-7);
+
+/* the releases before the recent ones carry on the same timeline, folded:
+   the same date column and the same titles, the words a press away */
+.sc-wn-part {
+  margin-top: 48px;
+  border-top: 1px solid var(--sc-line);
 }
-.sc-wn-page-foot {
-  margin-top: 32px;
+.sc-wn-olds {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sc-wn-old + .sc-wn-old {
+  border-top: 1px solid var(--sc-line);
+}
+.sc-wn-old summary {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr) 16px;
+  column-gap: 48px;
+  align-items: baseline;
+  padding: var(--sc-space-7) 0;
+  cursor: pointer;
+  list-style: none;
+}
+.sc-wn-old summary::-webkit-details-marker {
+  display: none;
+}
+.sc-wn-old summary .sc-wn-when {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sc-space-3);
+}
+.sc-wn-old-caret {
+  align-self: center;
+  color: var(--sc-fg3);
+  transition:
+    color var(--sc-dur-fast) var(--sc-ease),
+    transform var(--sc-dur-fast) var(--sc-ease);
+}
+/* a line that opens says so by its caret brightening, never by underlining its words */
+@media (hover: hover) {
+  .sc-wn-old summary:hover .sc-wn-old-caret {
+    color: var(--sc-fg);
+  }
+}
+.sc-wn-old details[open] .sc-wn-old-caret {
+  transform: rotate(180deg);
+}
+.sc-wn-old-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sc-space-6);
+  max-width: 600px;
+  margin: 0 0 var(--sc-space-8) 208px;
+}
+.sc-wn-old-body .sc-wn-areas {
+  margin-top: 0;
+}
+
+/* the next ten: a real button, loading by itself as it comes into view */
+.sc-wn-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 48px;
   padding-top: 32px;
   border-top: 1px solid var(--sc-line);
 }
-.sc-wn-page > .sc-wn-txt {
+
+.sc-wn-page-foot {
+  margin-top: 64px;
+  padding-top: 32px;
+  border-top: 1px solid var(--sc-line);
+}
+.sc-wn-page-foot p {
+  margin: 0 0 var(--sc-space-4);
   max-width: var(--sc-measure-prose);
+  font-size: var(--sc-text-body);
+  line-height: 1.45;
+  color: var(--sc-fg3);
 }
 
 @media (max-width: 900px) {
   .sc-wn-page {
-    padding: 32px 28px 104px;
+    --sc-text-h1: 34px;
+    padding: 40px 28px 104px;
+  }
+  .sc-wn-old summary {
+    grid-template-columns: 136px minmax(0, 1fr) 16px;
+    column-gap: 32px;
+  }
+  .sc-wn-old-body {
+    margin-left: calc(136px + 32px);
   }
   .sc-wn-row {
     grid-template-columns: 136px minmax(0, 1fr);
-    column-gap: var(--sc-space-8);
+    column-gap: 32px;
   }
 }
 @media (max-width: 767px) {
+  /* The sheet's body scrolls on a phone, and a scroller clips at its padding:
+     room for the excerpt's ring on every side, given back by the margin so
+     nothing moves. */
+  .sc-wn .sc-newdlg-body {
+    margin: 0 calc(-1 * var(--sc-space-5)) calc(-1 * var(--sc-space-4));
+    padding: var(--sc-space-6) var(--sc-space-5) var(--sc-space-5);
+  }
   .sc-wn-hed {
     font-size: 19px;
   }
-  .sc-wn-hl {
-    font-size: 14px;
-  }
   .sc-wn-page {
-    padding: var(--sc-space-8) var(--sc-gutter) 96px;
+    --sc-text-h1: 28px;
+    padding: 32px var(--sc-gutter) 96px;
   }
   .sc-wn-page-head {
     margin-bottom: 32px;
   }
-  .sc-wn-row {
-    grid-template-columns: minmax(0, 1fr);
-    row-gap: var(--sc-space-3);
+  .sc-wn-list > .sc-wn-row + .sc-wn-row {
+    margin-top: 40px;
+    padding-top: 40px;
   }
-  .sc-wn-row > .sc-wn-when {
-    flex-direction: row;
-    gap: var(--sc-space-4);
-  }
-  .sc-wn-row[data-lead] .sc-wn-row-hed {
-    font-size: 21px;
-  }
-  .sc-wn-row .sc-wn-pic {
+  .sc-wn-what {
     max-width: none;
   }
-  .sc-wn-row .sc-wn-line,
-  .sc-wn-row[data-lead] .sc-wn-line {
-    font-size: 14px;
+  .sc-wn-old summary {
+    grid-template-columns: minmax(0, 1fr) 16px;
+    row-gap: var(--sc-space-1);
+  }
+  .sc-wn-old summary .sc-wn-when {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    gap: 0 var(--sc-space-4);
+  }
+  .sc-wn-old-body {
+    margin-left: 0;
+  }
+  .sc-wn-row {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--sc-space-5);
+  }
+  .sc-wn-row > .sc-wn-when,
+  .sc-wn-side > .sc-wn-when {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--sc-space-4);
+  }
+  .sc-wn-side {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sc-space-3) var(--sc-space-5);
+  }
+  .sc-wn-old summary .sc-wn-when {
+    align-items: center;
+  }
+}
+@media (max-width: 400px) {
+  .sc-wn-page {
+    --sc-text-h1: 24px;
   }
 }
 
@@ -263,8 +593,16 @@
 
 @media (prefers-reduced-motion: reduce) {
   .sc-wn-link,
-  .sc-wn-pic img {
+  .sc-wn-notes,
+  .sc-wn-media,
+  .sc-wn-media img,
+  .sc-wn-open,
+  .sc-wn-old-caret {
     transition: none;
+  }
+  .sc-wn-lb-scrim,
+  .sc-wn-lb .sc-wn-lb-stage {
+    animation: none;
   }
 }
 

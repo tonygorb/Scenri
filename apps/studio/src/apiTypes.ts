@@ -375,7 +375,10 @@ export type ReleaseSection = { heading: string; body: string; image?: ReleaseIma
 export type ReleaseEntry = {
   version: string;
   date: string;
+  /** What the update is, in one line; every update in `recent` has one. */
   title?: string;
+  /** A headline update: the only kind that opens What's New by itself and carries a picture. */
+  announce?: boolean;
   sections: ReleaseSection[];
 };
 export type ReleaseNotesResponse = {
@@ -386,6 +389,8 @@ export type ReleaseNotesResponse = {
   seen: string | null;
   /** The in-app history, newest first: down to the fifth headline update. */
   recent: ReleaseEntry[];
+  /** Every public release with something to say, newest first, `recent` included: the page's history. */
+  history: ReleaseEntry[];
   /** Versions in `recent` this machine has not read yet, newest first. */
   unseen: string[];
   /** The newest unread headline update: the one thing that may open by itself. */

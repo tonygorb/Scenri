@@ -34,8 +34,12 @@ export function DialogSheet({
 }: {
   open?: boolean;
   className?: string;
-  /** `guide`: a first-use surface, held behind the guide's darker, softened curtain. */
-  tone?: 'guide';
+  /**
+   * `guide`: a first-use surface, held behind the guide's darker, softened curtain.
+   * `dim`: an announcement that opens by itself (What's New): the app's darker
+   * scrim and no blur, so nothing behind it reads as part of it.
+   */
+  tone?: 'guide' | 'dim';
   maxWidth?: string;
   /** Set when a SheetDescription is inside, so Radix can point at it. */
   described?: boolean;

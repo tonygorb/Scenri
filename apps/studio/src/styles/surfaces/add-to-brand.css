@@ -139,6 +139,13 @@
     background: rgba(0, 0, 0, 0.8);
   }
 }
+/* An announcement that opens by itself over the work (What's New): the app's
+   darker scrim, so a bright card behind never reads as the dialog's own edge.
+   No blur: the convention for a dialog is a dim, and a blur over a wall of
+   pictures costs a repaint for nothing. */
+.sc-newdlg-scrim[data-tone="dim"] {
+  background: var(--sc-scrim);
+}
 @media (prefers-reduced-transparency: reduce) {
   .sc-newdlg-scrim[data-tone="guide"] {
     background: rgba(0, 0, 0, 0.8);

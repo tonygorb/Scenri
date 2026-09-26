@@ -41,14 +41,20 @@ interface WhatsNewValue {
   status: 'loading' | 'ready' | 'failed';
   /** The in-app history, newest first: down to the fifth headline update. */
   recent: ReleaseEntry[];
+  /** Every public release with something to say, newest first: the page's history. */
+  history: ReleaseEntry[];
   /** The newest headline update in that history: what the dialog shows. */
   featured: ReleaseEntry | null;
+  /** The version this computer runs; null on an unreleased (0.0.0) build. */
+  running: string | null;
   /** Versions in `recent` this machine has not read yet. */
   unseen: string[];
   /** An unread headline update: the one thing allowed to open by itself. */
   lead: ReleaseEntry | null;
   /** The releases index, for Full release notes. */
   releasesUrl: string | null;
+  /** One version's own release page, or null where nothing was ever published. */
+  notesFor(version: string): string | null;
   /** Anything in the history is unread: the mark on Help. Small updates count. */
   unread: boolean;
   /** Auto-open has already had its one chance this session. */
@@ -89,7 +95,13 @@ export function WhatsNewProvider({ children }: { children: ReactNode }) {
           setStatus('failed');
           return;
         }
-        setNotes({ ...r, releasesUrl: r.releasesUrl ?? null, unseen: r.unseen ?? [], lead: r.lead ?? null });
+        setNotes({
+          ...r,
+          releasesUrl: r.releasesUrl ?? null,
+          history: r.history ?? r.recent,
+          unseen: r.unseen ?? [],
+          lead: r.lead ?? null,
+        });
         setStatus('ready');
       })
       .catch(() => {
@@ -103,7 +115,7 @@ export function WhatsNewProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const recent = notes?.recent ?? EMPTY;
-  const featured = useMemo(() => recent.find((r) => r.title) ?? null, [recent]);
+  const featured = useMemo(() => recent.find((r) => r.announce) ?? null, [recent]);
   const lead = useMemo(() => recent.find((r) => r.version === notes?.lead) ?? null, [recent, notes?.lead]);
 
   const openDialog = dialog.open;
@@ -129,20 +141,29 @@ export function WhatsNewProvider({ children }: { children: ReactNode }) {
     });
   }, [notes]);
 
+  const releasesUrl = notes?.releasesUrl ?? null;
+  const notesFor = useCallback(
+    (version: string) => (releasesUrl ? `${releasesUrl}/tag/v${version}` : null),
+    [releasesUrl],
+  );
+
   const value = useMemo(
     () => ({
       status,
       recent,
+      history: notes?.history ?? EMPTY,
       featured,
+      running: notes && notes.version !== '0.0.0' ? notes.version : null,
       unseen: notes?.unseen ?? EMPTY_VERSIONS,
       lead,
-      releasesUrl: notes?.releasesUrl ?? null,
+      releasesUrl,
+      notesFor,
       unread: (notes?.unseen.length ?? 0) > 0,
       autoOpenSpent,
       autoOpen,
       markSeen,
     }),
-    [status, notes, recent, featured, lead, autoOpenSpent, autoOpen, markSeen],
+    [status, notes, recent, featured, lead, releasesUrl, notesFor, autoOpenSpent, autoOpen, markSeen],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
