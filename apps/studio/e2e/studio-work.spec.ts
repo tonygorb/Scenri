@@ -77,6 +77,10 @@ test('a scene draw goes on while you are elsewhere, and Activity brings you back
     slug,
     'A white cyclorama under hard flash, seen straight on, on a low plinth, mist lying low',
   );
+  // Drawn just after the bell last looked, with nothing else running: its next
+  // look is the idle one, five seconds on, and this four-second draw fits inside
+  // that wait. The studio says it started, so the bell has it anyway.
+  await page.waitForResponse((r) => new URL(r.url()).pathname.endsWith('/activity'));
   await tap(openQ(page), 'Draw the scene');
   await expect(openQ(page)).toHaveAttribute('data-turn', 'q:name');
   await say(page, 'Flash Cyc');
