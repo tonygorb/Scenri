@@ -1,6 +1,7 @@
 import { type Dispatch, useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../../api.js';
 import type { Brand, SceneReading, ScenePatch } from '../../apiTypes.js';
+import { useTaskCenter } from '../../app/TaskCenter.js';
 import { COPY } from './sceneCopy.js';
 import {
   type Action,
@@ -94,6 +95,11 @@ export function useSceneStudio(args: {
   const pressing = useRef(false);
   const onSavedRef = useRef(args.onSaved);
   onSavedRef.current = args.onSaved;
+  // The bell and the Scenes wall read studio work from the one poll, which
+  // idles at five seconds: a draw started just after it looked was missing
+  // from both (nothing in progress, the draft "Not drawn yet") until it looked
+  // again, and a short draw could finish unseen in that gap.
+  const { poke } = useTaskCenter();
 
   const start = useCallback(
     async (kind: 'make' | 'again' | 'change', opts: { ask?: string; draw?: boolean; shot?: boolean } = {}) => {
@@ -149,6 +155,7 @@ export function useSceneStudio(args: {
           ask: job.kind === kind ? opts.ask : undefined,
           since: job.phaseAt,
         });
+        poke();
       } catch (e: any) {
         dispatch({ type: 'error', text: String(e?.message ?? e) });
         setFailed((n) => n + 1);
@@ -157,7 +164,7 @@ export function useSceneStudio(args: {
         setStarting(false);
       }
     },
-    [brandId, dispatch],
+    [brandId, dispatch, poke],
   );
 
   // A start whose answer never came back (a reload or a Back while it was on
