@@ -15,10 +15,11 @@ in between, because the release pull request below already plays that part.
 3. **The What's New record** in `packages/cli/src/release/notes.data.ts` must
    carry an entry for the proposed version, written by a person. A test
    (`releaseNotes.test.ts`) keeps the release PR red until it exists, on
-   purpose: a release with no human sentence attached does not ship. A headline
-   update (a record with a title) may also carry pictures of the real app, shot
-   with `pnpm capture:whatsnew`, looked at by a person, and committed with the
-   record in the release PR so they exist at the tag.
+   purpose: a release with no human sentence attached does not ship. Every
+   update has a title, and `announce: true` marks the one worth opening What's
+   New for. An update may also carry one picture of the real app, shot with
+   `pnpm capture:whatsnew`, looked at by a person, and committed with the
+   record in the release PR so it exists at the tag.
 4. **Merging the release PR** creates the tag and the GitHub release. Like
    every runtime PR it runs the full pipeline, browser suite included, and
    cannot merge until the required "CI gate" check is green.

@@ -121,25 +121,43 @@ Two different sentences, deliberately kept apart:
 
 It has two surfaces, one for each reason to look:
 
-- **The dialog** introduces one update after an update: the newest headline
-  update, with its picture, its date and version, its headline and its areas as
-  short lines, then "See N more updates" and "Got it".
-- **The What's new page** (`/<brand>/whats-new`) is for browsing. It lists the
-  recent releases newest first, the newest headline update largest, and ends
-  with **Full release notes**, the GitHub releases page, which is the archive for
-  everything older and every fix a record left out. Help → What's new and
-  Settings → Updates open it. It is not a place in the top bar.
+- **The dialog** introduces one update after an update, as an excerpt: the
+  newest headline update's picture, its date and version tag and its headline,
+  which together are one link to that release on the page, then "See N more
+  updates" and "Got it". Its areas and release notes are on the page. When the
+  update has no picture of its own, the dialog shows Scenri's mark on its dark
+  ground with the version tag on it instead; that artwork is the dialog's
+  alone, never the page's, and never stored as the release's picture. When
+  it introduces an earlier update than the one you run (the newest headline,
+  with a smaller update after it), its head carries the version you run as the
+  lit tag, as the page does.
+- **The What's new page** (`/<brand>/whats-new`) is the history: every public
+  release with something to say, newest first, every update set in the same
+  sizes (a headline stands out by its picture, never by bigger type), ten at a
+  time with the next ten loading as you scroll (or from the Show older updates
+  button). The recent releases are open; the ones before them are folded to
+  their title and open to the words they shipped with. It ends with **Full
+  release notes**, the GitHub releases page, which is the archive for every fix
+  a record left out. Help → What's new and Settings → Updates open it. It is not
+  a place in the top bar. An update has at most one picture, and on the page it
+  opens larger, with nothing else around it; an update without one is words
+  alone. Every version is a pill tag with the number only, and the version this
+  computer runs is the same tag lit.
 
 Every record is one of three kinds, and the kind is written into the record:
 
-- **Headline update**: it has a `title`. The only kind that may open the dialog
-  by itself, and the only kind that may carry pictures (at most three).
-- **Small update**: areas but no title. It marks Help as unread and is a short
-  line on the page. It never opens anything.
+- **Headline update**: `announce: true`. The only kind that may open the dialog
+  by itself.
+- **Small update**: no `announce`. It marks Help as unread and is a row on the
+  page. It never opens anything. When unsure, an update is small.
 - **Maintenance**: `sections: []`. It says nothing anywhere.
 
-The page reaches back to the fifth headline update, with the small updates
-between them. The generated `CHANGELOG.md` stays what it has always been: the
+Every update the app shows, headline or small, has a `title`; the validator
+refuses one without. Any update in the in-app window may carry one picture, and
+none outside it does. That window, which is what can be unread and what the
+validator holds to every copy rule, reaches back to the fifth headline update;
+older records keep the words they shipped with, under a title held to today's
+rules. The generated `CHANGELOG.md` stays what it has always been: the
 commit-level history for developers.
 
 The lifecycle is one rule and one stored value (`whatsnew.seen`, in the
@@ -159,8 +177,12 @@ settings table):
    of that settles. If a safe moment never comes, nothing pops; the dot carries
    it.
 4. Any way out of the dialog, whether Escape, the ×, the backdrop, Back, "Got
-   it" or the link to the page, reads everything up to the running version.
+   it" or either link to the page, reads everything up to the running version.
    Opening the page does the same.
+5. `?whatsnew=preview` (or `?whatsnew=preview:0.18.1` for any update in the
+   in-app window) shows the dialog the way it introduces itself and reads
+   nothing. A development build offers it from Help as "Preview What's New"; a
+   production build has no such row.
 
 ### Where the words and pictures come from
 
@@ -172,21 +194,32 @@ developers. The *written* record is separate and lives in
 `packages/cli/src/release/notes.data.ts`, one entry per published version.
 
 That record is authored with the `release-notes` skill, which reads the real
-commits since the last tag, drops everything a user would not notice, decides
-the kind (headline, small or maintenance), groups what is left into one to three
-product lines, and writes the entry. Every line has to trace to a commit in the
-range; counts like "8 new Scenes" are counted from added files, never estimated.
-`releaseNotes.test.ts` validates the result and fails the release PR until the
-record matches the version being released, which is what keeps a version and
-its notes atomic.
+commits since the last tag, drops everything a user would not notice, gives the
+update its title and decides its kind (headline, small or maintenance), groups
+what is left into one to three product lines, and writes the entry. Every line
+has to trace to a commit in the range; counts like "8 new Scenes" are counted
+from added files, never estimated. `releaseNotes.test.ts` validates the result
+and fails the release PR until the record matches the version being released,
+which is what keeps a version and its notes atomic.
 
-A headline update may carry pictures of the real app. They are shot with
-`pnpm build && pnpm capture:whatsnew -g <version>` (`apps/studio/capture/`): an
-isolated Scenri on an empty library, seeded only with public demo content from
-`templates/`, in the dark theme at 1280 by 800. A person looks at every picture
-before it is committed with its record. `releasePictures.test.ts` holds the
-folder to the pictures the in-app history still shows, and to their size and
-shape.
+Any update in the in-app window may carry one picture of the real app, and only
+when it shows the headline's own story; no picture is a valid decision, and the
+dialog covers it with the fallback artwork. It is shot with
+`pnpm build && pnpm capture:whatsnew -g <version>` (`apps/studio/capture/`) from
+a throwaway library: an empty home holding only a public demo brand and content
+from `templates/`, in the dark theme, with the machine and the network stubbed.
+Every picture is 16:9 at 1920 by 1080, of one of two kinds. An **isolated**
+picture, the one to prefer, is the real component or a small group of them,
+exactly as the app draws it, lifted out of the page with nothing else left and
+centred on a transparent canvas; What's New paints the sky and the shadow behind
+it. A **window** picture is the whole app at a 1920 by 1080 window in the state
+that shows the change, for when the whole screen is the point. The capture fails
+rather than write a wrong picture: a window of the wrong size, anything cut but
+by the window's own edge, a subject hidden, clipped, faded or at an edge,
+anything left beside the subjects, a picture too small to read or over its size
+ceiling, anything private or from a test. A person looks at every picture before
+it is committed with its record. `releasePictures.test.ts` holds the folder to
+the pictures the in-app history still shows, and to their size and shape.
 
 The same record feeds the GitHub release page: `packages/cli/scripts/release-body.ts`
 renders it as markdown, pictures linked at the tag, and `publish.yml`, on
