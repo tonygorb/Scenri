@@ -22,6 +22,11 @@ import { useGuideShowing } from '../guideFacts.js';
  * then silence — no polling, no registry, no GitHub. Machine-scoped like
  * UpdateCenter, and for the same reason: a version is about this install, not
  * about whichever brand happens to be open.
+ *
+ * The same read also names the few features saying New on this install
+ * (DESIGN.md, "New"). They go one at a time, when each is used where it lives,
+ * and reading What's New takes none of them away: reading about a feature is
+ * not finding it.
  */
 
 /**
@@ -66,6 +71,14 @@ interface WhatsNewValue {
    * newer version does.
    */
   markSeen(): void;
+  /** Whether a feature says New on this install (`layout/NewBadge.tsx`). */
+  isNew(feature: string): boolean;
+  /**
+   * The feature was used where it lives: its page opened, its action ran, its
+   * way to make something was taken. Its New goes and does not come back. A
+   * feature not saying New is left alone, so a page can say this on every open.
+   */
+  markUsed(feature: string): void;
 }
 
 const Ctx = createContext<WhatsNewValue | null>(null);
@@ -80,6 +93,7 @@ export function WhatsNewProvider({ children }: { children: ReactNode }) {
   const [notes, setNotes] = useState<ReleaseNotesResponse | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
   const [autoOpenSpent, setAutoOpenSpent] = useState(false);
+  const [newFeatures, setNewFeatures] = useState<string[]>([]);
   const dialog = useDialogParam('whatsnew');
 
   useEffect(() => {
@@ -88,6 +102,9 @@ export function WhatsNewProvider({ children }: { children: ReactNode }) {
       .releaseNotes()
       .then((r) => {
         if (!alive) return;
+        // New belongs to the install, not to the history: it reads whatever
+        // the history turns out to be.
+        setNewFeatures(r.newFeatures ?? []);
         // A server older than the history answers without it. That is a stale
         // server, not an empty history, so it reads as a failed read (whose
         // sentence says to restart it) rather than as "nothing new".
@@ -147,6 +164,23 @@ export function WhatsNewProvider({ children }: { children: ReactNode }) {
     [releasesUrl],
   );
 
+  const isNew = useCallback((feature: string) => newFeatures.includes(feature), [newFeatures]);
+
+  // Keyed on the list, so a page opened by a link before the read lands still
+  // counts once it does. It returns before touching state for anything not
+  // saying New, which is what lets a page mark itself on every open without a
+  // render loop, and write nothing once it has been used.
+  const markUsed = useCallback(
+    (feature: string) => {
+      if (!newFeatures.includes(feature)) return;
+      setNewFeatures((list) => list.filter((f) => f !== feature)); // optimistic, as markSeen is
+      void api.releaseUsed(feature).catch(() => {
+        /* a failed write says New once more at next launch; harmless */
+      });
+    },
+    [newFeatures],
+  );
+
   const value = useMemo(
     () => ({
       status,
@@ -162,8 +196,10 @@ export function WhatsNewProvider({ children }: { children: ReactNode }) {
       autoOpenSpent,
       autoOpen,
       markSeen,
+      isNew,
+      markUsed,
     }),
-    [status, notes, recent, featured, lead, releasesUrl, notesFor, autoOpenSpent, autoOpen, markSeen],
+    [status, notes, recent, featured, lead, releasesUrl, notesFor, autoOpenSpent, autoOpen, markSeen, isNew, markUsed],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -423,24 +423,30 @@ export function TaskCenterProvider({
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
     let alive = true;
+    // Which run of the loop is the live one. A restart that lands while a look
+    // is still out has no timer to clear, so it used to leave that look's run
+    // arming its own timer beside the new one, two loops for good. The old run
+    // now ends when its look comes back.
+    let run = 0;
 
-    const tick = async () => {
-      if (!alive) return;
+    const tick = async (mine: number) => {
+      if (!alive || mine !== run) return;
       if (!document.hidden) await pull();
-      if (!alive) return;
+      if (!alive || mine !== run) return;
       const busy = !document.hidden && runningRef.current > 0;
-      timer = setTimeout(tick, busy ? RUNNING_MS : IDLE_MS);
+      timer = setTimeout(() => void tick(mine), busy ? RUNNING_MS : IDLE_MS);
     };
     const restart = () => {
       if (timer) clearTimeout(timer);
       timer = null;
-      if (!document.hidden) void tick();
+      run += 1;
+      if (!document.hidden) void tick(run);
     };
     // poke() reaches the live timer through here, so it re-arms the one loop
     // rather than starting a second one beside it
     restartRef.current = restart;
 
-    void tick();
+    void tick(run);
     document.addEventListener('visibilitychange', restart);
     window.addEventListener('focus', restart);
     return () => {

@@ -5,6 +5,7 @@ import { useDialogParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { DialogSheet, SheetClose, SheetTitle } from '../layout/DialogSheet.js';
 import { brandName } from '../layout/nav.js';
+import { NewBadge } from '../layout/NewBadge.js';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
 import { About } from './settings/About.js';
 import { Appearance } from './settings/Appearance.js';
@@ -198,6 +199,7 @@ function Levels({
       >
         <p.Icon size={16} className="sc-set-item-ic" />
         <span className="sc-set-item-lb">{p.label}</span>
+        {p.feature && <NewBadge feature={p.feature} />}
         {phone && <CaretRight size={14} className="sc-set-item-go" />}
       </button>
     </li>

@@ -25,6 +25,8 @@ export interface PageDef {
   Icon: Icon;
   scope: 'brand' | 'studio' | 'apart';
   sub: (brand: string) => string;
+  /** A feature a release marks New: its index row says so until the page is opened (DESIGN.md, "New"). */
+  feature?: string;
 }
 
 export const PAGES: PageDef[] = [
@@ -69,6 +71,7 @@ export const PAGES: PageDef[] = [
     Icon: DeviceMobile,
     scope: 'studio',
     sub: () => 'Open Scenri on your phone, tablet or another computer, or from your desktop.',
+    feature: 'local-access',
   },
   {
     id: 'updates',

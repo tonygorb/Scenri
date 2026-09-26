@@ -70,6 +70,10 @@ function starts(p: Page) {
 }
 
 test('a scene draw goes on while you are elsewhere, and Activity brings you back to it', async ({ page }) => {
+  // A read, a wait of up to five seconds for the bell's idle look, a four-second
+  // draw and a walk through five pages: 23 s on a loaded runner (PR #270), over
+  // the 20 s default, with every step passing. Same budget as the test below.
+  test.setTimeout(45_000);
   const slug = await brandSlug(page);
   const sent = starts(page);
   const at = await readyToDraw(

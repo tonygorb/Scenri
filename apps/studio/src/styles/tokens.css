@@ -172,6 +172,10 @@
   --sc-warn: #b8791a;
   --sc-red: #d93025;
   --sc-green: #188038;
+  /* Info blue, the New label's and nothing else's (DESIGN.md, "The Info Blue
+     Rule"): the ink is 5.7:1 on its wash over white, 5.1:1 over a hovered row. */
+  --sc-info: #0b57d0;
+  --sc-info-wash: rgba(11, 87, 208, 0.08);
   --sc-star: #b8921a;
   /* the same gold, dark enough to state a fact rather than decorate one */
   --sc-star-ink: #8f7110;
@@ -238,6 +242,8 @@
   --sc-warn: #d99a2b;
   --sc-red: #ff6b62;
   --sc-green: #4ade80;
+  --sc-info: #a8c7fa;
+  --sc-info-wash: rgba(168, 199, 250, 0.14);
   --sc-star: #c9a52e;
   --sc-star-ink: #c9a52e;
   --sc-shadow-1: 0 1px 3px rgba(0, 0, 0, 0.4);

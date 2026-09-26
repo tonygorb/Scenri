@@ -87,6 +87,16 @@ export interface ReleaseEntry {
    * no line on the page.
    */
   sections: ReleaseSection[];
+  /**
+   * The few features this release adds that say New where they live, for any
+   * install that began on an older version (DESIGN.md, "New"): a page, an
+   * action, a way to make something, never a fix or a polish. Kebab-case ids,
+   * each marked once in the whole record. The way in carries `feature="<id>"`
+   * and the feature itself calls `markUsed('<id>')`; `releaseNotes.test.ts`
+   * holds the studio to both. Most releases mark none, and no more than
+   * `MOST_NEW_AT_ONCE` can say New on any one day.
+   */
+  newFeatures?: string[];
 }
 
 // 0.1.0 and 0.1.1 were published to npm and unpublished on 2026-08-17; those
@@ -268,6 +278,7 @@ export const RELEASES: ReleaseEntry[] = [
         body: 'One page for each thing: Providers, Appearance, Library, Local access, Updates and About, with every delete under Danger zone.',
       },
     ],
+    newFeatures: ['local-access'],
   },
   {
     version: '0.15.1',
@@ -1351,9 +1362,46 @@ export function whatsNewWindow(releases: ReleaseEntry[], running: string, seen: 
   return { recent, history, unseen, lead };
 }
 
+/**
+ * How long a feature may say New, counted in days from its release's date
+ * rather than in releases: several can ship in one day, and a release count
+ * would make the label's life an accident of that.
+ */
+export const NEW_FOR_DAYS = 30;
+/** The most features that may say New on any one day, anywhere, for anyone. */
+export const MOST_NEW_AT_ONCE = 3;
+
+const DAY_MS = 86_400_000;
+const dayOf = (entry: ReleaseEntry) => Date.parse(`${entry.date}T00:00:00Z`);
+
+/** The moment a release's features stop saying New, wherever they were not used. */
+export function newUntil(entry: ReleaseEntry): number {
+  return dayOf(entry) + NEW_FOR_DAYS * DAY_MS;
+}
+
+/**
+ * What says New on this install now (DESIGN.md, "New"): marked by a release
+ * newer than the version the install began on, inside that release's window,
+ * and not used here yet. A new install began on the running version, so it
+ * sees none; someone back after months sees only what is still new.
+ */
+export function newFeaturesFor(
+  releases: ReleaseEntry[],
+  install: { firstVersion: string | null; used: readonly string[]; now: number },
+): string[] {
+  const { firstVersion, used, now } = install;
+  if (!firstVersion) return [];
+  return releases
+    .filter((r) => compareSemver(r.version, firstVersion) > 0 && now < newUntil(r))
+    .flatMap((r) => r.newFeatures ?? [])
+    .filter((f) => !used.includes(f));
+}
+
 /** Words that mean someone started selling rather than telling. */
 const HYPE = /\b(revolutionary|game.?chang|supercharg|unlock the power|thrilled|seamlessly|effortlessly|delight)/i;
 const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
+/** A feature's id: what the studio's `feature="..."` and `markUsed('...')` name. */
+const FEATURE_ID = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 
 /**
  * Everything obviously broken about a set of release records, as plain
@@ -1385,6 +1433,7 @@ export function validateReleases(releases: ReleaseEntry[], currentVersion: strin
   const pictures = new Set<string>();
 
   const seen = new Set<string>();
+  const marked = new Set<string>();
   let previous: number[] | null = null;
   for (const r of releases) {
     const where = `release ${r.version}`;
@@ -1487,6 +1536,25 @@ export function validateReleases(releases: ReleaseEntry[], currentVersion: strin
       if (/\bscenri\b/.test(prose)) problems.push(`${where}: "scenri" in a sentence is Scenri`);
       if (/\bbriefs?\b/i.test(prose)) problems.push(`${where}: on screen it is the prompt, never the brief`);
     }
+    for (const f of r.newFeatures ?? []) {
+      if (!FEATURE_ID.test(f)) problems.push(`${where}: "${f}" is not a kebab-case id`);
+      if (marked.has(f)) problems.push(`${where}: "${f}" is marked New twice`);
+      marked.add(f);
+    }
+    // A feature worth New is worth a line in What's New.
+    if (r.newFeatures?.length && r.sections.length === 0)
+      problems.push(`${where}: marks something New but says nothing in What's New`);
+  }
+
+  // Counted on each day a window opens, the only days the count can rise.
+  for (const r of releases) {
+    if (!r.newFeatures?.length) continue;
+    const day = dayOf(r);
+    const live = releases
+      .filter((o) => dayOf(o) <= day && day < newUntil(o))
+      .reduce((n, o) => n + (o.newFeatures?.length ?? 0), 0);
+    if (live > MOST_NEW_AT_ONCE)
+      problems.push(`release ${r.version}: ${live} features would say New at once; ${MOST_NEW_AT_ONCE} is the ceiling`);
   }
 
   return problems;
