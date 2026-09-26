@@ -32,9 +32,17 @@ export function registerCodexSetupRoutes(
    * user's ChatGPT plan: it throws away the stored verdict and runs a real
    * `codex exec` to find out whether generation would work right now. Bare
    * status reads what the last check or the last shot already proved.
+   *
+   * A GET passes the access guard's cross-site checks, so an <img> on a page
+   * at another localhost port, or any site's link opened at the top level,
+   * could spend that turn. Only the studio's own Check again (same-origin),
+   * the address typed in (none) or a non-browser client (no header) may force.
    */
   app.get('/api/engines/codex/status', async (req) => {
-    const force = (req.query as { force?: string } | undefined)?.force === '1';
+    const site = req.headers['sec-fetch-site'];
+    const force =
+      (req.query as { force?: string } | undefined)?.force === '1' &&
+      (site === undefined || site === 'same-origin' || site === 'none');
     return codexSetup.status({ force });
   });
 

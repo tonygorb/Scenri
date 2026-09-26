@@ -24,13 +24,18 @@ const phone = { host: '192.168.1.42:4747', 'x-access-token': CODE };
 const serve = (extra: Partial<Parameters<typeof buildServer>[0]> = {}) => {
   const demo = createDemoEngine((b) => core.images.save(b));
   let setups = 0;
+  /** Whether each status read was asked to spend a real Codex turn. */
+  const forced: boolean[] = [];
   const app = track(
     buildServer({
       core,
       engines: { all: () => [demo], get: (id) => (id === demo.capabilities().id ? demo : null) },
       phone: { addresses: async () => [], listen: async () => ({ close: async () => undefined }) },
       codexSetup: {
-        status: async () => ({ state: 'ready' }),
+        status: async (o?: { force?: boolean }) => {
+          forced.push(o?.force === true);
+          return { state: 'ready' };
+        },
         install: async () => {
           setups++;
           return { ok: true };
@@ -43,7 +48,7 @@ const serve = (extra: Partial<Parameters<typeof buildServer>[0]> = {}) => {
       ...extra,
     }),
   );
-  return { app, setups: () => setups };
+  return { app, setups: () => setups, forced };
 };
 
 beforeEach(() => {
@@ -183,6 +188,25 @@ describe('another app on this computer', () => {
     expect((await app.inject({ method: 'GET', url: '/api/phone' })).json().code).toBe(before);
     const wipe = await app.inject({ method: 'DELETE', url: '/api/data?scope=shots', headers: sameSite });
     expect(wipe.statusCode).toBe(403);
+  });
+
+  it('cannot make Codex spend a turn: only the studio, the address bar or a terminal may', async () => {
+    const { app, forced } = serve();
+    const force = (headers: Record<string, string>) =>
+      app.inject({
+        method: 'GET',
+        url: '/api/engines/codex/status?force=1',
+        headers: { host: '127.0.0.1:4747', ...headers },
+      });
+    // an <img> on a page at another localhost port, and a link on any site opened at the top level
+    expect((await force(sameSite)).statusCode).toBe(200);
+    expect((await force({ 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'navigate' })).statusCode).toBe(200);
+    expect(forced).toEqual([false, false]);
+    // the studio's Check again, the address typed in, and curl
+    await force({ 'sec-fetch-site': 'same-origin', 'sec-fetch-mode': 'cors' });
+    await force({ 'sec-fetch-site': 'none', 'sec-fetch-mode': 'navigate' });
+    await force({});
+    expect(forced).toEqual([false, false, true, true, true]);
   });
 
   it('may still read, and the studio itself (same-origin) may still write', async () => {
