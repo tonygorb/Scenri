@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import sharp from 'sharp';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -1986,6 +1986,81 @@ describe('node watchdog', () => {
     expect(cancel.statusCode).toBe(200);
     const node = await waitDoneOn(local, gen.json().id);
     expect(node.status).toBe('cancelled');
+    await local.close();
+  });
+
+  // A take left drawing for a brand, or a shot, that is gone spends the
+  // person's plan on a picture nobody can open, and holds update and quit
+  // behind "work is still running" until the node times out.
+  const watched = () => {
+    const aborted: string[] = [];
+    const engine: EngineAdapter = {
+      ...hang(),
+      generate: (req, signal) =>
+        new Promise((_resolve, reject) => {
+          signal?.addEventListener(
+            'abort',
+            () => {
+              aborted.push(req.prompt);
+              reject(new Error('engine abort'));
+            },
+            { once: true },
+          );
+        }),
+    };
+    return { engine, aborted };
+  };
+  const startRendering = async (local: ReturnType<typeof buildServer>, name: string) => {
+    const b = await local.inject({
+      method: 'POST',
+      url: '/api/brands',
+      payload: { brand: { specVersion: '0.1', meta: { name }, palette: { primary: { hex: '#123456' } } } },
+    });
+    const proj = await local.inject({ method: 'POST', url: '/api/projects', payload: { brandId: b.json().id, name } });
+    const gen = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: proj.json().project.id,
+        parentId: proj.json().root.id,
+        kind: 'generation',
+        prompt: name,
+        engineId: 'hang',
+        width: 256,
+        height: 256,
+      },
+    });
+    expect(gen.statusCode).toBe(202);
+    return b.json().id as string;
+  };
+
+  it("deleting a brand stops the shots it still has rendering, and no other brand's", async () => {
+    const { engine, aborted } = watched();
+    const local = track(buildServer({ core, engines: registryWith(engine), nodeTimeoutMs: 60_000 }));
+    const gone = await startRendering(local, 'Gone');
+    await startRendering(local, 'Stays');
+    expect((await local.inject({ method: 'DELETE', url: `/api/brands/${gone}` })).statusCode).toBe(200);
+    await vi.waitFor(() => expect(aborted).toHaveLength(1));
+    expect(aborted[0]).toContain('Gone');
+    // the other brand's take is still drawing, a moment later too
+    await new Promise((r) => setTimeout(r, 50));
+    expect(aborted).toHaveLength(1);
+    await local.close();
+  });
+
+  it('deleting every generated shot stops the ones still rendering', async () => {
+    const { engine, aborted } = watched();
+    const local = track(buildServer({ core, engines: registryWith(engine), nodeTimeoutMs: 60_000 }));
+    await startRendering(local, 'One');
+    await startRendering(local, 'Two');
+    const wipe = await local.inject({
+      method: 'DELETE',
+      url: '/api/data?scope=shots',
+      headers: { host: '127.0.0.1:4747' },
+    });
+    expect(wipe.statusCode).toBe(200);
+    await vi.waitFor(() => expect(aborted).toHaveLength(2));
+    expect(aborted.some((p) => p.includes('One')) && aborted.some((p) => p.includes('Two'))).toBe(true);
     await local.close();
   });
 

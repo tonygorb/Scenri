@@ -25,6 +25,7 @@ import type {
   EditRequest,
   ReferenceRole,
   EngineResult,
+  TreeNode,
 } from '@scenri/core';
 import { SpendCapError, ASPECT_TOLERANCE, BUDGET_EXHAUSTED, budgetSize, type OnImageLanded } from '@scenri/core';
 import { readMeta } from './meta.js';
@@ -36,6 +37,7 @@ import { inspectMark } from './markShape.js';
 import { IGNORE_ENV_KEYS_SETTING, ignoreEnvKeysGetter, type EngineRegistry } from './engines.js';
 import {
   brandJsonWithCatalogProducts,
+  cancelCatalogImport,
   resolveLibraryProduct,
   runningImportCount,
   settleCatalogImports,
@@ -240,6 +242,21 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   // map: a node only ever leaves 'running' via the promise this map tracks, so
   // cancelling it is looking the controller up and aborting it.
   const runningGenerations = new Map<string, AbortController>();
+  /**
+   * Stop every running generation whose node `belongs`, once per run: sibling
+   * shots share one controller. Called before the rows go, while a node can
+   * still be traced to its brand; the run's own catch then settles them.
+   */
+  const stopRuns = (belongs: (node: TreeNode) => boolean) => {
+    const stopped = new Set<AbortController>();
+    for (const [id, ctrl] of runningGenerations) {
+      if (stopped.has(ctrl)) continue;
+      const node = core.store.getNode(id);
+      if (!node || !belongs(node)) continue;
+      ctrl.abort();
+      stopped.add(ctrl);
+    }
+  };
   // Derivatives for every picture shown smaller than it is. Made when a shot
   // lands and on first request; the originals stay where they were.
   // Nothing is importing at the moment a server starts, so any job the
@@ -361,6 +378,12 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         vocabulary: { collections: [], verticals: [], categories: [] },
       };
       for (const d of listPresenterDrafts(core, id)) await discardPresenterDraft(quiet, d.id, hooks);
+      // Its shots and its store imports as well. An engine still drawing for a
+      // brand that is gone spends the person's plan on a picture nobody can
+      // open, and holds update and quit behind "work is still running" until
+      // its node times out.
+      stopRuns((node) => core.store.getProject(node.projectId)?.brandId === id);
+      for (const job of core.catalog.listJobs(id)) cancelCatalogImport(job.id);
     }
     core.store.deleteBrand(id);
     // Then the pictures its document held (scenes, presenters, products, logos),
@@ -2851,7 +2874,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     return drained;
   });
 
-  registerSystemRoutes(app, { core, thumbs });
+  registerSystemRoutes(app, { core, thumbs, stopAllRuns: () => stopRuns(() => true) });
   registerPhoneRoutes(app, { phone });
   registerGuideRoutes(app, { core, version: meta.version });
   registerDesktopRoutes(app, {

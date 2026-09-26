@@ -8,7 +8,10 @@ import type { Core } from '@scenri/core';
 import type { ThumbStore } from '../thumbs.js';
 import { fromThisComputer } from '../access.js';
 
-export function registerSystemRoutes(app: FastifyInstance, deps: { core: Core; thumbs: ThumbStore }): void {
+export function registerSystemRoutes(
+  app: FastifyInstance,
+  deps: { core: Core; thumbs: ThumbStore; stopAllRuns: () => void },
+): void {
   const { core, thumbs } = deps;
   /**
    * What the library weighs. Off the event loop: a hundred thousand images
@@ -95,6 +98,9 @@ export function registerSystemRoutes(app: FastifyInstance, deps: { core: Core; t
     const scope = String((req.query as any)?.scope ?? '');
     if (scope !== 'shots' && scope !== 'all') return reply.status(400).send({ error: 'scope must be shots or all' });
     if (scope === 'shots') {
+      // Every shot still rendering stops first: its row is about to go, and an
+      // engine left drawing would spend the person's plan for nothing.
+      deps.stopAllRuns();
       let removed = 0;
       for (const brand of core.store.listBrands()) {
         // the sets go with the shots: a set that survives a wipe is a name with
