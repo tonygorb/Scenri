@@ -324,9 +324,19 @@ test.describe('brand kit', () => {
   test('scenes are kept from the card, not from a wizard', async ({ page }) => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/scenes`);
-    await page.locator('.sc-coll .sc-lookcard').first().click({ button: 'right' });
+    const first = page.locator('.sc-coll .sc-lookcard').first();
+    const href = await first.locator('a').first().getAttribute('href');
+    await first.click({ button: 'right' });
     await page.getByRole('menuitem', { name: 'Add to Keepers' }).click();
-    await expect(page.locator('.sc-lookcard-keep[data-on]')).toHaveCount(1);
+    // A scene filed under more than one collection is shown, and kept, in each:
+    // every card of this scene reads as kept, and no other card does.
+    const copies = await page.locator(`.sc-coll .sc-lookcard:has(a[href="${href}"])`).count();
+    const kept = page.locator('.sc-lookcard-keep[data-on]');
+    await expect(kept).toHaveCount(copies);
+    const keptHrefs = await kept.evaluateAll((els) =>
+      els.map((e) => e.closest('.sc-lookcard')?.querySelector('a')?.getAttribute('href')),
+    );
+    expect(new Set(keptHrefs)).toEqual(new Set([href]));
 
     // The stored key keeps its historical spelling on purpose — renaming it
     // would need a fourth migration hop and risk a real user's list.

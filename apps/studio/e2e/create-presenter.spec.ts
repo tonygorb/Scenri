@@ -1213,7 +1213,8 @@ test.describe('the doors', () => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters`);
     // the card's own Use button sits over its centre; the link is hit at its corner
-    await page.getByRole('link', { name: /white-blonde pixie/ }).click({ position: { x: 8, y: 8 } });
+    // Maeve is in the current catalog; the presenter this used to open was retired with it
+    await page.getByRole('link', { name: /copper waves/ }).click({ position: { x: 8, y: 8 } });
     await expect(page).toHaveURL(/\/presenters\/[^/]+$/);
     await expect(page.getByRole('button', { name: 'Use in a shot' }).first()).toBeVisible();
   });
