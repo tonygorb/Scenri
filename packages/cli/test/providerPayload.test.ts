@@ -12,7 +12,7 @@
  * provider can be traced back to where it came from by its pixels, whatever
  * copies, crops or trims it went through on the way.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
 import { createHash } from 'node:crypto';
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
@@ -333,6 +333,12 @@ describe('what reaches an image provider', { timeout: 60_000 }, () => {
     sceneHolds = null;
     nextOut = null;
     home = mkdtempSync(join(tmpdir(), 'sc-payload-home-'));
+    // The fixture library below is the whole library: the machine's downloaded
+    // one fills any file a bundled tree lacks, and its real Amara has views
+    // this fixture does not, so a flow sent her white-backdrop portrait and the
+    // audit could not name it. Pointing the cache at this empty home keeps the
+    // audit about the code, whatever library the machine holds.
+    vi.stubEnv('SCENRI_HOME', home);
     templatesDir = mkdtempSync(join(tmpdir(), 'sc-payload-templates-'));
     core = createCore(home);
 
@@ -405,6 +411,7 @@ describe('what reaches an image provider', { timeout: 60_000 }, () => {
 
   afterEach(async () => {
     await app.drain();
+    vi.unstubAllEnvs();
     resetPresenterDrafts();
     resetSceneStudio();
     rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
