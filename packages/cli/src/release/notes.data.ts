@@ -51,6 +51,24 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.19.1',
+    date: '2026-09-26',
+    sections: [
+      {
+        heading: 'Codex',
+        body: 'Codex keeps no copy of a picture once Scenri has it, neither a saved conversation nor a second file, and its plugins stay off while Scenri runs it.',
+      },
+      {
+        heading: 'Library',
+        body: 'The library download is checked against the exact archive this version was released with, and nothing is installed unless it matches.',
+      },
+      {
+        heading: 'Fixes',
+        body: 'A scene draw shows in the bell as soon as it starts, and the Scenes wall no longer calls it not drawn yet while it is drawing.',
+      },
+    ],
+  },
+  {
     version: '0.19.0',
     date: '2026-09-26',
     title: 'A new Scenri library.',
