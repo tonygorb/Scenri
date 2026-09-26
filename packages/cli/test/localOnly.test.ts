@@ -115,6 +115,61 @@ describe('a phone holding the code', () => {
     await new Promise((r) => setTimeout(r, 150));
     expect(exits).toEqual([]);
   });
+
+  describe('an update waiting', () => {
+    const registry = (async (input: unknown) =>
+      String(input).includes('/-/package/')
+        ? new Response(JSON.stringify({ latest: '99.9.9' }), { status: 200 })
+        : new Response('not found', { status: 404 })) as typeof fetch;
+    const updating = () => {
+      const exits: number[] = [];
+      let staged = 0;
+      const { app } = serve({
+        fetchImpl: registry,
+        runtime: { installKind: 'managed', supervised: true },
+        stageImpl: async () => {
+          staged++;
+          return { ok: true as const, version: '99.9.9', entry: '/staged/entry' };
+        },
+        exitImpl: (code) => exits.push(code),
+      });
+      return { app, exits, staged: () => staged };
+    };
+
+    it('cannot install it', async () => {
+      const { app, staged } = updating();
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/update/apply',
+        headers: phone,
+        remoteAddress: '192.168.1.50',
+      });
+      expect(res.statusCode).toBe(403);
+      expect(res.json().error).toBe('Only on the computer running Scenri.');
+      expect(staged()).toBe(0);
+      // and this computer still can
+      expect((await app.inject({ method: 'POST', url: '/api/update/apply' })).statusCode).toBe(200);
+      expect(staged()).toBe(1);
+    });
+
+    it('cannot restart into it once this computer has downloaded it', async () => {
+      const { app, exits } = updating();
+      expect((await app.inject({ method: 'POST', url: '/api/update/apply' })).statusCode).toBe(200);
+      await expect
+        .poll(async () => (await app.inject({ method: 'GET', url: '/api/update/status' })).json().phase)
+        .toBe('ready');
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/update/restart',
+        headers: phone,
+        remoteAddress: '192.168.1.50',
+      });
+      expect(res.statusCode).toBe(403);
+      expect(res.json().error).toBe('Only on the computer running Scenri.');
+      await new Promise((r) => setTimeout(r, 150));
+      expect(exits).toEqual([]);
+    });
+  });
 });
 
 describe('another app on this computer', () => {
