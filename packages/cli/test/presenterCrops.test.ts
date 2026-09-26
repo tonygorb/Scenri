@@ -126,6 +126,9 @@ describe('a presenter avatar is measured from the figure, not the frame', () => 
     expect(m!.height).toBe(176);
   });
 
+  // A 5000 by 6250 source, encoded twice and trimmed; the node 22 job on
+  // PR #262 took over the 5 s default (1.1 s locally), so it carries the
+  // same budget as the noise test.
   it('caps the stored avatar at 1024 without ever distorting it', async () => {
     const W = 5000;
     const H = 6250;
@@ -142,7 +145,7 @@ describe('a presenter avatar is measured from the figure, not the frame', () => 
     // the native crop would be 1232; stored at the 1024 cap, still square
     expect(m!.width).toBe(1024);
     expect(m!.height).toBe(1024);
-  });
+  }, 30_000);
 
   // Gaussian noise at 1024 by 1280 is the worst case for the PNG encoder and
   // for both trim passes; a loaded Windows runner took 5.7 s against the 5 s
