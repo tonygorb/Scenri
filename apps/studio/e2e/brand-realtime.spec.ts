@@ -1,6 +1,14 @@
 import { test, expect, type Page } from '@playwright/test';
 import { isolate } from './harness.js';
-import { currentBrand, expectSameSession, goCreate, holdNext, markSession, switchBrand } from './realtime.js';
+import {
+  brandJson,
+  currentBrand,
+  expectSameSession,
+  goCreate,
+  holdNext,
+  markSession,
+  switchBrand,
+} from './realtime.js';
 
 /**
  * Brand-level mutations and the shot surfaces, on the same terms as the asset
@@ -182,6 +190,34 @@ test('a kit save does not make the bell poll again', async ({ page }) => {
 
   // no tick chasing the write: the poll keeps its own cadence
   expect(polls.filter((t) => t >= savedAt - 50 && t <= savedAt + 600)).toEqual([]);
+  await expectSameSession(page);
+});
+
+// A kit field wrote itself when it blurred, and a field taken away with the
+// caret in it never blurs: Back closed Settings around it, and a window
+// crossing the phone width rebuilt Settings as the other layout (S2-02).
+test('a kit edit still being typed is kept through Back and through a change of layout', async ({ page }) => {
+  const brand = await currentBrand(page);
+  await page.goto(`/${brand.slug}/create`);
+  await markSession(page);
+  await openSettings(page);
+  const tagline = () => page.getByRole('dialog', { name: 'Settings' }).getByLabel('Tagline');
+  await tagline().click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.type('Kept through Back');
+  await expect(tagline()).toBeFocused();
+  await page.goBack();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect.poll(async () => (await brandJson(page.request, brand.id)).meta?.tagline).toBe('Kept through Back');
+
+  await openSettings(page);
+  await tagline().click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.type('Kept through a resize');
+  await expect(tagline()).toBeFocused();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(async () => (await brandJson(page.request, brand.id)).meta?.tagline).toBe('Kept through a resize');
+  await page.setViewportSize({ width: 1440, height: 900 });
   await expectSameSession(page);
 });
 

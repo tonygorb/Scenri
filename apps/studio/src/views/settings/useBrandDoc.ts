@@ -165,6 +165,22 @@ export function useBrandDoc(): BrandDoc {
   return { json: compose(), state, patch, flush, applyRow };
 }
 
+/**
+ * A kit field that writes itself on blur, written on its way out as well.
+ *
+ * A field taken away with the caret still in it never blurs: Back closes
+ * Settings around it, and a phone turning or a window crossing the phone width
+ * rebuilds Settings as the other layout. The field's own blur runs once more
+ * as it unmounts, through the same patch, so it must do nothing when nothing
+ * changed. Typing is still not saved as it happens, because the brand's
+ * address follows its name.
+ */
+export function useCommitOnLeave(commit: () => void): void {
+  const latest = useRef(commit);
+  latest.current = commit;
+  useEffect(() => () => latest.current(), []);
+}
+
 /** What the header says, given the save state. */
 export function saveLabel(state: SaveState): string {
   if (state === 'saving') return 'Saving…';

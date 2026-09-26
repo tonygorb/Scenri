@@ -4,7 +4,7 @@ import { api, imgUrl, uploadLogo, type Brand } from '../../api.js';
 import { MARK_BACKGROUNDS, MARK_ROLES, MARK_ROLE_LABEL, marksOf, primaryOf, type Mark } from '../../brand/marks.js';
 import { useFileDrop } from '../../layout/Dropzone.js';
 import { useToasts } from '../../toasts.js';
-import type { BrandDoc } from './useBrandDoc.js';
+import { type BrandDoc, useCommitOnLeave } from './useBrandDoc.js';
 import { failureToast } from '../../failure.js';
 
 /**
@@ -196,6 +196,10 @@ function KitField({
 }) {
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
+  useCommitOnLeave(() => {
+    const next = draft.trim();
+    if (next !== value) onCommit(next);
+  });
   return (
     <div className="sc-set-row">
       <span className="txt">
