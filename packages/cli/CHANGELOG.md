@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.19.1](https://github.com/tonygorb/Scenri/compare/v0.19.0...v0.19.1) (2026-09-26)
+
+
+### Bug Fixes
+
+* Codex keeps no picture copies, and the library download is pinned ([e29537f](https://github.com/tonygorb/Scenri/commit/e29537f93860ecc095dad448bfb742c67c49388c))
+* **codex:** keep no copies of a picture, and switch off codex's plugins ([d81d6c2](https://github.com/tonygorb/Scenri/commit/d81d6c21f4ee82990cb26e2f5263bb43b0e4e563))
+* **content:** install only the library archive this version was tested against ([40f7659](https://github.com/tonygorb/Scenri/commit/40f765955475db6b5f51fb8d6bb286b40c7dddc4))
+* **studio:** tell the bell at once when the scene studio starts work ([53ba5e4](https://github.com/tonygorb/Scenri/commit/53ba5e4f46c272d939c1ebaa41b839eb3513843e))
+* **studio:** tell the bell at once when the scene studio starts work ([a3689b7](https://github.com/tonygorb/Scenri/commit/a3689b7b42480b14e702df94a7001d08f5bb6ca5))
+
 ## [0.19.0](https://github.com/tonygorb/Scenri/compare/v0.18.2...v0.19.0) (2026-09-26)
 
 
