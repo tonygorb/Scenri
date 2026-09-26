@@ -15,6 +15,8 @@ const api = vi.hoisted(() => ({
   generateDraftView: vi.fn(),
 }));
 vi.mock('../src/api.js', () => ({ api }));
+const poke = vi.hoisted(() => vi.fn());
+vi.mock('../src/app/TaskCenter.js', () => ({ useTaskCenter: () => ({ poke }) }));
 
 const { usePresenterDraft } = await import('../src/create/presenter/usePresenterDraft.js');
 
@@ -42,6 +44,7 @@ const settle = () => act(async () => {});
 beforeEach(() => {
   vi.useFakeTimers();
   for (const f of Object.values(api)) f.mockReset();
+  poke.mockReset();
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
@@ -149,5 +152,24 @@ describe('a request that failed', () => {
     });
     expect(held.err).toBe('database is locked');
     expect(held.errView).toBeNull();
+  });
+});
+
+describe('the bell', () => {
+  it('hears at once when a view starts drawing, and not when the press failed', async () => {
+    api.presenterDraft.mockResolvedValue(draft());
+    api.generateDraftView
+      .mockResolvedValueOnce({ draft: drawing })
+      .mockRejectedValueOnce(Object.assign(new Error('the engine fell over'), { status: 500 }));
+    act(() => root.render(createElement(Probe)));
+    await settle();
+    await act(async () => {
+      await held.generate('front');
+    });
+    expect(poke).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await held.generate('side');
+    });
+    expect(poke).toHaveBeenCalledTimes(1);
   });
 });
