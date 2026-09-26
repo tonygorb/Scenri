@@ -11,7 +11,7 @@
  * for. It must never run in a hosted service on someone else's behalf — hence
  * `localOnly: true`.
  */
-import { readdir, stat } from 'node:fs/promises';
+import { lstat, readdir, readFile, rmdir, stat, unlink } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -204,8 +204,53 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
       // (normalizePngs) - this package stays sharp-free.
       if (buf.length === 0) throw new Error(`codex: ${name} is empty`);
       hashes.push(saveImage(buf));
+      await forgetGenerated(buf);
     }
     return hashes;
+  }
+
+  /**
+   * Codex keeps its own copy of every picture it draws, under
+   * generated_images/<session>/. Once Scenri holds the picture, that copy is
+   * removed, so a presenter or a shot deleted in Scenri does not live on there.
+   * Only a byte-identical file is ever removed, and a folder only when that
+   * removal emptied it: a take running beside this one keeps its own file and
+   * its own folder whatever the timing. Folders untouched for half an hour are
+   * not read at all.
+   */
+  async function forgetGenerated(buf: Buffer): Promise<void> {
+    const home = generatedImagesDir();
+    const recent = Date.now() - 30 * 60_000;
+    let names: string[];
+    try {
+      names = await readdir(home);
+    } catch {
+      return;
+    }
+    const dropIfSame = async (path: string): Promise<boolean> => {
+      const st = await lstat(path);
+      if (!st.isFile() || st.size !== buf.length) return false;
+      if (!(await readFile(path)).equals(buf)) return false;
+      await unlink(path);
+      return true;
+    };
+    for (const name of names) {
+      const at = join(home, name);
+      try {
+        const st = await lstat(at);
+        if (st.mtimeMs < recent) continue;
+        if (st.isFile()) {
+          await dropIfSame(at);
+          continue;
+        }
+        if (!st.isDirectory()) continue;
+        let dropped = false;
+        for (const file of await readdir(at)) dropped = (await dropIfSame(join(at, file))) || dropped;
+        if (dropped && (await readdir(at)).length === 0) await rmdir(at);
+      } catch {
+        // another run's folder can change under this read; its files are its own
+      }
+    }
   }
 
   async function recoverFromGenerated(before: Set<string>, claimed?: Set<string>): Promise<string | null> {

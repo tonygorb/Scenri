@@ -103,6 +103,7 @@ describe('the connection check', () => {
       'gpt-6-sol',
       '-c',
       'model_reasoning_effort="low"',
+      '--ephemeral',
       '-C',
       expect.stringContaining('scenri-codex-'),
       '-',

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
-import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -224,6 +224,25 @@ describe('generate', () => {
     const promptText = calls[0].child.stdin.written;
     expect(promptText).toContain('a fox mascot on a teal background.');
     expect(promptText).not.toContain('background..');
+  });
+
+  it("removes codex's own copy of a picture it has collected, and nothing else", async () => {
+    // Codex keeps every picture it draws under generated_images/<session>/.
+    // A presenter deleted in Scenri must not live on there.
+    const gen = join(process.env.CODEX_HOME as string, 'generated_images');
+    mkdirSync(join(gen, 'this-run'), { recursive: true });
+    mkdirSync(join(gen, 'other-run'), { recursive: true });
+    writeFileSync(join(gen, 'this-run', 'exec-1.png'), PNG_1);
+    writeFileSync(join(gen, 'other-run', 'exec-2.png'), PNG_2);
+    const { spawnImpl } = fakeSpawn(({ args, child }) => {
+      writeFileSync(join(dirFromArgs(args), 'out-1.png'), PNG_1);
+      child.emit('exit', 0, null);
+    });
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
+    await engine.generate({ ...genReq, count: 1 });
+    expect(existsSync(join(gen, 'this-run', 'exec-1.png'))).toBe(false);
+    expect(existsSync(join(gen, 'this-run'))).toBe(false);
+    expect(existsSync(join(gen, 'other-run', 'exec-2.png'))).toBe(true);
   });
 
   it('runs one codex exec per image with low reasoning, collects hashes in order', async () => {

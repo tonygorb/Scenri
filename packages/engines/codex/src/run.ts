@@ -155,6 +155,9 @@ export function execArgs(dir: string, effort: ReasoningEffort = 'low'): string[]
     CODEX_MODEL,
     '-c',
     `model_reasoning_effort="${effort}"`,
+    // No session files: codex would otherwise keep every run's transcript, the
+    // pictures in it as base64, long after Scenri has let the work go.
+    '--ephemeral',
     '-C',
     dir,
     '-',
@@ -162,15 +165,17 @@ export function execArgs(dir: string, effort: ReasoningEffort = 'low'): string[]
 }
 
 /**
- * `-c mcp_servers.<name>.enabled=false` for each MCP server the machine's own
- * config.toml names. Every exec used to load them all: their tool schemas rode
- * along as tokens on each shot, and tools like computer-use sat within reach of
- * an agent that reads writing inside the attached pictures. Codex skips a
- * server whose `enabled` is false, and a -c override merges by dotted path, so
- * each server is named; a name with a dot in it cannot be addressed that way
- * and is left alone. Names only are read, never values.
+ * `-c mcp_servers.<name>.enabled=false` and `-c plugins.<name>.enabled=false`
+ * for each MCP server and plugin the machine's own config.toml names. Every
+ * exec used to load them all: their tool schemas rode along as tokens on each
+ * shot, and tools like computer-use sat within reach of an agent that reads
+ * writing inside the attached pictures. The image tool is core to codex, not a
+ * plugin, so nothing Scenri needs is switched off. Codex skips a server or a
+ * plugin whose `enabled` is false, and a -c override merges by dotted path, so
+ * each is named; a name with a dot in it cannot be addressed that way and is
+ * left alone. Names only are read, never values.
  */
-export function mcpOffArgs(env: NodeJS.ProcessEnv): string[] {
+export function extensionsOffArgs(env: NodeJS.ProcessEnv): string[] {
   // The same place the child will look: its own CODEX_HOME, else ~/.codex of
   // the HOME it inherits. An env with neither has no config to read.
   const user = env.HOME || env.USERPROFILE;
@@ -182,12 +187,12 @@ export function mcpOffArgs(env: NodeJS.ProcessEnv): string[] {
   } catch {
     return [];
   }
-  const names = new Set<string>();
+  const keys = new Set<string>();
   for (const line of text.split(/\r?\n/)) {
-    const m = /^\s*\[\s*mcp_servers\.(?:"([A-Za-z0-9_-]+)"|([A-Za-z0-9_-]+))\s*\]\s*(?:#.*)?$/.exec(line);
-    if (m) names.add(m[1] ?? m[2]);
+    const m = /^\s*\[\s*(mcp_servers|plugins)\.(?:"([A-Za-z0-9_@-]+)"|([A-Za-z0-9_@-]+))\s*\]\s*(?:#.*)?$/.exec(line);
+    if (m) keys.add(`${m[1]}.${m[2] ?? m[3]}`);
   }
-  return [...names].flatMap((name) => ['-c', `mcp_servers.${name}.enabled=false`]);
+  return [...keys].flatMap((key) => ['-c', `${key}.enabled=false`]);
 }
 
 /**
@@ -416,7 +421,7 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
     // point of the connection check is that codex cannot tell it apart from a
     // real shot. Built per spawn so a repair lands on the next run.
     const env = buildChildEnv(parentEnv, [...ignoreEnvKeys(), ...SIBLING_PROVIDER_KEYS]);
-    if (args[0] === 'exec') args = ['exec', ...mcpOffArgs(parentEnv), ...args.slice(1)];
+    if (args[0] === 'exec') args = ['exec', ...extensionsOffArgs(parentEnv), ...args.slice(1)];
     return exe.direct
       ? spawnImpl(exe.command, args, { stdio, env, ...(platform !== 'win32' ? { detached: true } : {}) })
       : spawnImpl([exe.command, ...args.map(winArg)].join(' '), [], { stdio, env, shell: true });

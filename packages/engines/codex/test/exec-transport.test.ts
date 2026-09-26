@@ -75,6 +75,12 @@ describe('execArgs', () => {
     expect(args).toContain('/work/dir');
   });
 
+  it('keeps no session files: codex would store every picture there again, as base64', () => {
+    const args = execArgs('/work/dir');
+    expect(args).toContain('--ephemeral');
+    expect(args.indexOf('--ephemeral')).toBeLessThan(args.indexOf('-'));
+  });
+
   it("runs every exec on gpt-6-sol, whatever the machine's own codex default is", () => {
     const args = execArgs('/work/dir', 'high');
     expect(args[args.indexOf('-m') + 1]).toBe('gpt-6-sol');
@@ -100,6 +106,10 @@ describe("the machine's own MCP servers", () => {
         'approval_mode = "approve"',
         '[mcp_servers."has.dot"]',
         'command = "x"',
+        '[plugins."computer-use@openai-bundled"]',
+        'enabled = true',
+        '[plugins."github@openai-curated"]',
+        'enabled = true',
       ].join('\n'),
     );
     const { spawnImpl, calls } = scriptedSpawn((call) => call.child.emit('exit', 0, null));
@@ -109,6 +119,9 @@ describe("the machine's own MCP servers", () => {
     expect(args[0]).toBe('exec');
     expect(args).toContain('mcp_servers.figma.enabled=false');
     expect(args).toContain('mcp_servers.computer-use.enabled=false');
+    // plugins too: computer-use ships as one, and the image tool is core, not a plugin
+    expect(args).toContain('plugins.computer-use@openai-bundled.enabled=false');
+    expect(args).toContain('plugins.github@openai-curated.enabled=false');
     expect(args.join(' ')).not.toContain('tools');
     expect(args.join(' ')).not.toContain('has.dot');
     expect(args.at(-1)).toBe('-');
