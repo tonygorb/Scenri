@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router';
-import { ArrowSquareOut, CaretDown } from '@phosphor-icons/react';
+import { ArrowSquareOut } from '@phosphor-icons/react';
 import type { ReleaseEntry } from '../api.js';
 import { useWhatsNew } from '../app/WhatsNew.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
@@ -20,11 +20,12 @@ import {
  *
  * Help, not a place: it lights nothing in the bar, and the places, the mark and
  * Back are the ways out, so it carries no X. It names itself because nothing in
- * the bar does. Newest first, one timeline: each release its version over its
- * date in a column, then the update, every one in the same sizes, and its
- * release notes last, after its words, open or folded alike.
- * The releases before the recent ones are one line each that opens
- * to its words. The whole history is in the build; it shows ten releases at a
+ * the bar does. Newest first, one timeline, every release set the same way and
+ * open, as a changelog is (Linear's, Notion's): its version over its date in a
+ * column, then the update, its release notes last, after its words. A folded
+ * style for the older ones was tried and retired (2026-09-27): two looks for one
+ * thing, a press per release, and the words it hid were no longer than the
+ * recent ones. The whole history is in the build; it shows ten releases at a
  * time and the next ten as the end comes into view, through a real button that
  * a keyboard reaches too. Full release notes on GitHub is the archive for every
  * fix a record left out. Each release has an address (`#v0.19.0`). Opening the
@@ -44,7 +45,7 @@ export function WhatsNewPage() {
   // The next ten, from the button or from scrolling. The button stays one
   // element while there is more, so a keyboard press keeps its place; the
   // press that loads the last of them takes the button away, so the keyboard
-  // moves to the first release it brought instead of falling to nothing.
+  // moves to the first release it brought (its title) instead of falling to nothing.
   const landOn = useRef<string | null>(null);
   const loadMore = (fromKeyboardFocus: boolean) => {
     landOn.current = fromKeyboardFocus ? (history[shown]?.version ?? null) : null;
@@ -54,7 +55,7 @@ export function WhatsNewPage() {
     const version = landOn.current;
     landOn.current = null;
     if (!version || more) return;
-    document.getElementById(`v${version}`)?.querySelector<HTMLElement>('summary')?.focus();
+    document.getElementById(`v${version}`)?.querySelector<HTMLElement>('h2')?.focus();
   }, [shown, more]);
 
   useEffect(() => {
@@ -97,7 +98,7 @@ export function WhatsNewPage() {
         ) : (
           <>
             <ol className="sc-wn-list">
-              {history.slice(0, Math.min(shown, recent.length)).map((r) => (
+              {history.slice(0, shown).map((r) => (
                 <UpdateRow
                   current={r.version === running}
                   key={r.version}
@@ -107,24 +108,6 @@ export function WhatsNewPage() {
                 />
               ))}
             </ol>
-            {shown > recent.length && (
-              <section className="sc-wn-part" aria-labelledby="sc-wn-earlier">
-                <h2 id="sc-wn-earlier" className="sc-vh">
-                  Earlier releases
-                </h2>
-                <ol className="sc-wn-olds">
-                  {history.slice(recent.length, shown).map((r) => (
-                    <OlderRow
-                      current={r.version === running}
-                      key={r.version}
-                      entry={r}
-                      open={hash === `#v${r.version}`}
-                      notes={notesFor(r.version)}
-                    />
-                  ))}
-                </ol>
-              </section>
-            )}
             {more && <OlderUpdates count={shown} onMore={loadMore} />}
           </>
         )}
@@ -173,47 +156,17 @@ function UpdateRow({
     >
       <ReleaseMeta entry={entry} current={current} />
       <div className="sc-wn-what">
-        {entry.title && <h2 className="sc-wn-row-hed">{entry.title}</h2>}
+        {/* focusable by script only: where the keyboard lands when Show older updates brings the last of them */}
+        {entry.title && (
+          <h2 className="sc-wn-row-hed" tabIndex={-1}>
+            {entry.title}
+          </h2>
+        )}
         {picture && <WhatsNewPicture picture={picture} eager={lead} onOpen={() => setLarge(true)} />}
         <ReleaseAreas sections={entry.sections} />
         {notes && <ReleaseNotesLink href={notes} version={entry.version} />}
       </div>
       {large && picture && <WhatsNewLightbox src={picture.src} alt={picture.alt} onClose={() => setLarge(false)} />}
-    </li>
-  );
-}
-
-/**
- * A release older than the recent ones, folded: the same date column and the
- * same title as every update above it, opening to the words it shipped with.
- * Those words were written before today's rules, so they wait to be asked for
- * rather than filling the page. A native disclosure: the keyboard, a screen
- * reader and a link to its address (`#v0.9.0`) all open it.
- */
-function OlderRow({
-  entry,
-  open,
-  current,
-  notes,
-}: {
-  entry: ReleaseEntry;
-  open: boolean;
-  current: boolean;
-  notes: string | null;
-}) {
-  return (
-    <li className="sc-wn-old" id={`v${entry.version}`}>
-      <details open={open || undefined}>
-        <summary>
-          <ReleaseMeta entry={entry} current={current} />
-          <span className="sc-wn-old-hed">{entry.title ?? entry.sections.map((s) => s.heading).join(', ')}</span>
-          <CaretDown size={14} className="sc-wn-old-caret" aria-hidden="true" />
-        </summary>
-        <div className="sc-wn-old-body">
-          <ReleaseAreas sections={entry.sections} />
-          {notes && <ReleaseNotesLink href={notes} version={entry.version} />}
-        </div>
-      </details>
     </li>
   );
 }

@@ -332,9 +332,8 @@ button.sc-wn-media {
   column-gap: var(--sc-wn-gap);
   align-items: first baseline;
 }
-/* the version over the date, open or folded */
-.sc-wn-row > .sc-wn-when,
-.sc-wn-old summary .sc-wn-when {
+/* the version over the date */
+.sc-wn-row > .sc-wn-when {
   flex-direction: column;
   align-items: flex-start;
   gap: var(--sc-space-3);
@@ -351,9 +350,8 @@ button.sc-wn-media {
   min-width: 0;
   max-width: var(--sc-wn-measure);
 }
-/* every update's title, open or folded, recent or years old: one size */
-.sc-wn-row-hed,
-.sc-wn-old-hed {
+/* every update's title, recent or years old: one size */
+.sc-wn-row-hed {
   font-size: var(--sc-text-title);
   font-weight: 600;
   line-height: 1.25;
@@ -391,64 +389,10 @@ button.sc-wn-media {
   color: var(--sc-fg2);
   text-wrap: pretty;
 }
-/* a release's full notes come last, after its words, open or folded alike */
+/* a release's full notes come last, after its words */
 .sc-wn-what > .sc-wn-notes {
   align-self: flex-start;
   margin-top: var(--sc-space-7);
-}
-
-/* the releases before the recent ones carry on the same timeline, folded:
-   the same column and the same titles, the words a press away */
-.sc-wn-part {
-  margin-top: var(--sc-wn-beat);
-  border-top: 1px solid var(--sc-line);
-}
-.sc-wn-olds {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.sc-wn-old + .sc-wn-old {
-  border-top: 1px solid var(--sc-line);
-}
-.sc-wn-old summary {
-  display: grid;
-  grid-template-columns: var(--sc-wn-side) minmax(0, 1fr) auto;
-  column-gap: var(--sc-wn-gap);
-  align-items: baseline;
-  padding: var(--sc-space-7) 0;
-  cursor: pointer;
-  list-style: none;
-}
-.sc-wn-old summary::-webkit-details-marker {
-  display: none;
-}
-.sc-wn-old-caret {
-  align-self: center;
-  color: var(--sc-fg3);
-  transition:
-    color var(--sc-dur-fast) var(--sc-ease),
-    transform var(--sc-dur-fast) var(--sc-ease);
-}
-/* a line that opens says so by its caret brightening, never by underlining its words */
-@media (hover: hover) {
-  .sc-wn-old summary:hover .sc-wn-old-caret {
-    color: var(--sc-fg);
-  }
-}
-.sc-wn-old details[open] .sc-wn-old-caret {
-  transform: rotate(180deg);
-}
-.sc-wn-old-body {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--sc-space-7);
-  max-width: var(--sc-wn-measure);
-  margin: 0 0 var(--sc-space-8) calc(var(--sc-wn-side) + var(--sc-wn-gap));
-}
-.sc-wn-old-body .sc-wn-areas {
-  margin-top: 0;
 }
 
 /* the next ten: a real button, loading by itself as it comes into view */
@@ -502,16 +446,6 @@ button.sc-wn-media {
   .sc-wn-what {
     max-width: none;
   }
-  .sc-wn-old summary {
-    grid-template-columns: minmax(0, 1fr) auto;
-    row-gap: var(--sc-space-5);
-  }
-  .sc-wn-old summary .sc-wn-when {
-    grid-column: 1 / -1;
-  }
-  .sc-wn-old-body {
-    margin-left: 0;
-  }
   /* A phone has no room beside the picture, so larger is the whole width: the
      stage runs edge to edge and square, as a phone shows its own photos. With
      the window's padding it came out narrower than the column it opened from. */
@@ -548,8 +482,7 @@ button.sc-wn-media {
   .sc-wn-notes,
   .sc-wn-media,
   .sc-wn-media img,
-  button.sc-wn-media .sc-cell-ctl,
-  .sc-wn-old-caret {
+  button.sc-wn-media .sc-cell-ctl {
     transition: none;
   }
   .sc-wn-lb-scrim,

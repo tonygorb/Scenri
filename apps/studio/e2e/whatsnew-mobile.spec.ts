@@ -4,8 +4,8 @@ import { isolate } from './harness.js';
 /**
  * What's new at a hand's width. The dialog docks to the bottom edge as a sheet
  * rather than a shrunken desktop card, its excerpt still one link to the page;
- * the page folds its date column above what each release says, and a tap on a
- * picture opens it larger.
+ * the page folds its version-and-date column above what each release says, and
+ * a tap on a picture opens it larger.
  *
  * Phones are held at 390px; the tablet project keeps its own viewport and
  * only runs what is not phone-only. whatsnew.spec.ts and
@@ -63,7 +63,7 @@ const small = (
 
 /**
  * Six recent updates (three with a picture, the rest in words) down to the
- * fifth headline, then two earlier ones that the page folds.
+ * fifth headline, then two earlier ones, open in the same style.
  */
 const RECORDS: Rec[] = [
   headline(
@@ -349,7 +349,7 @@ test("the What's New page is one column on a phone, its pictures the column's wi
   await serve(page, '9.9.9');
   await page.goto(PAGE);
   const rows = page.locator('li.sc-wn-row');
-  await expect(rows).toHaveCount(6);
+  await expect(rows).toHaveCount(8);
   await expect(page.locator('#sc-wn-title')).toBeFocused();
   // the page's name steps down to the phone's size, and the rows close up to 40px across their hairline
   expect(await page.locator('#sc-wn-title').evaluate((el) => getComputedStyle(el).fontSize)).toBe('24px');
@@ -361,7 +361,7 @@ test("the What's New page is one column on a phone, its pictures the column's wi
 
   // each release's version over its date sits above what it says, on the same left edge, its title
   // first and its notes last
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 8; i++) {
     const row = rows.nth(i);
     const tag = await boxOf(row.locator(':scope > .sc-wn-when .sc-tag-version'));
     const date = await boxOf(row.locator(':scope > .sc-wn-when time'));
@@ -387,15 +387,8 @@ test("the What's New page is one column on a phone, its pictures the column's wi
     expect(Math.abs(pic.x - column.x)).toBeLessThanOrEqual(1);
   }
 
-  // the earlier releases fold the same way: the date over the title, on the same left edge
-  const olds = page.locator('li.sc-wn-old');
-  await expect(olds).toHaveCount(2);
-  for (let i = 0; i < 2; i++) {
-    const when = await boxOf(olds.nth(i).locator('summary .sc-wn-when'));
-    const hed = await boxOf(olds.nth(i).locator('summary .sc-wn-old-hed'));
-    expect(when.y + when.height, `earlier ${i + 1}: its date is not above its title`).toBeLessThanOrEqual(hed.y + 0.5);
-    expect(Math.abs(when.x - hed.x)).toBeLessThanOrEqual(1);
-  }
+  // the earlier releases are open rows too, one list and one style
+  await expect(page.locator('details, summary')).toHaveCount(0);
   expect(await sideways(page)).toEqual({ doc: 0, pane: 0 });
 
   // a tap on a picture opens it larger, inside the window's width, and a tap anywhere closes it

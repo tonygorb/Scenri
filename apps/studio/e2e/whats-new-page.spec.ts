@@ -299,8 +299,7 @@ const dialog = (p: Page) => p.locator('.sc-wn');
 const dot = (p: Page) => p.locator('.sc-help-btn .sc-upd-dot');
 const heading = (p: Page) => p.locator('#sc-wn-title');
 const rows = (p: Page) => p.locator('ol.sc-wn-list > li.sc-wn-row');
-const olds = (p: Page) => p.locator('section.sc-wn-part ol.sc-wn-olds > li.sc-wn-old');
-const releases = (p: Page) => p.locator('li.sc-wn-row, li.sc-wn-old');
+const releases = (p: Page) => p.locator('li.sc-wn-row');
 const byVersion = (p: Page, v: string) => p.locator(`[id="v${v}"]`);
 /** A recent release's picture: the last thing in what it says, and a button that opens it larger. */
 const pictureIn = (row: Locator) => row.locator('.sc-wn-what > button.sc-wn-media');
@@ -546,12 +545,12 @@ test('on a fresh home nothing is unread: nothing opens, no dot, and the page sho
   await expect(page).toHaveTitle("What's new - Scenri");
   await expect(heading(page)).toBeFocused();
   const first = Math.min(notes.history.length, Math.max(STEP, notes.recent.length));
-  await expect(releases(page)).toHaveCount(first);
-  await expect(rows(page)).toHaveCount(notes.recent.length);
-  await expect(olds(page)).toHaveCount(first - notes.recent.length);
-  expect(await ids(rows(page))).toEqual(notes.recent.map((r) => `v${r.version}`));
-  await expect(rows(page).locator('h2.sc-wn-row-hed')).toHaveText(notes.recent.map((r) => r.title as string));
-  expect(await kinds(page)).toEqual(notes.recent.map((r) => (r.announce ? 'headline' : 'small')));
+  // one list in one style: the recent releases and the first of the earlier ones, all open
+  const shown = notes.history.slice(0, first);
+  await expect(rows(page)).toHaveCount(first);
+  expect(await ids(rows(page))).toEqual(shown.map((r) => `v${r.version}`));
+  await expect(rows(page).locator('h2.sc-wn-row-hed')).toHaveText(shown.map((r) => r.title as string));
+  expect(await kinds(page)).toEqual(shown.map((r) => (r.announce ? 'headline' : 'small')));
   expect(await documentOverflow(page), 'the document scrolls beside the page pane').toBe(0);
 
   // the lead is the newest update, the one the dialog shows: it only loads its picture first
@@ -649,33 +648,26 @@ test('the whole real history is a scroll away: the rest arrives as the end comes
   expect(await documentOverflow(page)).toBe(0);
 
   await scrollToTheEnd(page, notes.history.length);
-  await expect(rows(page)).toHaveCount(notes.recent.length);
-  await expect(olds(page)).toHaveCount(notes.history.length - notes.recent.length);
-  await expect(page.locator('#sc-wn-earlier')).toHaveText('Earlier releases');
+  await expect(rows(page)).toHaveCount(notes.history.length);
   const down = await versionsDown(page);
   expect(down).toEqual(notes.history.map((r) => r.version));
   expectDescending(down);
   expect(down.at(-1)).toBe(FIRST_PUBLIC);
-  // every earlier release is titled, and waits to be asked for
-  await expect(olds(page).locator('span.sc-wn-old-hed')).toHaveText(
-    notes.history.slice(notes.recent.length).map((r) => r.title as string),
-  );
-  await expect(page.locator('li.sc-wn-old details[open]')).toHaveCount(0);
+  // every release is titled and open, in one style, down to the first public one
+  await expect(rows(page).locator('h2.sc-wn-row-hed')).toHaveText(notes.history.map((r) => r.title as string));
+  await expect(rows(page).locator(':scope > .sc-wn-what > .sc-wn-areas')).toHaveCount(notes.history.length);
+  await expect(page.locator('details, summary')).toHaveCount(0);
   expect(await documentOverflow(page), 'the whole history stretched the document').toBe(0);
 });
 
-test('a link to the first public release shows the history down to it, opens it and puts it in view', async ({
-  page,
-}) => {
+test('a link to the first public release shows the history down to it and puts it in view', async ({ page }) => {
   const notes = await realNotes(page);
   await page.goto(`${PAGE}#v${FIRST_PUBLIC}`);
   const target = byVersion(page, FIRST_PUBLIC);
-  await expect(target).toHaveClass(/\bsc-wn-old\b/);
+  await expect(target).toHaveClass(/\bsc-wn-row\b/);
   await expect(releases(page)).toHaveCount(notes.history.length);
-  await expect(target.locator('details')).toHaveAttribute('open', '');
-  await expect(target.locator('.sc-wn-old-body .sc-wn-area p').first()).toBeVisible();
-  await expect(target.locator('summary')).toBeInViewport();
-  await expect(page.locator('li.sc-wn-old details[open]')).toHaveCount(1);
+  await expect(target.locator('.sc-wn-area p').first()).toBeVisible();
+  await expect(target.locator('h2.sc-wn-row-hed')).toBeInViewport();
   expectDescending(await versionsDown(page));
   expect(await documentOverflow(page)).toBe(0);
 });
@@ -748,11 +740,12 @@ test('Help leads to the page: its name takes the keyboard, nothing in the bar cl
   await expect(more(page)).toHaveCount(0);
   // each release's date and its version chip; the version this computer runs is the lit one
   for (const r of HISTORY) {
-    await expect(byVersion(page, r.version).locator(':scope > .sc-wn-when time')).toHaveAttribute(
-      'datetime',
-      r.date,
+    await expect(byVersion(page, r.version).locator(':scope > .sc-wn-when time')).toHaveAttribute('datetime', r.date);
+    await expectTag(
+      byVersion(page, r.version).locator(':scope > .sc-wn-when .sc-tag-version'),
+      r.version,
+      r.version === '9.9.9',
     );
-    await expectTag(byVersion(page, r.version).locator(':scope > .sc-wn-when .sc-tag-version'), r.version, r.version === '9.9.9');
   }
   // plain or lit, a tag is a traditional version pill: outlined, or filled when it is yours, and nothing to press
   expect(await tagLook(byVersion(page, '9.9.8').locator(':scope > .sc-wn-when .sc-tag-version'))).toMatchObject({
@@ -1143,65 +1136,48 @@ test('with reduced motion nothing on the page animates: the lift and the mark ar
 
 // ---- the earlier releases, and the rest of the history ------------------------------
 
-test('the releases before the recent ones carry on the same timeline, folded: the same date column and title, opening to their words', async ({
+test('the releases before the recent ones carry on in the same style: open, the same column and title, their words, their notes last', async ({
   page,
 }) => {
   await blindObserver(page);
   await serve(page, LONG, '2.0.24', '2.0.24');
   await page.goto(PAGE);
-  // the first ten: the seven recent as open rows, then three earlier ones
-  await expect(rows(page)).toHaveCount(7);
-  await expect(olds(page)).toHaveCount(STEP - 7);
-  // their heading is for screen readers alone
-  const earlier = page.locator('#sc-wn-earlier');
-  await expect(earlier).toHaveText('Earlier releases');
-  await expect(earlier).toHaveClass(/\bsc-vh\b/);
-  await expect(page.getByRole('region', { name: 'Earlier releases' })).toHaveCount(1);
-  // each one closed: its summary alone, none of its words, never a picture
-  await expect(page.locator('li.sc-wn-old > details > summary')).toHaveCount(STEP - 7);
-  await expect(page.locator('li.sc-wn-old details[open]')).toHaveCount(0);
-  await expect(page.locator('.sc-wn-old-body').first()).toBeHidden();
-  await expect(page.locator('li.sc-wn-old .sc-wn-media')).toHaveCount(0);
-
-  // the same date column and the same title, in the same place and at the same size as the open rows
+  // the first ten, the seven recent and three earlier ones: one list, one style, as a changelog is
+  await expect(rows(page)).toHaveCount(STEP);
+  await expect(page.locator('details, summary, #sc-wn-earlier, section.sc-wn-part')).toHaveCount(0);
+  // an earlier release is open like the rest, and never carries a picture (none outside the window)
   const settings = byVersion(page, '2.0.17');
-  await expect(settings.locator('summary .sc-wn-when time > [aria-hidden="true"]')).toHaveText('18 Jul 2026');
-  await expect(settings.locator('summary .sc-wn-when')).toContainText('2.0.17');
-  await expect(settings.locator('summary span.sc-wn-old-hed')).toHaveText('Settings open where you left them');
-  await expect(byVersion(page, '2.0.16').locator('summary span.sc-wn-old-hed')).toHaveText(
-    'An earlier headline, number 16',
-  );
+  await expect(settings.locator('.sc-wn-media')).toHaveCount(0);
+
+  // the same column and the same title, in the same place and at the same size as a recent row
+  await expect(settings.locator(':scope > .sc-wn-when time > [aria-hidden="true"]')).toHaveText('18 Jul 2026');
+  await expect(settings.locator(':scope > .sc-wn-when')).toContainText('2.0.17');
+  await expect(settings.locator('h2.sc-wn-row-hed')).toHaveText('Settings open where you left them');
+  await expect(byVersion(page, '2.0.16').locator('h2.sc-wn-row-hed')).toHaveText('An earlier headline, number 16');
   const lined = await page.evaluate(() => {
-    const left = (sel: string) => document.querySelector(sel)?.getBoundingClientRect().left ?? Number.NaN;
-    const size = (sel: string) => {
-      const el = document.querySelector(sel);
-      return el ? getComputedStyle(el).fontSize : '';
-    };
+    const at = (v: string, sel: string) => document.querySelector(`[id="v${v}"] ${sel}`) as HTMLElement;
+    const left = (el: Element) => el.getBoundingClientRect().left;
+    const recent = at('2.0.24', '.sc-wn-row-hed');
+    const earlier = at('2.0.17', '.sc-wn-row-hed');
     return {
-      date: Math.abs(left('li.sc-wn-row .sc-wn-when') - left('li.sc-wn-old summary .sc-wn-when')) <= 1,
-      title: Math.abs(left('li.sc-wn-row .sc-wn-row-hed') - left('li.sc-wn-old .sc-wn-old-hed')) <= 1,
-      size: size('li.sc-wn-row .sc-wn-row-hed') === size('li.sc-wn-old .sc-wn-old-hed'),
+      date: Math.abs(left(at('2.0.24', '.sc-wn-when')) - left(at('2.0.17', '.sc-wn-when'))) <= 1,
+      title: Math.abs(left(recent) - left(earlier)) <= 1,
+      size: getComputedStyle(recent).fontSize === getComputedStyle(earlier).fontSize,
     };
   });
   expect(lined).toEqual({ date: true, title: true, size: true });
 
-  // opening one shows the same areas as an open row, each name over its sentence, then its release notes
-  await settings.locator('summary').click();
-  await expect(settings.locator('details')).toHaveAttribute('open', '');
-  await expect(settings.locator('.sc-wn-old-body > .sc-wn-areas .sc-wn-area h3')).toHaveText(['Settings', 'Fixes']);
-  await expect(settings.locator('.sc-wn-old-body > .sc-wn-areas .sc-wn-area p')).toHaveText([
+  // its areas, each name over its sentence, then its release notes last
+  await expect(settings.locator('.sc-wn-area h3')).toHaveText(['Settings', 'Fixes']);
+  await expect(settings.locator('.sc-wn-area p')).toHaveText([
     'Settings open on the page you left.',
     'The bell no longer rings twice.',
   ]);
-  await expect(settings.locator('.sc-wn-old-body > .sc-wn-areas + a.sc-wn-notes')).toHaveCount(1);
-  const notes = settings.locator('.sc-wn-old-body a.sc-wn-notes');
+  await expect(settings.locator('.sc-wn-what > :last-child')).toHaveClass(/\bsc-wn-notes\b/);
+  const notes = settings.locator('.sc-wn-what > a.sc-wn-notes');
   await expect(notes).toBeVisible();
   await expect(notes).toHaveAttribute('href', `${RELEASES_URL}/tag/v2.0.17`);
   await expect(notes).toHaveAttribute('target', '_blank');
-  // and the keyboard closes it again from its summary
-  await settings.locator('summary').focus();
-  await page.keyboard.press('Enter');
-  await expect(settings.locator('details')).not.toHaveAttribute('open', '');
   expect(await documentOverflow(page)).toBe(0);
 });
 
@@ -1218,7 +1194,6 @@ test('Show older updates is a real button: the keyboard adds ten at a time until
   await more(page).focus();
   await page.keyboard.press('Enter');
   await expect(releases(page)).toHaveCount(2 * STEP);
-  await expect(olds(page)).toHaveCount(2 * STEP - 7);
 
   await more(page).focus();
   await page.keyboard.press(' ');
@@ -1254,11 +1229,11 @@ test('Show older updates keeps the keyboard: on the same button while more remai
   await page.keyboard.press('Enter');
   await expect(releases(page)).toHaveCount(LONG.length);
   await expect(button).toHaveCount(0);
-  await expect(byVersion(page, first).locator('summary')).toBeFocused();
+  await expect(byVersion(page, first).locator('h2.sc-wn-row-hed')).toBeFocused();
   expect((await versionsDown(page))[2 * STEP]).toBe(first);
-  // a real place to be: the keyboard opens it from there
-  await page.keyboard.press('Enter');
-  await expect(byVersion(page, first).locator('details')).toHaveAttribute('open', '');
+  // a real place to be: the keyboard carries on from there into that release
+  await page.keyboard.press('Tab');
+  await expect(byVersion(page, first).locator('.sc-wn-what > a.sc-wn-notes')).toBeFocused();
 });
 
 test('scrolling to the end of a long history loads the rest by itself, and moves no focus', async ({ page }) => {
@@ -1273,28 +1248,23 @@ test('scrolling to the end of a long history loads the rest by itself, and moves
   await expect(heading(page)).toBeFocused();
 });
 
-test('a link to one release shows the history down to it, opens an earlier one, and puts it in view', async ({
-  page,
-}) => {
+test('a link to one release shows the history down to it and puts it in view, earlier or recent', async ({ page }) => {
   await serve(page, LONG, '2.0.24', '2.0.24');
   await page.goto(`${PAGE}#v2.0.1`);
   const early = byVersion(page, '2.0.1');
-  await expect(early).toHaveClass(/\bsc-wn-old\b/);
-  await expect(early.locator('details')).toHaveAttribute('open', '');
-  await expect(early.locator('.sc-wn-old-body .sc-wn-area h3')).toHaveText(['Fixes']);
-  await expect(early.locator('.sc-wn-old-body .sc-wn-area p')).toHaveText(['Small fix number 1.']);
-  await expect(early.locator('summary')).toBeInViewport();
-  // everything above it is on the page, newest first, and only it is open
+  await expect(early).toHaveClass(/\bsc-wn-row\b/);
+  await expect(early.locator('.sc-wn-area h3')).toHaveText(['Fixes']);
+  await expect(early.locator('.sc-wn-area p')).toHaveText(['Small fix number 1.']);
+  await expect(early.locator('h2.sc-wn-row-hed')).toBeInViewport();
+  // everything above it is on the page, newest first
   expect((await versionsDown(page)).slice(0, LONG.length - 1)).toEqual(LONG.slice(0, -1).map((r) => r.version));
-  await expect(page.locator('li.sc-wn-old details[open]')).toHaveCount(1);
   expect(await documentOverflow(page)).toBe(0);
 
-  // a recent release is an open row: it is scrolled to, and there is nothing to open
+  // a recent release, the same way
   await page.goto(`${PAGE}#v2.0.18`);
   const recent = byVersion(page, '2.0.18');
   await expect(recent).toHaveClass(/\bsc-wn-row\b/);
   await expect(recent.locator('h2.sc-wn-row-hed')).toBeInViewport();
-  await expect(page.locator('li.sc-wn-old details[open]')).toHaveCount(0);
 });
 
 // ---- when there is nothing to show -----------------------------------------------
