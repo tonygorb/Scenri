@@ -156,6 +156,23 @@ describe('GET /api/release/notes', () => {
     expect(body.unseen.length).toBeGreaterThan(0);
   });
 
+  it('answers with the whole history beside the window, the same whatever was seen', async () => {
+    app = build();
+    const fresh = (await app.inject({ method: 'GET', url: '/api/release/notes' })).json();
+    // The page's one list: the headline-only list it replaced is gone from the answer.
+    expect(Object.keys(fresh).sort()).toEqual(
+      ['changelogUrl', 'entry', 'history', 'lead', 'recent', 'releasesUrl', 'seen', 'unseen', 'version'].sort(),
+    );
+    expect(fresh.history).toEqual(whatsNewWindow(RELEASES, pkg.version, fresh.seen).history);
+    expect(fresh.history.length).toBeGreaterThanOrEqual(fresh.recent.length);
+    expect(fresh.history.slice(0, fresh.recent.length)).toEqual(fresh.recent);
+    core.store.setSetting('whatsnew.seen', '0.0.1');
+    const behind = (await app.inject({ method: 'GET', url: '/api/release/notes' })).json();
+    expect(behind.seen).toBe('0.0.1');
+    expect(behind.history).toEqual(whatsNewWindow(RELEASES, pkg.version, '0.0.1').history);
+    expect(behind.history).toEqual(fresh.history);
+  });
+
   it('a newer acknowledgement than this build is echoed as it is, with nothing unseen', async () => {
     app = build();
     core.store.setSetting('whatsnew.seen', '99.0.0');
@@ -232,6 +249,7 @@ describe('validateReleases', () => {
   const ok = (over: Partial<ReleaseEntry> = {}): ReleaseEntry => ({
     version: '0.2.0',
     date: '2026-08-16',
+    title: 'Asset selection is steadier on mobile',
     sections: [{ heading: 'Create', body: 'Asset selection is steadier on mobile.' }],
     ...over,
   });
@@ -256,7 +274,7 @@ describe('validateReleases', () => {
   });
 
   it('accepts a maintenance release stating it has no news', () => {
-    expect(validateReleases([ok({ sections: [] })], '0.2.0')).toEqual([]);
+    expect(validateReleases([ok({ title: undefined, sections: [] })], '0.2.0')).toEqual([]);
   });
 
   it('refuses a section that exists and says nothing', () => {
@@ -310,6 +328,12 @@ describe('validateReleases', () => {
     ]);
   });
 
+  it('refuses a headline update that does not say what it is', () => {
+    expect(validateReleases([ok({ title: undefined, announce: true })], '0.2.0')).toContain(
+      'release 0.2.0: a headline update announces itself with its title; write one',
+    );
+  });
+
   it('refuses a headline with nothing under it', () => {
     expect(validateReleases([ok({ title: 'A quiet one.', sections: [] })], '0.2.0')).toEqual([
       'release 0.2.0: a title with no sections; a maintenance release has neither',
@@ -321,14 +345,15 @@ describe('validateReleases', () => {
     const alt = 'The Create page with the panel open beside the feed.';
     const section = (heading: string, image?: ReleaseSection['image']): ReleaseSection => ({
       heading,
-      body: `${heading} is steadier on mobile.`,
+      body: `The ${heading.toLowerCase()} view is steadier on mobile.`,
       ...(image ? { image } : {}),
     });
     const pictured = (file: string, altText = alt) => section('Create', { file, alt: altText });
     const headline = (over: Partial<ReleaseEntry> = {}): ReleaseEntry => ({
       version: '0.2.0',
       date: '2026-08-16',
-      title: 'A calmer Create page.',
+      title: 'A calmer Create page',
+      announce: true,
       sections: [pictured('0.2.0-create.webp')],
       ...over,
     });
@@ -337,36 +362,37 @@ describe('validateReleases', () => {
       ...['0.7.0', '0.6.0', '0.5.0', '0.4.0', '0.3.0'].map((version) => ({
         version,
         date: '2026-08-20',
-        title: `Headline ${version}.`,
+        title: `Headline ${version}`,
+        announce: true as const,
         sections: [section('Create')],
       })),
       r,
     ];
 
-    it('passes a headline with three pictures', () => {
-      const three = [
-        pictured('0.2.0-create.webp'),
-        section('Scenes', { file: '0.2.0-scene-page.webp', alt }),
-        section('Presenters', { file: '0.2.0-p2.webp', alt }),
-      ];
-      expect(validateReleases([headline({ sections: three })], '0.2.0')).toEqual([]);
+    it('passes a headline with one picture, on any of its sections', () => {
+      for (const at of [0, 1, 2]) {
+        const sections = ['Create', 'Scenes', 'Presenters'].map((h, i) =>
+          i === at ? section(h, { file: '0.2.0-create.webp', alt }) : section(h),
+        );
+        expect(validateReleases([headline({ sections })], '0.2.0'), `picture on section ${at}`).toEqual([]);
+      }
     });
 
-    it('refuses a picture on a small update', () => {
-      expect(validateReleases([headline({ title: undefined })], '0.2.0')).toEqual([
-        'release 0.2.0: a picture on a small update; only a headline update (one with a title) carries pictures',
+    it('passes a picture on a small update as well as a headline', () => {
+      expect(validateReleases([headline({ announce: undefined })], '0.2.0')).toEqual([]);
+    });
+
+    it('refuses a second picture: one picture per release, never a set', () => {
+      // A big release gets a smarter picture, not more of them.
+      const two = [pictured('0.2.0-create.webp'), section('Scenes', { file: '0.2.0-scene-page.webp', alt })];
+      expect(validateReleases([headline({ sections: two })], '0.2.0')).toEqual([
+        'release 0.2.0: one picture per release; 2 sections carry one',
       ]);
-    });
-
-    it('refuses a fourth picture', () => {
-      // Four pictures need four sections, and inside the window four sections
-      // are their own problem; the two arrive together by construction.
-      const four = ['Create', 'Scenes', 'Presenters', 'Products'].map((h) =>
+      const three = ['Create', 'Scenes', 'Presenters'].map((h) =>
         section(h, { file: `0.2.0-${h.toLowerCase()}.webp`, alt }),
       );
-      expect(validateReleases([headline({ sections: four })], '0.2.0')).toEqual([
-        'release 0.2.0: 4 pictures; three is the ceiling',
-        "release 0.2.0: 4 sections; What's New shows three at most",
+      expect(validateReleases([headline({ sections: three })], '0.2.0')).toEqual([
+        'release 0.2.0: one picture per release; 3 sections carry one',
       ]);
     });
 
@@ -416,8 +442,10 @@ describe('validateReleases', () => {
     });
 
     it('refuses one picture used twice', () => {
+      // Twice in one record is two pictures in it as well; the two arrive together by construction.
       const twice = [pictured('0.2.0-create.webp'), section('Scenes', { file: '0.2.0-create.webp', alt })];
       expect(validateReleases([headline({ sections: twice })], '0.2.0')).toEqual([
+        'release 0.2.0: one picture per release; 2 sections carry one',
         'release 0.2.0: picture "0.2.0-create.webp" is used twice',
       ]);
     });
@@ -441,18 +469,17 @@ describe('validateReleases', () => {
         [
           'a title past 64 characters',
           ok({ title: 'x'.repeat(65) }),
-          'release 0.2.0: title is 65 characters; a headline fits in 64',
+          'release 0.2.0: title is 65 characters; a title fits in 64',
+        ],
+        [
+          'a section that opens by repeating its heading',
+          ok({ sections: [{ heading: 'Codex', body: 'Codex keeps no copy of a picture.' }] }),
+          'release 0.2.0: section "Codex" opens by repeating its heading; the heading already says it',
         ],
         [
           'a body past 220 characters',
           ok({ sections: [{ heading: 'Create', body: 'x'.repeat(221) }] }),
           'release 0.2.0: section "Create" is 221 characters; two short sentences fit in 220',
-        ],
-        [
-          'the name in lowercase',
-          // the lowercase name is spelled in two halves so the pre-commit name check lets the fixture through
-          ok({ sections: [{ heading: 'Create', body: `Open ${'scen'}ri on a phone.` }] }),
-          'release 0.2.0: "scenri" in a sentence is Scenri',
         ],
         [
           'the word brief',
@@ -481,6 +508,72 @@ describe('validateReleases', () => {
         expect(
           validateReleases([ok({ sections: ['Create', 'Scenes', 'Presenters'].map((h) => section(h)) })], '0.2.0'),
         ).toEqual([]);
+      });
+    });
+
+    describe('every record the page lists, in the window or below it', () => {
+      // the lowercase name is spelled in two halves so the pre-commit name check lets the fixture through
+      const name = `${'scen'}ri`;
+      const lowercase = `release 0.2.0: "${name}" in a sentence is Scenri`;
+      const brief = 'release 0.2.0: on screen it is the prompt, never the brief';
+      const versionsOf = (records: ReleaseEntry[]) => records.map((r) => r.version);
+
+      /** Each case: what the record says, and the one problem it has wherever the page lists it. */
+      const cases: [string, Partial<ReleaseEntry>, string][] = [
+        [
+          'an update with no title',
+          { title: undefined },
+          'release 0.2.0: every update the app shows has a title; write one',
+        ],
+        [
+          'a headline ending with a full stop',
+          { title: 'A calmer Create page.' },
+          'release 0.2.0: a headline ends without a full stop',
+        ],
+        ['the word brief in a headline', { title: 'A steadier brief on phones' }, brief],
+        ['the word briefs in a headline', { title: 'Briefs keep their chips' }, brief],
+        ['the name in lowercase in a headline', { title: `A calmer ${name} on phones` }, lowercase],
+        [
+          'the name in lowercase in a body',
+          { sections: [{ heading: 'Create', body: `Open ${name} on a phone.` }] },
+          lowercase,
+        ],
+      ];
+
+      for (const [label, says, problem] of cases) {
+        it(`refuses ${label} in the window and in the history below it, and leaves the internal era alone`, () => {
+          const record = ok(says);
+          // In the window. The window's own copy rules can name the same problem
+          // again, so the distinct problems are what count here.
+          expect([...new Set(validateReleases([record], '0.2.0'))]).toEqual([problem]);
+          // Below the window: out of recent, still in the history the page lists.
+          const below = whatsNewWindow(outside(record), '0.7.0');
+          expect(versionsOf(below.recent)).not.toContain('0.2.0');
+          expect(versionsOf(below.history)).toContain('0.2.0');
+          expect(validateReleases(outside(record), '0.7.0')).toEqual([problem]);
+          // The same words on a 0.1.x record: never listed, so never read on screen.
+          const internal = ok({ ...says, version: '0.1.5' });
+          expect(versionsOf(whatsNewWindow(outside(internal), '0.7.0').history)).not.toContain('0.1.5');
+          expect(validateReleases(outside(internal), '0.7.0')).toEqual([]);
+        });
+      }
+
+      it('lets the command keep its lowercase name in a record the page lists', () => {
+        const command = ok({ sections: [{ heading: 'Updates', body: `Run npx ${name}@latest once in a terminal.` }] });
+        expect(versionsOf(whatsNewWindow(outside(command), '0.7.0').history)).toContain('0.2.0');
+        expect(validateReleases(outside(command), '0.7.0')).toEqual([]);
+      });
+
+      it('still refuses the name beside the command: the exception is the command, not the record', () => {
+        const both = ok({
+          sections: [{ heading: 'Updates', body: `Run npx ${name}@latest once, then open ${name} as usual.` }],
+        });
+        expect(validateReleases(outside(both), '0.7.0')).toEqual([lowercase]);
+      });
+
+      it('leaves a full stop inside a headline alone', () => {
+        expect(validateReleases([ok({ title: 'Scenes 2.0 in Create' })], '0.2.0')).toEqual([]);
+        expect(validateReleases(outside(ok({ title: 'Scenes 2.0 in Create' })), '0.7.0')).toEqual([]);
       });
     });
   });

@@ -25,6 +25,13 @@ export const PICTURE_DIR = 'apps/studio/src/assets/whatsnew';
 export const HEADLINES_KEPT = 5;
 
 /**
+ * The first public release. The records before it are the internal era:
+ * published, unpublished, never tagged. They stay here as history but are not
+ * part of the history the app shows, and no release page exists for them.
+ */
+export const FIRST_PUBLIC = '0.2.0';
+
+/**
  * A picture of the real app, shipped inside the studio bundle
  * (`apps/studio/src/assets/whatsnew/`), so What's New shows it offline.
  * Shot with `pnpm capture:whatsnew` and looked at by a person before it lands.
@@ -42,8 +49,10 @@ export interface ReleaseSection {
   /** One or two sentences. What it means for the work, not what the diff did. */
   body: string;
   /**
-   * The change this section describes, as it looks in the app. Only a headline
-   * update carries pictures, at most three; the first one is the dialog's.
+   * The change this section describes, as it looks in the app. Any update in
+   * the in-app window may carry one, and only one: a big release gets a smarter
+   * picture, never more of them. The page shows it, and for a headline update
+   * the dialog does too. No picture is better than one that shows nothing true.
    */
   image?: ReleaseImage;
 }
@@ -54,13 +63,18 @@ export interface ReleaseEntry {
   /** ISO yyyy-mm-dd. */
   date: string;
   /**
-   * The headline, which is also the tier. A record with a title is a
-   * **headline update**: the one kind that may open What's New by itself, and
-   * the only kind that carries pictures. A record without one is a **small
-   * update**: it marks Help as unread and is a line on the What's New page,
-   * and it never interrupts.
+   * What the update is, in one line. Every update the app shows, in the window
+   * or in the page's history below it, has one (the validator says so); only
+   * a maintenance record, which the app never shows, goes without.
    */
   title?: string;
+  /**
+   * The tier. A record that announces itself is a **headline update**: the one
+   * kind that may open What's New by itself. Without it the record is a
+   * **small update**: it marks Help as unread and is a row on the What's New
+   * page, and it never interrupts. When unsure, leave it out.
+   */
+  announce?: true;
   /**
    * One to three inside the in-app window (four is the old ceiling). More than
    * that is a changelog, and there is one of those already.
@@ -83,9 +97,10 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.19.1',
     date: '2026-09-26',
+    title: 'Codex keeps no copy of your pictures',
     sections: [
       {
-        heading: 'Codex',
+        heading: 'Privacy',
         body: 'Codex keeps no copy of a picture once Scenri has it, neither a saved conversation nor a second file, and its plugins stay off while Scenri runs it.',
       },
       {
@@ -102,22 +117,19 @@ export const RELEASES: ReleaseEntry[] = [
     version: '0.19.0',
     date: '2026-09-26',
     title: 'A new library of products, presenters and scenes',
+    announce: true,
     sections: [
       {
         heading: 'Library',
         body: 'The library now holds 30 products, 19 presenters and 42 scenes, with 110 examples on Home. Cards stay sharp at every size they are shown.',
         image: {
           file: '0.19.0-home-examples.webp',
-          alt: "Home's example wall: new product and people shots, with tabs for each kind of example above them.",
+          alt: 'Home in a full-size window: the row of example kinds under the top bar, and the wall of examples made with the new library.',
         },
       },
       {
         heading: 'Scenes',
         body: "Scene cards show each place in use, not empty. Any picture of a scene can be the frame a shot follows: press Use this view on the scene's page, or pick it from the scene's chip in your prompt.",
-        image: {
-          file: '0.19.0-use-this-view.webp',
-          alt: "A scene's page with its pictures side by side and Use this view on the empty place.",
-        },
       },
       {
         heading: 'Create',
@@ -128,6 +140,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.18.2',
     date: '2026-09-26',
+    title: 'The first library download finishes on a slow connection',
     sections: [
       {
         heading: 'Fixes',
@@ -139,10 +152,11 @@ export const RELEASES: ReleaseEntry[] = [
     version: '0.18.1',
     date: '2026-09-26',
     title: 'Pictures made with Codex use far less of your ChatGPT plan',
+    announce: true,
     sections: [
       {
         heading: 'Codex',
-        body: 'Codex now draws each picture once and no longer pastes the finished picture back into its own conversation. It needs Codex CLI 0.157.1 or newer, and Scenri says when yours is too old.',
+        body: "Each picture is drawn once, and the finished picture is no longer pasted back into Codex's own conversation. It needs Codex CLI 0.157.1 or newer, and Scenri says when yours is too old.",
       },
       {
         heading: 'Local access',
@@ -157,10 +171,15 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.18.0',
     date: '2026-09-25',
+    title: 'New shots start in portrait at Standard quality',
     sections: [
       {
         heading: 'Create',
         body: 'A new shot starts in portrait, with one picture at Standard quality. A setting you already saved still wins.',
+        image: {
+          file: '0.18.0-portrait-standard.webp',
+          alt: 'The settings a new shot starts with, Portrait, one picture and Standard, with the shape list open on Portrait.',
+        },
       },
       {
         heading: 'Library',
@@ -175,20 +194,30 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.17.2',
     date: '2026-09-24',
+    title: 'A waiting prompt uses your presenters as they are now',
     sections: [
       {
         heading: 'Presenters',
         body: 'A prompt left waiting in Create uses each presenter as they are now, so a shot started after you edit someone gets their new pictures.',
+        image: {
+          file: '0.17.2-presenter-prompt.webp',
+          alt: 'A waiting prompt, Amara and Kwame by a window, naming two of your presenters as chips with their faces.',
+        },
       },
     ],
   },
   {
     version: '0.17.1',
     date: '2026-09-24',
+    title: 'Presenters keep their own face, hair and build',
     sections: [
       {
         heading: 'Presenters',
         body: "A presenter keeps their own face, hair, build, glasses and tattoos when a scene or reference picture shows someone else. A picture used for a pose no longer dresses them in that person's clothes.",
+        image: {
+          file: '0.17.1-presenter-identity.webp',
+          alt: 'Kwame, one of your presenters, as his page opens: his face, what he is filed under, and his hair and build.',
+        },
       },
     ],
   },
@@ -196,13 +225,14 @@ export const RELEASES: ReleaseEntry[] = [
     version: '0.17.0',
     date: '2026-09-24',
     title: 'Select several of your own products, presenters or scenes',
+    announce: true,
     sections: [
       {
         heading: 'Library',
         body: 'Select your own products, presenters or scenes from their cards, then keep or delete them together from the bar at the bottom of the page. Rename one from its menu. Bookmarks are now called Keepers.',
         image: {
-          file: '0.17.0-select-scenes.webp',
-          alt: 'Your own scenes with three selected, and the bar at the bottom to keep or delete them together.',
+          file: '0.17.0-select-several.webp',
+          alt: 'Five of your scenes in a row, three of them picked, and the bar that keeps or deletes them together.',
         },
       },
       {
@@ -219,13 +249,14 @@ export const RELEASES: ReleaseEntry[] = [
     version: '0.16.0',
     date: '2026-09-24',
     title: 'Open Scenri on your phone or tablet',
+    announce: true,
     sections: [
       {
         heading: 'Local access',
         body: "Open Scenri on a phone, tablet or another computer on the same Wi-Fi: scan the QR code in Settings > Local access. If your computer's firewall stops it, Local access says so and offers Allow Scenri.",
         image: {
           file: '0.16.0-local-access.webp',
-          alt: 'Settings open on Local access, with a QR code to scan and the address and six-digit code to type.',
+          alt: 'The Local access card: a QR code to scan, the address and six-digit code to type, and an iPhone just connected.',
         },
       },
       {
@@ -234,7 +265,7 @@ export const RELEASES: ReleaseEntry[] = [
       },
       {
         heading: 'Settings',
-        body: 'Settings has one page for each thing: Providers, Appearance, Library, Local access, Updates and About, with every delete under Danger zone.',
+        body: 'One page for each thing: Providers, Appearance, Library, Local access, Updates and About, with every delete under Danger zone.',
       },
     ],
   },
@@ -242,10 +273,15 @@ export const RELEASES: ReleaseEntry[] = [
     version: '0.15.1',
     date: '2026-09-23',
     title: 'Make a scene by describing it, or by choosing from pictures',
+    announce: true,
     sections: [
       {
         heading: 'Scenes',
         body: 'Describe a place, start from your own pictures or a shot you already made, or press Guide me and choose a world, its surface and its light from pictures. Your pictures set the mood and are never copied.',
+        image: {
+          file: '0.15.1-choose-a-world.webp',
+          alt: 'Create scene asking What world?, with eight pictures of worlds to choose from and Sunlit stone chosen.',
+        },
       },
       {
         heading: 'Activity',
@@ -268,6 +304,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.14.0',
     date: '2026-09-22',
+    title: 'Settings is redesigned with six pages',
     sections: [
       {
         heading: 'Settings',
@@ -286,6 +323,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.13.2',
     date: '2026-09-22',
+    title: 'Presenters show an expression that fits the shot',
     sections: [
       {
         heading: 'Presenters',
@@ -296,6 +334,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.13.1',
     date: '2026-09-22',
+    title: 'Alerts work without closing the dialog beneath them',
     sections: [
       {
         heading: 'Alerts',
@@ -314,7 +353,8 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.13.0',
     date: '2026-09-21',
-    title: 'Learn teaches Scenri one lesson at a time, alerts are quieter, and the Create feed holds still.',
+    title: 'Learn teaches Scenri one lesson at a time, alerts are quieter, and the Create feed holds still',
+    announce: true,
     sections: [
       {
         heading: 'Learn',
@@ -333,7 +373,8 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.12.0',
     date: '2026-09-20',
-    title: 'Saved work shows up everywhere at once, and a selection has its own toolbar.',
+    title: 'Saved work shows up everywhere at once, and a selection has its own toolbar',
+    announce: true,
     sections: [
       {
         heading: 'Create',
@@ -352,6 +393,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.11.1',
     date: '2026-09-18',
+    title: 'Learn and the guided first shot are paused',
     sections: [
       {
         heading: 'Learn',
@@ -366,7 +408,8 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.11.0',
     date: '2026-09-18',
-    title: 'A new top bar, and a tutor that makes your first shot with you.',
+    title: 'A new top bar, and a tutor that makes your first shot with you',
+    announce: true,
     sections: [
       {
         heading: 'Top bar',
@@ -389,6 +432,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.10.3',
     date: '2026-09-18',
+    title: 'Scenri no longer pauses right after the studio opens',
     sections: [
       {
         heading: 'Fixes',
@@ -399,6 +443,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.10.2',
     date: '2026-09-17',
+    title: 'A presenter draft opens where the conversation left off',
     sections: [
       {
         heading: 'Presenters',
@@ -409,7 +454,8 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.10.1',
     date: '2026-09-16',
-    title: 'A saved presenter can be duplicated or deleted straight from its card.',
+    title: 'A saved presenter can be duplicated or deleted straight from its card',
+    announce: true,
     sections: [
       {
         heading: 'Presenters',
@@ -432,7 +478,8 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.10.0',
     date: '2026-09-16',
-    title: 'Presenters are cast by talking to Scenri, one question at a time.',
+    title: 'Presenters are cast by talking to Scenri, one question at a time',
+    announce: true,
     sections: [
       {
         heading: 'Presenters',
@@ -447,7 +494,8 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.9.4',
     date: '2026-09-14',
-    title: 'A store that asks Scenri to slow down no longer looks like an empty one.',
+    title: 'A store that asks Scenri to slow down no longer looks like an empty one',
+    announce: true,
     sections: [
       {
         heading: 'Products',
@@ -462,7 +510,8 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.9.3',
     date: '2026-09-14',
-    title: 'Paste a website, get the brand and its products.',
+    title: 'Paste a website, get the brand and its products',
+    announce: true,
     sections: [
       {
         heading: 'Brand',
@@ -485,6 +534,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.9.2',
     date: '2026-09-07',
+    title: 'A Codex CLI too old for its model now says so',
     sections: [
       {
         heading: 'Fixes',
@@ -495,6 +545,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.9.1',
     date: '2026-09-07',
+    title: 'The Windows desktop icon never fails in silence',
     sections: [
       {
         heading: 'Desktop',
@@ -506,6 +557,7 @@ export const RELEASES: ReleaseEntry[] = [
     version: '0.9.0',
     date: '2026-09-06',
     title: 'Scenri on your desktop',
+    announce: true,
     sections: [
       {
         heading: 'Desktop',
@@ -524,6 +576,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.8.3',
     date: '2026-09-06',
+    title: 'One picker for everything you add to a shot',
     sections: [
       {
         heading: 'Create',
@@ -546,6 +599,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.8.2',
     date: '2026-09-03',
+    title: 'Security updates to the server and its URL parser',
     sections: [
       {
         heading: 'Security',
@@ -556,7 +610,8 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.8.1',
     date: '2026-09-03',
-    title: 'The same speed at any size.',
+    title: 'The same speed at any size',
+    announce: true,
     sections: [
       {
         heading: 'Create',
@@ -575,7 +630,8 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.8.0',
     date: '2026-09-02',
-    title: 'The composer, rebuilt around what a shot is made of.',
+    title: 'The composer, rebuilt around what a shot is made of',
+    announce: true,
     sections: [
       {
         heading: 'Create',
@@ -598,7 +654,8 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.7.5',
     date: '2026-09-01',
-    title: 'Every shot is one card.',
+    title: 'Every shot is one card',
+    announce: true,
     sections: [
       {
         heading: 'Create',
@@ -617,6 +674,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.7.4',
     date: '2026-08-31',
+    title: 'A failed Codex shot says why it failed',
     sections: [
       {
         heading: 'Fixes',
@@ -627,6 +685,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.7.3',
     date: '2026-08-31',
+    title: 'A finished tile no longer guesses its shape',
     sections: [
       {
         heading: 'Fixes',
@@ -637,7 +696,8 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.7.2',
     date: '2026-08-30',
-    title: 'Changing a shot to a new shape keeps the photograph.',
+    title: 'Changing a shot to a new shape keeps the photograph',
+    announce: true,
     sections: [
       {
         heading: 'Create',
@@ -652,7 +712,8 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.7.1',
     date: '2026-08-30',
-    title: 'Four images from one brief are one set.',
+    title: 'Four images from one prompt are one set',
+    announce: true,
     sections: [
       {
         heading: 'Create',
@@ -671,7 +732,8 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.7.0',
     date: '2026-08-30',
-    title: 'Your presenter stays your presenter.',
+    title: 'Your presenter stays your presenter',
+    announce: true,
     sections: [
       {
         heading: 'Scenes',
@@ -690,6 +752,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.6.13',
     date: '2026-08-30',
+    title: 'Products keep their colour, and your logo joins the shot',
     sections: [
       {
         heading: 'Products',
@@ -708,6 +771,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.6.12',
     date: '2026-08-29',
+    title: 'Reference images show what they are',
     sections: [
       {
         heading: 'Create',
@@ -718,6 +782,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.6.11',
     date: '2026-08-29',
+    title: 'Hitting your Codex usage limit says when it comes back',
     sections: [
       {
         heading: 'Create',
@@ -728,7 +793,8 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.6.10',
     date: '2026-08-29',
-    title: 'Pictures keep their shape.',
+    title: 'Pictures keep their shape',
+    announce: true,
     sections: [
       {
         heading: 'Create',
@@ -743,7 +809,8 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.6.9',
     date: '2026-08-29',
-    title: 'Refinements keep the shot.',
+    title: 'Refinements keep the shot',
+    announce: true,
     sections: [
       {
         heading: 'Refine',
@@ -762,6 +829,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.6.8',
     date: '2026-08-29',
+    title: 'Closing a new form ends it, with Undo if you did not mean it',
     sections: [
       {
         heading: 'Create dialogs',
@@ -776,6 +844,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.6.7',
     date: '2026-08-29',
+    title: 'The prompt starts empty, with no scene you did not pick',
     sections: [
       {
         heading: 'Create',
@@ -786,6 +855,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.6.6',
     date: '2026-08-29',
+    title: 'Removing a chip works on the first click',
     sections: [
       {
         heading: 'Create',
@@ -800,6 +870,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.6.5',
     date: '2026-08-29',
+    title: 'A scene no longer brings its own demo object',
     sections: [
       {
         heading: 'Scenes',
@@ -810,6 +881,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.6.4',
     date: '2026-08-29',
+    title: 'New forms no longer carry photos from something else',
     sections: [
       {
         heading: 'Create',
@@ -820,7 +892,8 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.6.3',
     date: '2026-08-28',
-    title: 'Your logo stays your logo, and every page opens like a page.',
+    title: 'Your logo stays your logo, and every page opens like a page',
+    announce: true,
     sections: [
       {
         heading: 'Brand',
@@ -835,7 +908,8 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.6.2',
     date: '2026-08-28',
-    title: 'Scenes keep what makes them distinctive.',
+    title: 'Scenes keep what makes them distinctive',
+    announce: true,
     sections: [
       {
         heading: 'Scenes',
@@ -858,6 +932,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.6.1',
     date: '2026-08-26',
+    title: 'Refining a shot opens at its own shape',
     sections: [
       {
         heading: 'Shots',
@@ -868,6 +943,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.6.0',
     date: '2026-08-26',
+    title: 'A wider or taller shot keeps the original photograph',
     sections: [
       {
         heading: 'Shots',
@@ -882,6 +958,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.5.1',
     date: '2026-08-26',
+    title: 'An extended shot keeps its subject where it was',
     sections: [
       {
         heading: 'Shots',
@@ -892,7 +969,8 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.5.0',
     date: '2026-08-26',
-    title: 'A finished shot can change shape, and a presenter you attach is a requirement rather than a suggestion.',
+    title: 'A finished shot can change shape, and a presenter you attach is a requirement rather than a suggestion',
+    announce: true,
     sections: [
       {
         heading: 'Create',
@@ -915,7 +993,8 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.4.7',
     date: '2026-08-24',
-    title: 'The feed shows the work, and the controls wait until you point at it.',
+    title: 'The feed shows the work, and the controls wait until you point at it',
+    announce: true,
     sections: [
       {
         heading: 'Create',
@@ -934,6 +1013,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.4.6',
     date: '2026-08-24',
+    title: 'Removing something from a shot leaves no outline',
     sections: [
       {
         heading: 'Refining',
@@ -948,7 +1028,8 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.4.5',
     date: '2026-08-23',
-    title: 'New versions find you while Scenri runs.',
+    title: 'New versions find you while Scenri runs',
+    announce: true,
     sections: [
       {
         heading: 'Updates',
@@ -963,7 +1044,8 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.4.4',
     date: '2026-08-23',
-    title: 'Codex setup tells the truth, and a stuck generation fails instead of running forever.',
+    title: 'Codex setup tells the truth, and a stuck generation fails instead of running forever',
+    announce: true,
     sections: [
       {
         heading: 'Codex',
@@ -978,7 +1060,8 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.4.3',
     date: '2026-08-23',
-    title: 'Controls hold still when you press them.',
+    title: 'Controls hold still when you press them',
+    announce: true,
     sections: [
       {
         heading: 'Fixes',
@@ -989,6 +1072,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.4.2',
     date: '2026-08-23',
+    title: 'Settings tells the update story in one row',
     sections: [
       {
         heading: 'Updates',
@@ -999,7 +1083,8 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.4.1',
     date: '2026-08-23',
-    title: 'Updates now arrive by themselves.',
+    title: 'Updates now arrive by themselves',
+    announce: true,
     sections: [
       {
         heading: 'Updates',
@@ -1014,7 +1099,8 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.4.0',
     date: '2026-08-23',
-    title: 'Refining a shot keeps the shot.',
+    title: 'Refining a shot keeps the shot',
+    announce: true,
     sections: [
       {
         heading: 'Refining',
@@ -1037,6 +1123,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.3.5',
     date: '2026-08-21',
+    title: 'Codex setup on Windows sees a successful install',
     sections: [
       {
         heading: 'Fixes',
@@ -1047,6 +1134,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.3.4',
     date: '2026-08-21',
+    title: "A presenter's photos define who they are, not what they wear",
     sections: [
       {
         heading: 'Presenters',
@@ -1068,6 +1156,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.3.2',
     date: '2026-08-20',
+    title: 'Codex CLI setup offers the command that gets past a refusal',
     sections: [
       {
         heading: 'Fixes',
@@ -1078,6 +1167,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.3.1',
     date: '2026-08-20',
+    title: 'Starting Scenri explains what went wrong in plain words',
     sections: [
       {
         heading: 'Fixes',
@@ -1088,7 +1178,8 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.3.0',
     date: '2026-08-20',
-    title: 'The name is Scenri.',
+    title: 'The name is Scenri',
+    announce: true,
     sections: [
       {
         heading: 'The name',
@@ -1103,26 +1194,29 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.2.3',
     date: '2026-08-20',
+    title: 'The last advisory against a build dependency is closed',
     sections: [
       {
         heading: 'Security',
-        body: 'The last advisory against a build dependency is closed. Nothing about how scenri runs changes, and nothing in the published package moves.',
+        body: 'The last advisory against a build dependency is closed. Nothing about how Scenri runs changes, and nothing in the published package moves.',
       },
     ],
   },
   {
     version: '0.2.2',
     date: '2026-08-20',
+    title: 'Two dependencies are on their patched releases',
     sections: [
       {
         heading: 'Security',
-        body: 'Two dependencies are on their patched releases. The file server that serves the studio is updated for a path traversal advisory, and the image library scenri re-encodes every upload through is updated for the libvips advisories. Nothing about how scenri works changes.',
+        body: 'Two dependencies are on their patched releases. The file server that serves the studio is updated for a path traversal advisory, and the image library Scenri re-encodes every upload through is updated for the libvips advisories. Nothing about how Scenri works changes.',
       },
     ],
   },
   {
     version: '0.2.1',
     date: '2026-08-20',
+    title: 'The top bar and app icons carry the real mark',
     sections: [
       {
         heading: 'Fixes',
@@ -1133,7 +1227,8 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.2.0',
     date: '2026-08-20',
-    title: 'scenri goes public.',
+    title: 'Scenri goes public',
+    announce: true,
     sections: [
       {
         heading: 'Compose',
@@ -1149,7 +1244,7 @@ export const RELEASES: ReleaseEntry[] = [
       },
       {
         heading: 'The studio',
-        body: 'The scenri mark sits in the top bar, the browser tab names the screen you are on, and About says who builds this and under which license.',
+        body: 'The Scenri mark sits in the top bar, the browser tab names the screen you are on, and About says who builds this and under which license.',
       },
     ],
   },
@@ -1167,6 +1262,7 @@ export const RELEASES: ReleaseEntry[] = [
     version: '0.1.0',
     date: '2026-08-16',
     title: 'The first complete scenri, released internally.',
+    announce: true,
     sections: [
       {
         heading: 'Create',
@@ -1206,6 +1302,12 @@ export function isNewsworthy(entry: ReleaseEntry | null): boolean {
 export interface WhatsNewWindow {
   /** What the app shows, newest first: newsworthy records down to the HEADLINES_KEPT-th headline. */
   recent: ReleaseEntry[];
+  /**
+   * Every public release with something to say, newest first, `recent`
+   * included: the What's New page's whole history. Records older than
+   * `recent` keep the words they shipped with.
+   */
+  history: ReleaseEntry[];
   /** Versions in `recent` newer than `seen` and no newer than the running one, newest first. */
   unseen: string[];
   /** The newest unseen headline update: the one thing that may open by itself. */
@@ -1231,7 +1333,7 @@ export function whatsNewWindow(releases: ReleaseEntry[], running: string, seen: 
     if (!isNewsworthy(r)) continue;
     if (released && compareSemver(r.version, running) > 0) continue;
     recent.push(r);
-    if (r.title) headlines++;
+    if (r.announce) headlines++;
   }
   const unseen =
     seen === null || !released
@@ -1239,8 +1341,14 @@ export function whatsNewWindow(releases: ReleaseEntry[], running: string, seen: 
       : recent
           .filter((r) => compareSemver(seen, r.version) < 0 && compareSemver(r.version, running) <= 0)
           .map((r) => r.version);
-  const lead = recent.find((r) => r.title && unseen.includes(r.version))?.version ?? null;
-  return { recent, unseen, lead };
+  const lead = recent.find((r) => r.announce && unseen.includes(r.version))?.version ?? null;
+  const history = releases.filter(
+    (r) =>
+      isNewsworthy(r) &&
+      compareSemver(r.version, FIRST_PUBLIC) >= 0 &&
+      (!released || compareSemver(r.version, running) <= 0),
+  );
+  return { recent, history, unseen, lead };
 }
 
 /** Words that mean someone started selling rather than telling. */
@@ -1271,7 +1379,9 @@ export function validateReleases(releases: ReleaseEntry[], currentVersion: strin
 
   // What the app shows is held to the app's copy rules; older records are the
   // releases page's and keep the words they shipped with.
-  const inApp = new Set(whatsNewWindow(releases, currentVersion).recent.map((r) => r.version));
+  const window = whatsNewWindow(releases, currentVersion);
+  const inApp = new Set(window.recent.map((r) => r.version));
+  const listed = new Set(window.history.map((r) => r.version));
   const pictures = new Set<string>();
 
   const seen = new Set<string>();
@@ -1300,6 +1410,7 @@ export function validateReleases(releases: ReleaseEntry[], currentVersion: strin
     if (r.title !== undefined && r.sections.length === 0) {
       problems.push(`${where}: a title with no sections; a maintenance release has neither`);
     }
+    if (r.announce && !r.title) problems.push(`${where}: a headline update announces itself with its title; write one`);
     const headings = new Set<string>();
     for (const s of r.sections) {
       if (s.heading.trim() === '') problems.push(`${where}: a section with no heading`);
@@ -1308,14 +1419,9 @@ export function validateReleases(releases: ReleaseEntry[], currentVersion: strin
       headings.add(s.heading);
     }
 
-    // Pictures: a headline's, few, named for their release, described in words.
+    // Pictures: one per release, named for their release, described in words.
     const pictured = r.sections.filter((s) => s.image);
-    if (pictured.length > 0 && !r.title) {
-      problems.push(
-        `${where}: a picture on a small update; only a headline update (one with a title) carries pictures`,
-      );
-    }
-    if (pictured.length > 3) problems.push(`${where}: ${pictured.length} pictures; three is the ceiling`);
+    if (pictured.length > 1) problems.push(`${where}: one picture per release; ${pictured.length} sections carry one`);
     if (pictured.length > 0 && !inApp.has(r.version)) {
       problems.push(
         `${where}: outside the in-app window, so it carries no pictures; delete their image fields and files`,
@@ -1344,14 +1450,34 @@ export function validateReleases(releases: ReleaseEntry[], currentVersion: strin
     if (EMOJI.test(prose)) problems.push(`${where}: emoji`);
     if (prose.includes('\u2014') || prose.includes('\u2013')) problems.push(`${where}: long dash`);
 
+    // Every record the page lists, however old, is read on screen: its headline follows today's
+    // rules, and the name is Scenri in its words too (the command, npx scenri@latest, stays).
+    if (listed.has(r.version)) {
+      if (!r.title) problems.push(`${where}: every update the app shows has a title; write one`);
+      if (r.title && /\.\s*$/.test(r.title)) problems.push(`${where}: a headline ends without a full stop`);
+      if (r.title && /\bbriefs?\b/i.test(r.title))
+        problems.push(`${where}: on screen it is the prompt, never the brief`);
+      const words = [r.title ?? '', ...r.sections.map((s) => s.body)].join(' ');
+      if (/(?<!npx )\bscenri\b(?!@)/.test(words)) problems.push(`${where}: "scenri" in a sentence is Scenri`);
+    }
+
     if (inApp.has(r.version)) {
       if (r.sections.length > 3) {
         problems.push(`${where}: ${r.sections.length} sections; What's New shows three at most`);
       }
       if (r.title && r.title.length > 64) {
-        problems.push(`${where}: title is ${r.title.length} characters; a headline fits in 64`);
+        problems.push(`${where}: title is ${r.title.length} characters; a title fits in 64`);
       }
       for (const s of r.sections) {
+        // The heading stands on its own line over the sentence; a sentence that
+        // opens with the heading's word reads it twice ("Codex / Codex keeps").
+        const opens = s.body
+          .split(/\s+/)[0]
+          ?.replace(/[^\p{L}\p{N}]/gu, '')
+          .toLowerCase();
+        if (opens && opens === s.heading.split(/\s+/)[0]?.toLowerCase()) {
+          problems.push(`${where}: section "${s.heading}" opens by repeating its heading; the heading already says it`);
+        }
         if (s.body.length > 220) {
           problems.push(
             `${where}: section "${s.heading}" is ${s.body.length} characters; two short sentences fit in 220`,
