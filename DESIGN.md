@@ -17,6 +17,7 @@ colors:
   gold-ink: "#191300"
   red: "#ff6b62"
   green: "#4ade80"
+  info: "#a8c7fa"
 typography:
   display:
     fontFamily: "Inter Tight Variable, Inter Variable, -apple-system, Segoe UI, sans-serif"
@@ -109,6 +110,8 @@ Near-monochrome dark ground with a single rationed accent; imagery supplies the 
 
 ### Named Rules
 **The One Accent Rule.** Gold appears at full strength in exactly three places: the credits pill, the keeper star, and in-flight shimmer. There is one fourth use and it is a wash rather than the colour: **an 11% gold tint over the surface (14% in light) marks the primary create action and nothing else**, which today is Home's main create card and the lead row of the top bar's New menu, the same act in two places. At that strength it reads as "start here" without reading as a state, which is why it never lands on a selected, active or focused thing. If a new element reaches for gold to look "on brand," that's the tell it should reach for ink/inverse-fill instead.
+
+**The Info Blue Rule.** Blue says one thing: something here is new to you. It appears only as the New label ("New", §5), as `--sc-info` ink on its `--sc-info-wash`: Material's primary pair, `#a8c7fa` on a 14% wash in dark and `#0b57d0` on an 8% wash in light. Never a button, link, focus ring or on-state. Green already means done and gold means kept or in the making, so a New in either would say the wrong thing (2026-09-26, Tony's call). It holds WCAG AA on every surface the label can sit on, a pressed row included (4.8:1 at the lowest, in light), and AAA at rest in dark (8.0:1).
 
 **The Imagery-Does-The-Color Rule.** Product and scene photography is the only place saturated, varied color is allowed to run free. Chrome stays monochrome so it never competes with the work being art-directed.
 
@@ -402,7 +405,7 @@ A feature a release adds can say **New** where it lives, for anyone who had Scen
 - **It goes when used**: its page opens, its action runs, its way to make something is taken. Never because it was on screen, never by reading What's New, and there is no X: a label is not a control. The record is the install's (`features.used`), so a phone and the computer agree.
 - **Or by itself** thirty days after its release (`NEW_FOR_DAYS`), counted in days rather than releases, each on its own clock: a later release never clears an earlier one. After that its `feature` and `markUsed` lines are inert and can be removed.
 - **Where**: beside the name of the way in, visible at rest: a Settings index row, a menu item, a tab, a button's label. Never on a control that only appears on hover, never over a photograph, never on the top bar's New (that word is its verb), never on Home's create cards. Nothing is passed up to a parent as a dot or a count.
-- **Looks**: the shared status mark (`.sc-tag`, `layout/NewBadge.tsx`) with the word New, monochrome, whole at the end of its row. Never gold and never a dot: a dot means unread news.
+- **Looks**: the shared status mark (`.sc-tag`, `layout/NewBadge.tsx`) with the word New at 600, in info blue (a wash, not an outline; "The Info Blue Rule", §2), whole at the end of its row. Never gold, never green, never a dot: gold is kept, green is done, a dot is unread news. The word carries the meaning, so nothing depends on the colour; with more contrast asked for it gains an edge in its own ink, and forced colours draw its edge in place of the wash.
 - **Wired in two places**: the way in carries `feature="<id>"` (or `feature: '<id>'` in a list like `settingsPages.ts`), and the feature itself calls `markUsed('<id>')` from `useWhatsNew()`: in a layout effect for a page, so it never paints its own way in as New, or in the handler for an action. `releaseNotes.test.ts` fails while a marked feature inside its thirty days lacks either.
 
 ### Section Headers (`.sc-sec-head`)
