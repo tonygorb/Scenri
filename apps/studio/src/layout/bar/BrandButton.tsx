@@ -72,11 +72,14 @@ export function BrandButton() {
         </BarRow>
         {/* The way out, last. A Scenri started from the desktop icon has no
           terminal window to close; this is how the server stops, and it is
-          machine-level, so it lives here rather than in a Settings pane. */}
-        <BarRow data-quit="" onSelect={() => setQuitAsk(true)}>
-          <Power size={16} className="sc-menu-ic" />
-          <span className="sc-menu-lb">Shut down Scenri</span>
-        </BarRow>
+          machine-level, so it lives here rather than in a Settings pane, and
+          only on that machine: a phone holding the code is refused it. */}
+        {updates.thisComputer && (
+          <BarRow data-quit="" onSelect={() => setQuitAsk(true)}>
+            <Power size={16} className="sc-menu-ic" />
+            <span className="sc-menu-lb">Shut down Scenri</span>
+          </BarRow>
+        )}
       </BarMenu>
       <Confirm
         open={quitAsk}
