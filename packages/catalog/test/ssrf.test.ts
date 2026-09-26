@@ -26,6 +26,12 @@ describe('where a crawl may go', () => {
     }
   });
 
+  it('refuses this machine written as an IPv6 address that carries it', async () => {
+    const fetchImpl = (async () => ok('<html>secrets</html>')) as typeof fetch;
+    // `new URL` hands the host on as [::ffff:7f00:1]
+    await expect(httpText('http://[::ffff:127.0.0.1]/', { fetchImpl, retries: 0 })).rejects.toThrow(/private network/);
+  });
+
   it('refuses a scheme that is not http', async () => {
     await expect(httpText('file:///etc/passwd', { retries: 0 })).rejects.toThrow(/http/i);
   });
