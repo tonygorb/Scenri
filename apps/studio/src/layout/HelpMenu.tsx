@@ -10,14 +10,16 @@ import {
   Question,
 } from '@phosphor-icons/react';
 import { DropdownMenu } from '@radix-ui/themes';
-import { useMatch } from 'react-router';
+import { useRef } from 'react';
+import { Link, useLocation, useMatch } from 'react-router';
 import { useAppData } from '../app/AppShell.js';
+import { useBrand } from '../app/BrandLayout.js';
 import { learnOpener, useOpenLearn, useOpenSettings, useOpenSetup, useOpenWelcome } from '../app/dialogs.js';
 import { WELCOME } from '../guidedTasks.js';
 import { useWhatsNew } from '../app/WhatsNew.js';
 import { useUpdateCenter } from '../app/UpdateCenter.js';
 import { FIRST_USE } from '../firstUse.js';
-import { P } from '../routes.js';
+import { P, whatsNewPath } from '../routes.js';
 import { Tip } from './Tip.js';
 
 const GITHUB = 'https://github.com/tonygorb/scenri';
@@ -49,6 +51,12 @@ export function HelpMenu() {
   const openWelcome = useOpenWelcome();
   const { engines } = useAppData();
   const noEngine = !engines.some((e) => e.available);
+  const { brand } = useBrand();
+  const { pathname } = useLocation();
+  // Leaving for the What's New page hands the keyboard to its heading, not
+  // back to this button. Already on it, nothing remounts, so the button keeps it.
+  const toPage = useRef(false);
+  const pagePath = whatsNewPath(brand);
 
   return (
     <div className="sc-help-float">
@@ -61,7 +69,18 @@ export function HelpMenu() {
             </button>
           </DropdownMenu.Trigger>
         </Tip>
-        <DropdownMenu.Content align="end" side="top" sideOffset={8} className="sc-menu sc-help-menu">
+        <DropdownMenu.Content
+          align="end"
+          side="top"
+          sideOffset={8}
+          className="sc-menu sc-help-menu"
+          onCloseAutoFocus={(e) => {
+            if (toPage.current) {
+              e.preventDefault();
+              toPage.current = false;
+            }
+          }}
+        >
           {updateAvailable && (
             <DropdownMenu.Item className="sc-menu-item" data-update="" onSelect={() => openSettings('updates')}>
               <ArrowCircleUp size={18} className="sc-menu-ic" />
@@ -96,15 +115,26 @@ export function HelpMenu() {
               <span className="sc-menu-lb">Keyboard shortcuts</span>
             </DropdownMenu.Item>
           )}
-          <DropdownMenu.Item className="sc-menu-item" onSelect={() => whatsNew.open()}>
-            <Megaphone size={18} className="sc-menu-ic" />
-            <span className="sc-menu-lb">What's new</span>
-            {whatsNew.unread && (
-              <>
-                <span className="sc-menu-new" aria-hidden="true" />
-                <span className="sc-vh">, not read yet</span>
-              </>
-            )}
+          {/* The page, not the dialog: from here someone wants to browse what
+              changed, and the page keeps the recent history. */}
+          <DropdownMenu.Item className="sc-menu-item" asChild>
+            <Link
+              to={pagePath}
+              onClick={(e) => {
+                if (!e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey && pathname !== pagePath) {
+                  toPage.current = true;
+                }
+              }}
+            >
+              <Megaphone size={18} className="sc-menu-ic" />
+              <span className="sc-menu-lb">What's new</span>
+              {whatsNew.unread && (
+                <>
+                  <span className="sc-menu-new" aria-hidden="true" />
+                  <span className="sc-vh">, not read yet</span>
+                </>
+              )}
+            </Link>
           </DropdownMenu.Item>
           {noEngine && (
             <DropdownMenu.Item className="sc-menu-item" onSelect={() => openSetup()}>

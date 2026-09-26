@@ -99,6 +99,12 @@ test("what's new", async ({ page }) => {
   await shot(page, 'whatsnew');
 });
 
+test("what's new page", async ({ page }) => {
+  await prep(page);
+  await page.goto(`/${d.slug}/whats-new`);
+  await shot(page, 'whatsnew-page');
+});
+
 test('create an asset dialog', async ({ page }) => {
   await prep(page);
   await page.goto(`/${d.slug}/products?new=1`);
@@ -233,4 +239,10 @@ test("light: what's new", async ({ page }) => {
   await prep(page, 'light');
   await page.goto(`/${d.slug}?whatsnew=1`);
   await shot(page, 'light-whatsnew');
+});
+
+test("light: what's new page", async ({ page }) => {
+  await prep(page, 'light');
+  await page.goto(`/${d.slug}/whats-new`);
+  await shot(page, 'light-whatsnew-page');
 });

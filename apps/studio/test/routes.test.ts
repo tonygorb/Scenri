@@ -13,6 +13,7 @@ import {
   productsPath,
   rewriteLegacyPath,
   setPath,
+  whatsNewPath,
   shotPath,
 } from '../src/routes.js';
 
@@ -38,6 +39,7 @@ describe('path builders', () => {
 
   it('spells every section as a word', () => {
     expect(kitPath(brand)).toBe('/nalla/kit');
+    expect(whatsNewPath(brand)).toBe('/nalla/whats-new');
     expect(scenesPath(brand)).toBe('/nalla/scenes');
     expect(scenePath(brand, 'soft-daylight')).toBe('/nalla/scenes/soft-daylight');
     expect(presentersPath(brand)).toBe('/nalla/presenters');

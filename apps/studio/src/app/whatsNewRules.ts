@@ -6,27 +6,29 @@
  * feature, and it deserves to be readable and testable without mounting the
  * app around it.
  *
- * Every clause is a way of saying the same thing — the user is mid-something.
- * A modal over mid-something is the entire reason people learn to hate this
- * pattern, and unlike an update notice there is nothing here that cannot wait:
- * the notes describe a version that is already installed. If no safe moment
- * ever comes, the unread dot in the brand menu carries it instead.
+ * Only a headline update ever asks (`lead`): a small one marks Help as unread
+ * and waits on the What's New page. Every other clause is a way of saying the
+ * same thing: the user is mid-something. A modal over mid-something is the
+ * entire reason people learn to hate this pattern, and unlike an update notice
+ * there is nothing here that cannot wait: the notes describe a version that is
+ * already installed. If no safe moment ever comes, the unread mark on Help
+ * carries it instead.
  */
 export interface AutoOpenSignals {
-  /** These notes have not been acknowledged on this machine. */
-  unread: boolean;
+  /** An unread headline update exists. Small updates never open anything. */
+  lead: boolean;
   /** Auto-open has already had its one chance this session. */
   spent: boolean;
   /** The brand's workspace has answered; we are not still booting. */
   loaded: boolean;
   /** The tab is in front of the user. */
   visible: boolean;
-  /** Settings, provider setup, a creation flow — anything with a URL of its own. */
+  /** Settings, provider setup, a creation flow, Learn: anything with a URL of its own. */
   dialogOpen: boolean;
   /** Generations in flight. */
   running: number;
-  /** Presenters and scenes being built. */
-  builds: number;
+  /** Presenters and scenes being built. A finished build is history, not work. */
+  builds: ReadonlyArray<{ finished: boolean }>;
   /**
    * Someone is still being introduced to Scenri: the first-use record has not
    * loaded, someone new has not answered the welcome, the guide has something
@@ -34,10 +36,17 @@ export interface AutoOpenSignals {
    * notes about a version mean nothing to someone learning it for the first time.
    */
   firstUse: boolean;
+  /** The What's New page is on screen: it already says everything the dialog would. */
+  onPage: boolean;
 }
 
 export function canAutoOpen(s: AutoOpenSignals): boolean {
-  if (!s.unread || s.spent || s.firstUse) return false;
+  if (!s.lead || s.spent || s.firstUse || s.onPage) return false;
   if (!s.loaded || !s.visible || s.dialogOpen) return false;
-  return s.running === 0 && s.builds === 0;
+  return s.running === 0 && !s.builds.some((b) => !b.finished);
+}
+
+/** "See 2 more updates", or "See all updates" when the one shown is the only news. */
+export function moreLabel(more: number): string {
+  return more > 0 ? `See ${more} more update${more === 1 ? '' : 's'}` : 'See all updates';
 }

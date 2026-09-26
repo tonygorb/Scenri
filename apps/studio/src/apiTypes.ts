@@ -361,26 +361,38 @@ export type UpdateStatus = {
 };
 
 /**
- * What changed in the version this app IS — authored prose shipped inside the
- * build, not the update check's business. `entry` is null when a version went
- * out without notes; the dialog still names the version and links out.
+ * What changed in the version this app IS, and in the few before it: authored
+ * prose shipped inside the build, not the update check's business. A record
+ * with a `title` is a headline update (the one kind that may open What's New
+ * by itself, and the only kind with pictures); one without is a small update.
  */
-export type ReleaseSection = { heading: string; body: string };
+export type ReleaseImage = {
+  /** A file name in `src/assets/whatsnew/`, resolved by `whatsNewPictures.ts`. */
+  file: string;
+  alt: string;
+};
+export type ReleaseSection = { heading: string; body: string; image?: ReleaseImage };
 export type ReleaseEntry = {
   version: string;
   date: string;
   title?: string;
   sections: ReleaseSection[];
-  image?: string;
 };
 export type ReleaseNotesResponse = {
   version: string;
+  /** The running version's own record, or null when it went out without one. */
   entry: ReleaseEntry | null;
   /** The last version whose What's New was acknowledged on this machine. */
   seen: string | null;
+  /** The in-app history, newest first: down to the fifth headline update. */
+  recent: ReleaseEntry[];
+  /** Versions in `recent` this machine has not read yet, newest first. */
+  unseen: string[];
+  /** The newest unread headline update: the one thing that may open by itself. */
+  lead: string | null;
   /** This exact release's page. Null on a build that was never released. */
   changelogUrl: string | null;
-  /** The releases index — the archive behind "All releases". */
+  /** The releases index: Full release notes, the archive behind the app's short history. */
   releasesUrl: string | null;
 };
 

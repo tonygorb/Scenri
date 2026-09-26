@@ -57,6 +57,13 @@ export const P = {
   hubShot: '/:brandSlug/create/shots/:shotId',
   set: '/:brandSlug/sets/:setSlug',
   setShot: '/:brandSlug/sets/:setSlug/shots/:shotId',
+  /**
+   * What changed in Scenri: help, not a place. It lights nothing in the bar,
+   * because a nav slot has to earn itself against work done every session,
+   * and it has an address so Help, Settings and the dialog's own link can land
+   * on it and Back returns from it. Under a brand, like every page with chrome.
+   */
+  whatsNew: '/:brandSlug/whats-new',
   /** The whole of the old `/b/` scheme. Only the redirect shim matches it. */
   legacy: '/b/*',
   notFound: '*',
@@ -95,6 +102,7 @@ export const presenterEditPath = (b: BrandLike, presenterId: string): string =>
 export const hubPath = (b: BrandLike): string => generatePath(P.hub, { brandSlug: b.slug });
 export const setPath = (b: BrandLike, s: SetLike): string =>
   generatePath(P.set, { brandSlug: b.slug, setSlug: s.slug });
+export const whatsNewPath = (b: BrandLike): string => generatePath(P.whatsNew, { brandSlug: b.slug });
 
 /**
  * A shot, in whichever surface is holding it. The hub and a set are the same

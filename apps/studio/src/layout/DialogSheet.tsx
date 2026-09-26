@@ -110,6 +110,23 @@ export const SheetClose = forwardRef<HTMLButtonElement, ComponentPropsWithoutRef
   },
 );
 
-export function SheetDescription({ className, children }: { className?: string; children: ReactNode }) {
-  return <Primitive.Description className={className}>{children}</Primitive.Description>;
+/**
+ * The sentence a dialog is described by. `asChild` lends that role to an
+ * element of the caller's, so a heading can describe the dialog it heads
+ * (What's New: the update's own headline) without a second copy of it.
+ */
+export function SheetDescription({
+  className,
+  asChild,
+  children,
+}: {
+  className?: string;
+  asChild?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <Primitive.Description className={className} asChild={asChild}>
+      {children}
+    </Primitive.Description>
+  );
 }
