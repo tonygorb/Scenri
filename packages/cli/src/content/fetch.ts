@@ -24,7 +24,9 @@ export const CONTENT_VERSION = 3;
 export const CONTENT_TAG = 'content-v3';
 
 const DEFAULT_CONTENT_URL = `https://github.com/tonygorb/scenri/releases/download/${CONTENT_TAG}/scenri-content.zip`;
-const TIMEOUT_MS = 10 * 60 * 1000; // a ~155 MB archive on a slow line is fine; hung sockets are not
+// The whole download, headers through last byte: ~155 MB inside it needs about 0.7 Mbps, and a
+// socket that goes quiet is still cut off rather than held for the life of the process.
+const TIMEOUT_MS = 30 * 60 * 1000;
 
 export function resolveContentUrl(env: Record<string, string | undefined> = process.env, override?: string): string {
   return override ?? env.SCENRI_CONTENT_URL ?? DEFAULT_CONTENT_URL;
