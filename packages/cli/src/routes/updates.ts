@@ -5,7 +5,7 @@ import { SCHEMA_VERSION } from '@scenri/core';
 import { classify, isReleaseTriplet, type CheckResult, type UpdateChecker } from '../update/check.js';
 import { findNpm, stageVersion } from '../update/stage.js';
 import { compareSemver, newestStaged } from '../update/versionsDir.js';
-import { RELEASES, isNewsworthy, releaseFor } from '../release/notes.data.js';
+import { RELEASES, isNewsworthy, newFeaturesFor, releaseFor } from '../release/notes.data.js';
 import { repoSlug, type Meta } from '../meta.js';
 import type { InstallKind } from '../server.js';
 
@@ -293,6 +293,14 @@ export function registerUpdateRoutes(
       // published does not offer a link to an empty page. Never use it to
       // decide whether *this build* was released — `changelogUrl` answers that.
       releasesUrl: ghSlug && RELEASES.some(isNewsworthy) ? `https://github.com/${ghSlug}/releases` : null,
+      // The few features saying New on this install, from the same record
+      // (DESIGN.md, "New"). Read after the stamping above, so a new home's
+      // first read has none: everything is new to it.
+      newFeatures: newFeaturesFor(RELEASES, {
+        firstVersion: core.store.getSetting('install.firstVersion'),
+        used: usedFeatures(),
+        now: Date.now(),
+      }),
     };
   });
 
@@ -304,4 +312,27 @@ export function registerUpdateRoutes(
     core.store.setSetting('whatsnew.seen', typeof v === 'string' && v ? v : meta.version);
     return { ok: true };
   });
+
+  // A feature was used where it lives, so its New goes, on every device this
+  // install serves, and does not come back. Reading What's New never calls
+  // this: reading about a feature is not finding it. Only an id a release
+  // marked is kept, so the list never holds more than the record ever did.
+  app.post('/api/release/used', async (req, reply) => {
+    const f = (req.body as { feature?: unknown } | undefined)?.feature;
+    if (typeof f !== 'string' || !RELEASES.some((r) => r.newFeatures?.includes(f)))
+      return reply.status(400).send({ error: 'not a feature any release marked New' });
+    const used = usedFeatures();
+    if (!used.includes(f)) core.store.setSetting('features.used', JSON.stringify([...used, f]));
+    return { ok: true };
+  });
+
+  /** The features this install has used, as the JSON list `features.used` holds. */
+  function usedFeatures(): string[] {
+    try {
+      const v: unknown = JSON.parse(core.store.getSetting('features.used') ?? '[]');
+      return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+    } catch {
+      return [];
+    }
+  }
 }

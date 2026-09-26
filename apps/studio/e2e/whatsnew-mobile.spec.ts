@@ -114,3 +114,44 @@ test("What's new is dragged away, and springs back from a nudge", async ({ page 
   await pull(200);
   await expect(sheet).toHaveCount(0);
 });
+
+test('a new feature says New on its Settings row on a phone, until the page is opened', async ({ page }) => {
+  test.skip((page.viewportSize()?.width ?? 0) >= 768, 'a phone opens Settings on its index');
+  const used: string[] = [];
+  await page.route('**/api/release/notes', (route) =>
+    route.fulfill({
+      json: {
+        version: ENTRY.version,
+        entry: ENTRY,
+        seen: ENTRY.version,
+        changelogUrl: null,
+        releasesUrl: null,
+        newFeatures: ['local-access'],
+      },
+    }),
+  );
+  await page.route('**/api/release/used', async (route) => {
+    used.push(String(route.request().postDataJSON()?.feature));
+    await route.fulfill({ json: { ok: true } });
+  });
+
+  await page.goto('/e2e-fixture');
+  await page.locator('.sc-org-btn').click();
+  await page.locator('.sc-menu-item', { hasText: /^Settings$/ }).click();
+  const row = page.locator('.sc-set-item', { hasText: 'Local access' });
+  await expect(row.locator('.sc-tag-new')).toHaveText('New');
+  await expect(page.locator('.sc-set .sc-tag-new')).toHaveCount(1);
+
+  // The mark sits before the row's caret, whole.
+  const tag = await row.locator('.sc-tag-new').boundingBox();
+  const caret = await row.locator('.sc-set-item-go').boundingBox();
+  if (!tag || !caret) throw new Error('no geometry');
+  expect(tag.x + tag.width).toBeLessThanOrEqual(caret.x);
+
+  await row.click();
+  await expect(page.locator('.sc-set .sc-newdlg-title')).toHaveText('Local access');
+  await expect.poll(() => used).toEqual(['local-access']);
+  await page.getByRole('dialog').getByRole('button', { name: 'Settings' }).click();
+  await expect(row).toBeVisible();
+  await expect(row.locator('.sc-tag-new')).toHaveCount(0);
+});

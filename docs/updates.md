@@ -138,6 +138,27 @@ settings table):
 4. **What's new** in the brand menu, and the row in Settings → About, reopen it
    at any time. Neither is gated on anything.
 
+### New, where a feature lives
+
+What's New explains a release. **New** points at the one or two things in it
+someone could otherwise miss, in place: the word New on the way in, such as a
+Settings row. It comes from the same record and the same read, with a second
+stored value beside `whatsnew.seen`:
+
+- A release lists the features it marks in `newFeatures` (`notes.data.ts`). No
+  more than three can say New on any one day.
+- The notes read returns the ones saying New on this install: marked by a
+  release newer than `install.firstVersion`, less than thirty days old, and not
+  yet used here. A new install began on the running version, so it sees none.
+- Using the feature (opening its page, running its action) posts to
+  `/api/release/used`, which adds it to `features.used`, and the label goes on
+  every device this install serves. Reading What's New does not count: reading
+  about a feature is not finding it.
+- There is no dismiss. What is not used goes by itself thirty days after its
+  release.
+
+`DESIGN.md` ("New") holds the rules for what earns it and where it goes.
+
 ### Where the words come from
 
 Nobody writes release prose twice, and nothing generates it behind your back.
