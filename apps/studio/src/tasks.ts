@@ -447,6 +447,31 @@ export function showingTask(href: string | null, pathname: string): boolean {
   return href.split('?')[0].replace(/\/$/, '') === pathname.replace(/\/$/, '');
 }
 
+/**
+ * Examples drawn inside the conversation that asked for them: they land there
+ * one by one as the person watches, so a toast and an unread mark about them
+ * said it a second time, over the very question it was answering. That
+ * conversation is the scene's edit route, or a new one whose kept record
+ * (sceneDrafts' `scenri:scene-studio:<brand>:<convo>`) names the scene.
+ */
+export function examplesInItsStudio(
+  t: { id: string; href?: string | null },
+  pathname: string,
+  brandId: string,
+): boolean {
+  if (!t.id.startsWith('examples:') || !t.href) return false;
+  const sceneId = t.href.split('?')[0].split('/').pop();
+  const edit = pathname.match(/\/scenes\/([^/]+)\/edit(?:\/|$)/);
+  if (edit) return edit[1] === sceneId;
+  const fresh = pathname.match(/\/scenes\/new\/([^/]+)/);
+  if (!fresh) return false;
+  try {
+    return JSON.parse(local.get(`scenri:scene-studio:${brandId}:${fresh[1]}`) ?? 'null')?.sceneId === sceneId;
+  } catch {
+    return false;
+  }
+}
+
 /** Running first, then newest finished. What the Tasks tab renders. */
 export function orderTasks(tasks: Task[], recent = 12): Task[] {
   const running = tasks.filter((t) => t.state === 'running');

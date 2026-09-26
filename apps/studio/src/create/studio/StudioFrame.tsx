@@ -87,6 +87,7 @@ export function StudioFrame({
   const [railW, setRailW] = useLocalPref<number>(PREF.pstudioRailW, RAIL_DEFAULT);
   const dragX = useRef(0);
   const dragRaf = useRef(0);
+  const opener = useRef<HTMLElement | null>(null);
 
   return createPortal(
     <FocusScope
@@ -94,8 +95,18 @@ export function StudioFrame({
       loop
       asChild
       onMountAutoFocus={(e) => {
+        opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         e.preventDefault();
         rootRef.current?.focus({ preventScroll: true });
+      }}
+      // Focus goes back to what opened the studio. The page under it can put
+      // that control back as a new element while the studio is open (the bar's
+      // New follows the route), and focus then fell to the page body: the
+      // control in its place takes it instead, else the page's main landmark.
+      onUnmountAutoFocus={(e) => {
+        if (opener.current?.isConnected) return;
+        e.preventDefault();
+        (document.querySelector<HTMLElement>('.sc-new-go') ?? document.getElementById('main'))?.focus();
       }}
     >
       <div

@@ -1079,6 +1079,13 @@
   right: 0;
   translate: 50% 0;
 }
+/* A set with more views than the column shows says so without a hover (a
+   phone has none): the arrow toward the views past the edge stays up. They
+   are views someone asked for, and nothing else hinted they were there. */
+.sc-refset-rail[data-overflow-right] .sc-rail-arrow.next,
+.sc-refset-rail[data-overflow-left] .sc-rail-arrow.prev {
+  opacity: 1;
+}
 .sc-refset-rail::before,
 .sc-refset-rail::after {
   content: none;

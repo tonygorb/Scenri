@@ -1527,9 +1527,10 @@ button.sc-convo-shot-do {
   scroll-margin-top: var(--sc-space-6);
   scroll-margin-bottom: var(--sc-space-6);
 }
-/* the group takes the keyboard when it opens; it is not a control, so it wears
-   no ring of its own and the first Tab goes to the first choice */
-.sc-convo-q:focus {
+/* the group takes the keyboard when it opens, and Enter answers it there, so
+   a keyboard user sees where they are: the floor's ring (interaction.css).
+   After a click or a tap it wears none, like every control. */
+:where([data-input="pointer"]) .sc-convo-q:focus {
   outline: none;
 }
 /* An answer being rewritten in place: the words as they were, in a field where they stand. */

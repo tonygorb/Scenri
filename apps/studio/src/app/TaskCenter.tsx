@@ -20,6 +20,7 @@ import {
   saveSeen,
   settled,
   showingTask,
+  examplesInItsStudio,
   taskFromAssetBuild,
   taskFromCatalogJob,
   taskFromNode,
@@ -286,7 +287,7 @@ export function TaskCenterProvider({
       // the stage showed it, failure and all
       const here = window.location.pathname;
       const marked = arrivals.map((a) =>
-        isStudioTask(a.id) && showingTask(a.href, here)
+        isStudioTask(a.id) && (showingTask(a.href, here) || examplesInItsStudio(a, here, brandId))
           ? { ...a, watched: true }
           : watchingFeedRef.current && a.state !== 'error'
             ? { ...a, watched: true }
@@ -312,7 +313,8 @@ export function TaskCenterProvider({
        * looked at), or one that did not finish, which stays until dismissed.
        */
       if (isStudioTask(n.id)) {
-        if (showingTask(n.href, window.location.pathname)) continue;
+        const at = window.location.pathname;
+        if (showingTask(n.href, at) || examplesInItsStudio(n, at, brandId)) continue;
         const to = n.href;
         const actions = to ? [{ label: 'Open', onClick: () => navRef.current(to) }] : undefined;
         if (n.state === 'error') {

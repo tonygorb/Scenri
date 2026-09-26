@@ -1448,7 +1448,8 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
      * answers. Once a draft holds them the draft is the record and is offered
      * back on the presenters page, so closing costs nothing and asks nothing.
      */
-    unsaved: !d && Object.keys(state.answers).length > 0,
+    // A draft that exists and is still loading already holds them.
+    unsaved: !draftId && !d && Object.keys(state.answers).length > 0,
     /** Leave, and take the answers with it. */
     leave: () => {
       clearSetup();

@@ -96,7 +96,8 @@ export const COPY = {
    * any row: eight worlds is a starting point, not the whole of what a place can
    * be.
    */
-  rowPlaceholder: (row: string) => `Tap one above, or describe the ${row} in your own words`,
+  // short enough for a 375px line: the longer form was cut off at "in your"
+  rowPlaceholder: (row: string) => `Pick one above, or describe the ${row}`,
   photosOff: 'Add the pictures above, then read them.',
   addPlaceholder: 'Anything to add or leave out?',
   keepPlaceholder: 'Anything to keep or ignore in them?',

@@ -134,6 +134,24 @@
 .sc-toast-act:hover {
   color: var(--sc-fg);
 }
+/* On a touch screen the words stay where they are and the target around
+   them grows to the tap floor, the way a photo's remove mark does: at 21px
+   tall, Open and Use in a shot were hard to catch with a thumb. */
+@media (pointer: coarse) {
+  .sc-toast-act {
+    position: relative;
+  }
+  .sc-toast-act::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    min-width: 100%;
+    width: var(--sc-tap);
+    height: var(--sc-tap);
+    transform: translate(-50%, -50%);
+  }
+}
 .sc-toast-x {
   flex: none;
   width: 28px;

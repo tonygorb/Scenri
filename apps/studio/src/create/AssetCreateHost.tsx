@@ -45,8 +45,13 @@ const isKind = (v: string | null): v is CreateKind => !!v && (KINDS as readonly 
 
 interface CreateApi {
   open: (kind: CreateKind | 'choose', opts?: { onCreated?: (made: Created) => void }) => void;
-  /** Say what was made, once, and tell whoever asked for it. Does not close anything. */
-  announce: (made: Created) => void;
+  /**
+   * Say what was made, once, and tell whoever asked for it. Does not close
+   * anything. `quiet` when the flow is taking the person to the thing's own
+   * page, which says it and offers the same actions: the toast there covered
+   * the page's controls on a phone and said nothing new.
+   */
+  announce: (made: Created, opts?: { quiet?: boolean }) => void;
   caps: AssetBuildCapabilities | null;
 }
 const Ctx = createContext<CreateApi | null>(null);
@@ -246,10 +251,11 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
    * has only started, and its own finish is announced by the bell later.
    */
   const announce = useCallback(
-    (made: Created) => {
+    (made: Created, opts?: { quiet?: boolean }) => {
       const cb = createdRef.current;
       createdRef.current = null;
       poke();
+      const quiet = !!opts?.quiet;
       if (made.kind === 'product') {
         // an import has no product of its own yet — the bell carries that one
         if (!made.id) {
@@ -274,6 +280,7 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
         // The save applied the brand it answered with before announcing, so
         // the wall, the picker and their page already have them.
         if (cb?.kind === 'presenter') cb.fn(made);
+        if (quiet) return;
         push({
           kind: 'success',
           title: `${made.name} added`,
@@ -286,6 +293,7 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
       // a scene is written the moment Use is pressed; its picture may still be landing on the card
       void refreshBrands();
       if (cb?.kind === 'scene') cb.fn(made);
+      if (quiet) return;
       const filed = made.verticals?.length ? `Filed under ${made.verticals.join(' and ')}.` : undefined;
       push({
         kind: 'success',

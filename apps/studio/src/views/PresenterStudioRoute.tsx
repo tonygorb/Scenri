@@ -91,7 +91,8 @@ export function PresenterStudioRoute() {
       onLeaveDraft={leaveDraft}
       onClose={close}
       onStarted={(made) => {
-        announce(made);
+        // said by the page it lands on, unless the person has already gone elsewhere
+        announce(made, { quiet: mounted.current && made.kind === 'presenter' });
         if (!mounted.current) return;
         navigate(made.kind === 'presenter' ? presenterPath(brand, made.id) : presentersPath(brand), { replace: true });
       }}

@@ -27,6 +27,12 @@ export function PresenterCreate({ onClose, ...args }: CreationFlowArgs & { onClo
    * record, offered back on the presenters page, and closing costs nothing.
    */
   const [leaving, setLeaving] = useState(false);
+  // The draft can land while the question stands (the answers were already on
+  // their way to it): then nothing would be lost by closing, and a dialog still
+  // saying so over a face being drawn was wrong. It stands down.
+  useEffect(() => {
+    if (leaving && !f.unsaved) setLeaving(false);
+  }, [leaving, f.unsaved]);
   const close = () => {
     if (f.unsaved) {
       setLeaving(true);

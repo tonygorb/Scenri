@@ -33,12 +33,14 @@ export const PROMPT = {
   // The last word before a picture is drawn: the whole person is set out above
   // it, so the ask itself is one short question and nothing more.
   agree: 'Here is the presenter, in full. Ready to draw?',
-  identity: (who: string) => `Here is ${who === 'them' ? 'the face' : who}. Use this person, or change something.`,
+  // Use draws the rest from this face, and says so: a press that spends should never be a surprise.
+  identity: (who: string) =>
+    `Here is ${who === 'them' ? 'the face' : who}. Use this person to draw the rest from this face, or change something.`,
   change: 'What should change?',
   // A view standing for the first time is not a revision of anything, so it
   // is not offered a previous one to go back to.
   landed: (view: string) => `Here is the ${view}. Use it, or try again.`,
-  extras: 'Add back and profile views? They help shots from behind or in profile.',
+  extras: 'Add back and profile views? Three more pictures, for shots from behind or in profile.',
 };
 
 /**

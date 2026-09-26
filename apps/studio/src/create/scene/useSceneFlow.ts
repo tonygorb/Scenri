@@ -746,7 +746,10 @@ export function useSceneFlow(args: {
     title: edit ? COPY.editTitle : COPY.title,
     turns,
     working,
-    busy: work.saving,
+    // A press that is still on its way holds the question, and the question is
+    // handed back when it answers. A start or a set that failed at once used to
+    // leave the pressed block latched with nothing to press but a reload.
+    busy: work.saving || work.starting || asking,
     resumed: !!restored,
     memoryKey: storageKey,
     stage: onStage
