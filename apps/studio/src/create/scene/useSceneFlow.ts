@@ -11,6 +11,7 @@ import { useSceneExamples } from '../../useSceneExamples.js';
 import type { StageStripItem } from '../studio/StudioStage.js';
 import { type Answer, nowIso } from '../../conversation/question.js';
 import { forgetSaid } from '../../conversation/Transcript.js';
+import { TEXT_MAX } from '../../conversation/textMax.js';
 import { local } from '../../storage.js';
 import { COPY } from './sceneCopy.js';
 import { markSceneFinished } from './sceneDrafts.js';
@@ -604,7 +605,7 @@ export function useSceneFlow(args: {
         // it. A phrase is not nothing: what it names is taken as the answer to
         // those questions, and only what is left over is asked.
         if (describesPlace(t)) {
-          answerSetup({ source: { door: 'words', text: t.slice(0, 400) } });
+          answerSetup({ source: { door: 'words', text: t.slice(0, TEXT_MAX) } });
           return true;
         }
         const filled = fillFrom(t);
@@ -626,7 +627,7 @@ export function useSceneFlow(args: {
           return true;
         }
         const pick = setupRef.current.answers[target.id]?.pick;
-        answerSetup({ [target.id]: { ...(pick ? { pick } : {}), words: t.slice(0, 200) } });
+        answerSetup({ [target.id]: { ...(pick ? { pick } : {}), words: t.slice(0, TEXT_MAX) } });
         return true;
       }
       if (target.kind === 'name') {

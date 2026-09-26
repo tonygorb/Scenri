@@ -1,5 +1,6 @@
 import type { HeroWith, ScenePatch, SceneReading, SceneStudioJob, SceneStudioJobKind } from '../../apiTypes.js';
 import { COPY } from './sceneCopy.js';
+import { COMPOSED_TEXT_MAX, TEXT_MAX } from '../../conversation/textMax.js';
 
 /**
  * The scene studio's state, and everything the surface derives from it.
@@ -25,11 +26,13 @@ export const PICTURES_MAX = 4;
  * guard and "invent a specific original arrangement": about 560 characters
  * before any words of the person's own. At 400 the server cut those clauses
  * off in silence (found 2026-09-22), so the line that keeps two people who tap
- * the same cards from getting the same place never reached the reading.
+ * the same cards from getting the same place never reached the reading. At 800
+ * a person's own long words were cut the same way (2026-09-27), so it is the
+ * composed cap now (conversation/textMax.ts).
  * `sceneFlow.test.ts` walks every combination with words of their own.
  */
-export const PLACE_MAX = 800;
-export const ASK_MAX = 400;
+export const PLACE_MAX = COMPOSED_TEXT_MAX;
+export const ASK_MAX = TEXT_MAX;
 export const NAME_MAX = 60;
 
 /**
