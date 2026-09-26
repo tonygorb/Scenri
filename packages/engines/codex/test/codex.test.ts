@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
 import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
@@ -8,6 +8,15 @@ import type { spawn } from 'node:child_process';
 import type { BrandContext, EditRequest, GenerateRequest } from '@scenri/core';
 import { BUDGET_EXHAUSTED } from '@scenri/core';
 import { CODEX_POOL, codexNativeSize, codexNodeBudgetMs, createCodexEngine } from '../src/index.js';
+
+// The runner reads the MCP server names in $CODEX_HOME/config.toml; a
+// developer's own servers must never change the argv these tests pin.
+beforeEach(() => {
+  vi.stubEnv('CODEX_HOME', mkdtempSync(join(tmpdir(), 'sc-codex-empty-')));
+});
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 const PNG_1 = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 1, 1]);
 const PNG_2 = Buffer.from([0x89, 0x50, 0x4e, 0x47, 2, 2, 2]);

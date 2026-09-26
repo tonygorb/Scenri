@@ -7,6 +7,7 @@
  * on stdout is never the answer; the file is.
  */
 import { spawn as nodeSpawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { copyFile, lstat, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -158,6 +159,35 @@ export function execArgs(dir: string, effort: ReasoningEffort = 'low'): string[]
     dir,
     '-',
   ];
+}
+
+/**
+ * `-c mcp_servers.<name>.enabled=false` for each MCP server the machine's own
+ * config.toml names. Every exec used to load them all: their tool schemas rode
+ * along as tokens on each shot, and tools like computer-use sat within reach of
+ * an agent that reads writing inside the attached pictures. Codex skips a
+ * server whose `enabled` is false, and a -c override merges by dotted path, so
+ * each server is named; a name with a dot in it cannot be addressed that way
+ * and is left alone. Names only are read, never values.
+ */
+export function mcpOffArgs(env: NodeJS.ProcessEnv): string[] {
+  // The same place the child will look: its own CODEX_HOME, else ~/.codex of
+  // the HOME it inherits. An env with neither has no config to read.
+  const user = env.HOME || env.USERPROFILE;
+  const home = env.CODEX_HOME || (user ? join(user, '.codex') : '');
+  if (!home) return [];
+  let text: string;
+  try {
+    text = readFileSync(join(home, 'config.toml'), 'utf8');
+  } catch {
+    return [];
+  }
+  const names = new Set<string>();
+  for (const line of text.split(/\r?\n/)) {
+    const m = /^\s*\[\s*mcp_servers\.(?:"([A-Za-z0-9_-]+)"|([A-Za-z0-9_-]+))\s*\]\s*(?:#.*)?$/.exec(line);
+    if (m) names.add(m[1] ?? m[2]);
+  }
+  return [...names].flatMap((name) => ['-c', `mcp_servers.${name}.enabled=false`]);
 }
 
 /**
@@ -386,6 +416,7 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
     // point of the connection check is that codex cannot tell it apart from a
     // real shot. Built per spawn so a repair lands on the next run.
     const env = buildChildEnv(parentEnv, [...ignoreEnvKeys(), ...SIBLING_PROVIDER_KEYS]);
+    if (args[0] === 'exec') args = ['exec', ...mcpOffArgs(parentEnv), ...args.slice(1)];
     return exe.direct
       ? spawnImpl(exe.command, args, { stdio, env, ...(platform !== 'win32' ? { detached: true } : {}) })
       : spawnImpl([exe.command, ...args.map(winArg)].join(' '), [], { stdio, env, shell: true });
