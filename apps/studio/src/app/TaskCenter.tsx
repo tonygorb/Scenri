@@ -4,6 +4,7 @@ import { api, type ActivityNode, type AssetBuild, type Brand, type StudioWork } 
 import { spendAssetDraft } from '../createDraft.js';
 import { useToasts } from '../toasts.js';
 import { hubPath } from '../routes.js';
+import { freshSeed } from '../draft.js';
 import { useAppData } from './AppShell.js';
 import {
   batchTask,
@@ -396,7 +397,9 @@ export function TaskCenterProvider({
                 {
                   label: 'Use in a shot',
                   onClick: () =>
-                    navRef.current(`${hub}?${n.kind === 'presenter' ? 'presenter' : 'scene'}=${assetId}&compose=1`),
+                    navRef.current(
+                      `${hub}?${n.kind === 'presenter' ? 'presenter' : 'scene'}=${assetId}&compose=1${freshSeed()}`,
+                    ),
                 },
               ]
             : undefined,

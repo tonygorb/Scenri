@@ -10,6 +10,7 @@ import { useToasts } from '../toasts.js';
 import { AssetKindPicker } from './AssetKindPicker.js';
 import { ProductForm } from './ProductForm.js';
 import type { Created } from './flow.js';
+import { freshSeed } from '../draft.js';
 
 /**
  * The one place any of the three creation flows is ever opened.
@@ -277,7 +278,10 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
           title: `${made.name} added`,
           actions: [
             { label: 'Add details', onClick: () => navigate(productPath(brand, made.id)) },
-            { label: 'Use in a shot', onClick: () => navigate(`${hubPath(brand)}?product=${made.id}&compose=1`) },
+            {
+              label: 'Use in a shot',
+              onClick: () => navigate(`${hubPath(brand)}?product=${made.id}&compose=1${freshSeed()}`),
+            },
           ],
         });
         return;
@@ -291,7 +295,10 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
           kind: 'success',
           title: `${made.name} added`,
           actions: [
-            { label: 'Use in a shot', onClick: () => navigate(`${hubPath(brand)}?presenter=${made.id}&compose=1`) },
+            {
+              label: 'Use in a shot',
+              onClick: () => navigate(`${hubPath(brand)}?presenter=${made.id}&compose=1${freshSeed()}`),
+            },
           ],
         });
         return;
@@ -307,7 +314,10 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
         detail: filed,
         actions: [
           { label: 'Open', onClick: () => navigate(scenePath(brand, made.id)) },
-          { label: 'Use in a shot', onClick: () => navigate(`${hubPath(brand)}?scene=${made.id}&compose=1`) },
+          {
+            label: 'Use in a shot',
+            onClick: () => navigate(`${hubPath(brand)}?scene=${made.id}&compose=1${freshSeed()}`),
+          },
         ],
       });
     },

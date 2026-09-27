@@ -1,6 +1,15 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import type { SentenceToken } from '../src/composer/line.js';
-import { clearDraft, draftKey, isNonTrivial, loadDraft, saveDraft, type PersistedDraft } from '../src/draft.js';
+import {
+  clearDraft,
+  draftKey,
+  freshSeed,
+  isNonTrivial,
+  keepDraftOnScreen,
+  loadDraft,
+  saveDraft,
+  type PersistedDraft,
+} from '../src/draft.js';
 
 const tokens = (over: SentenceToken[] = [{ t: 'text', v: '' }]): SentenceToken[] => over;
 
@@ -223,5 +232,51 @@ describe('saveDraft / loadDraft / clearDraft', () => {
     expect(loadDraft('b1')).toBeNull();
     expect(() => clearDraft('b1')).not.toThrow();
     if (real) Object.defineProperty(window, 'localStorage', real);
+  });
+});
+
+describe('what a recipe lent the brief', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('rides with the draft and comes back with it', () => {
+    saveDraft('b1', {
+      tokens: tokens([{ t: 'text', v: 'on the terrace' }]),
+      tplFields: {},
+      lent: { format: 'portrait', count: 2, quality: 'high' },
+    });
+    expect(loadDraft('b1')?.lent).toEqual({ format: 'portrait', count: 2, quality: 'high' });
+  });
+
+  it('is left out when nothing was lent, so a plain brief stores what it always did', () => {
+    saveDraft('b1', { tokens: tokens([{ t: 'text', v: 'on the terrace' }]), tplFields: {}, lent: {} });
+    expect(loadDraft('b1')).not.toHaveProperty('lent');
+    expect(JSON.parse(localStorage.getItem(draftKey('b1')) ?? '{}')).not.toHaveProperty('lent');
+  });
+
+  it('keeps only values of the type they were written with', () => {
+    const d: PersistedDraft & { lent: unknown } = {
+      v: 1,
+      brandId: 'b1',
+      updatedAt: new Date().toISOString(),
+      tokens: tokens([{ t: 'text', v: 'on the terrace' }]),
+      tplFields: {},
+      setSlug: null,
+      lent: { format: 7, count: 2.5, quality: 'high' },
+    };
+    localStorage.setItem(draftKey('b1'), JSON.stringify(d));
+    expect(loadDraft('b1')?.lent).toEqual({ quality: 'high' });
+  });
+});
+
+describe('what "Use in a shot" means', () => {
+  it('starts a new brief where no composer keeps the draft, and joins the brief where one does', () => {
+    expect(freshSeed()).toBe('&fresh=1');
+    const dock = keepDraftOnScreen();
+    const create = keepDraftOnScreen();
+    expect(freshSeed()).toBe('');
+    dock();
+    expect(freshSeed()).toBe('');
+    create();
+    expect(freshSeed()).toBe('&fresh=1');
   });
 });

@@ -9,6 +9,18 @@ import { STALE_MS, local } from './storage.js';
  * it. (vitest only globs `.ts` under test/.)
  */
 
+/**
+ * What a recipe lent the brief: its shape, variant count and quality. Only the
+ * loan, never the machine's own prefs, so a use case that was left and come
+ * back to still runs at the settings it came with, and a brief nobody lent
+ * anything carries nothing here.
+ */
+export interface LentSettings {
+  format?: string;
+  count?: number;
+  quality?: string;
+}
+
 export interface PersistedDraft {
   v: 1;
   brandId: string;
@@ -16,9 +28,31 @@ export interface PersistedDraft {
   tokens: SentenceToken[];
   tplFields: Record<string, string>;
   setSlug: string | null;
+  lent?: LentSettings;
 }
 
 export const draftKey = (brandId: string): string => `scenri:draft-${brandId}`;
+
+/**
+ * How many composers that keep the draft are on screen (Home's dock, Create's).
+ *
+ * "Use in a shot" asks, because the answer is the whole difference in what it
+ * means: pressed where a composer is, the chip joins the brief right there;
+ * pressed on a page with none (a library, an asset's own page, Home on a
+ * phone), it starts a new brief, and the one in progress is put aside behind an
+ * Undo rather than quietly taking the chip.
+ */
+let keepers = 0;
+
+export function keepDraftOnScreen(): () => void {
+  keepers += 1;
+  return () => {
+    keepers -= 1;
+  };
+}
+
+/** The query a "Use in a shot" link adds for a new brief: nothing where a composer is on screen. */
+export const freshSeed = (): string => (keepers > 0 ? '' : '&fresh=1');
 
 /*
  * The local lane, where createDraft.ts takes the session one, and the
@@ -100,7 +134,20 @@ export function loadDraft(brandId: string): PersistedDraft | null {
     tokens: d.tokens as SentenceToken[],
     tplFields: d.tplFields as Record<string, string>,
     setSlug: d.setSlug ?? null,
+    ...(lentOf(d.lent) ? { lent: lentOf(d.lent) } : {}),
   };
+}
+
+/** A stored loan, kept only where each value has the type it was written with. */
+function lentOf(raw: unknown): LentSettings | undefined {
+  if (typeof raw !== 'object' || raw === null) return undefined;
+  const r = raw as Record<string, unknown>;
+  const lent: LentSettings = {
+    ...(typeof r.format === 'string' ? { format: r.format } : {}),
+    ...(typeof r.count === 'number' && Number.isInteger(r.count) && r.count > 0 ? { count: r.count } : {}),
+    ...(typeof r.quality === 'string' ? { quality: r.quality } : {}),
+  };
+  return Object.keys(lent).length ? lent : undefined;
 }
 
 /** The caller has already checked `isNonTrivial`; this is a dumb writer. */
@@ -110,8 +157,10 @@ export function saveDraft(
     tokens: SentenceToken[];
     tplFields: Record<string, string>;
     setSlug?: string | null;
+    lent?: LentSettings;
   },
 ): void {
+  const lent = lentOf(data.lent);
   const draft: PersistedDraft = {
     v: 1,
     brandId,
@@ -119,6 +168,7 @@ export function saveDraft(
     tokens: data.tokens,
     tplFields: data.tplFields,
     setSlug: data.setSlug ?? null,
+    ...(lent ? { lent } : {}),
   };
   write(draftKey(brandId), JSON.stringify(draft));
 }

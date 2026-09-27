@@ -159,6 +159,28 @@ test.describe('a product and its references', () => {
     await expect(page).toHaveURL(/\/create$/);
   });
 
+  test('use in a shot starts a new brief, and Undo brings back the one in progress', async ({ page }) => {
+    // A product page has no composer, so its "Use in a shot" means a new shot:
+    // the product used to land in whatever half-written brief was waiting.
+    const brand = await currentBrand(page);
+    const id = await seedProduct(page, brand.id, 'A fresh start', 1);
+    await page.goto(`/${brand.slug}/create`);
+    await page.locator('.sc-brief-line').first().click();
+    await page.keyboard.type('rain on the glass, a brief about something else');
+    await page.goto(`/${brand.slug}/products/${id}`);
+
+    await page.locator('.sc-lookpage-acts .sc-btn-primary').click();
+
+    const line = page.locator('.sc-brief-line').first();
+    await expect(line.locator('.sc-token')).toHaveCount(1);
+    await expect(line.locator('.sc-token')).toHaveText('A fresh start');
+    await expect(line).not.toContainText('rain on the glass');
+    const toast = page.locator('.sc-toast', { hasText: 'Started a new shot' });
+    await toast.getByRole('button', { name: 'Undo' }).click();
+    await expect(line).toContainText('rain on the glass, a brief about something else');
+    await expect(line.locator('.sc-token')).toHaveCount(0);
+  });
+
   test('renaming from the heading reaches the library', async ({ page }) => {
     const brand = await currentBrand(page);
     const id = await seedProduct(page, brand.id, 'Before', 1);
