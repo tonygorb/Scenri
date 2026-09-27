@@ -66,15 +66,17 @@ are read from `package.json` at runtime, never hardcoded.
 
 ## The library download
 
-The npm package carries the complete catalog and every thumbnail, so the whole
-library is browsable offline from first launch. The heavy imagery (scene
-reference galleries, showcase heroes, product shots, presenter identity sets)
-is downloaded once from a versioned archive on the project's GitHub releases,
-cached under `~/.scenri/content`, and never fetched again. One GET for one
-file, nothing sent, silent when offline (the next launch simply retries).
+The npm package carries the complete catalog, every scene and presenter card
+and the pictures of fifteen Home examples, so the library can be browsed from
+the first launch. The rest of the imagery (the other Home pictures, scene
+galleries, product shots, presenter identity sets) comes from a versioned
+archive on the project's GitHub releases, checked against the sha256 that
+Scenri version pins, and cached under `~/.scenri/content`. It is downloaded
+again only when a later version pins a newer archive. One GET for one file,
+nothing sent, silent when offline (the next launch simply retries).
 
 - `SCENRI_NO_CONTENT_FETCH=1` skips the download entirely; Scenri stays on
-  thumbnails.
+  the pictures the package carries.
 - `SCENRI_CONTENT_URL` points a fork or an airgap mirror at its own archive.
 
 `~/.scenri/content` is a cache, not user data: deleting it is always safe and

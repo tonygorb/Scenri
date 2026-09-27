@@ -88,18 +88,20 @@ Two things worth knowing from day one:
 - **Keep the terminal window open.** That window is Scenri running. Closing it stops Scenri;
   nothing is lost, and the same command starts it again.
 - **The first launch downloads the Scenri library** of example imagery in the background, about
-  155 MB, once. On a slow connection the home wall fills in as it arrives.
+  155 MB. On a slow connection the home wall fills in as it arrives. A later update downloads it
+  again only when that update brings new imagery.
 
 ## First launch
 
 Scenri opens on one small step: point it at a brand.
 
 - **Paste a website address** and Scenri reads the public pages and drafts the brand kit: name,
-  palette, logo, tone. It also starts pulling the site's products into your library.
+  logo, palette. If the site sells things, it looks for the products and offers to add them to
+  your library.
 - Or choose **Start from scratch** and just name the brand.
 
 Everything else, products, presenters, scenes, is already there to explore. The home wall is full
-of finished example shots; open any of them and it loads back into the composer as the exact brief
+of finished example shots; open any of them and it loads back into the composer as the exact prompt
 that made it.
 
 ## Connect image generation
@@ -109,9 +111,9 @@ made by a generation engine you connect once. Until you do, the composer shows a
 the send button waits.
 
 **If you have a ChatGPT plan** (any paid plan): use Codex. Click **Set up** in the composer notice
-and Scenri walks you through it, two steps, entirely inside the app: it installs Codex CLI, an
-official helper from OpenAI, and signs you in through your browser. Scenri never sees your
-password. Images then run on the ChatGPT plan you already pay for; Scenri adds nothing to the
+and Scenri walks you through it, three steps, entirely inside the app: it installs Codex CLI, an
+official helper from OpenAI, signs you in through your browser, and checks the connection with one
+short Codex turn. Scenri never sees your password. Images then run on the ChatGPT plan you already pay for; Scenri adds nothing to the
 bill.
 
 **Otherwise, paste a key** from an image provider. In Scenri, open Settings, then Providers, pick
@@ -120,7 +122,7 @@ one and paste its key. You create the key on the provider's site:
 | Provider | Get a key at | Rough cost |
 |---|---|---|
 | OpenRouter | [openrouter.ai/keys](https://openrouter.ai/keys) | about $0.04 an image |
-| fal | [fal.ai/dashboard/keys](https://fal.ai/dashboard/keys) | about $0.003 an image |
+| fal | [fal.ai/dashboard/keys](https://fal.ai/dashboard/keys) | about $0.006 an image (billed per megapixel) |
 | Replicate | [replicate.com/account/api-tokens](https://replicate.com/account/api-tokens) | about $0.003 an image |
 
 Pick OpenRouter if your shots feature a specific product or presenter; it is the key-based engine
@@ -128,7 +130,7 @@ that carries reference images. You pay the provider directly, per image. A month
 engine lives in Settings.
 
 One sentence on privacy: Scenri runs on your computer and your images and brands stay there. When
-you generate, the brief and its reference images are sent to the one engine you connected, and
+you generate, the prompt and its reference images are sent to the one engine you connected, and
 nowhere else. The full statement is in [PRIVACY.md](../PRIVACY.md).
 
 ## Open it again
@@ -142,7 +144,7 @@ Add Scenri to your desktop? Then you can open it without a terminal. [Y/n]
 Say yes and a **Scenri** icon lands on your desktop. From then on, double-click it: Scenri starts
 if it is not running (a "Starting Scenri" page holds the browser for the few seconds that takes),
 or the browser simply opens on the Scenri that is already running. No terminal, and it works
-without an internet connection. Said no, or deleted the icon? Settings, then About, then
+without an internet connection. Said no, or deleted the icon? Settings, then Local access, then
 **Add to desktop** puts it back, and so does this in a terminal:
 
 ```bash
@@ -257,7 +259,7 @@ global folder, so the Codex CLI install was refused.
 Then reopen the setup window in Scenri.
 
 **The desktop icon could not be added.** Scenri says so in one sentence and keeps running; nothing
-else is affected. Try again later from Settings, then About, then **Add to desktop**, or run
+else is affected. Try again later from Settings, then Local access, then **Add to desktop**, or run
 `npx scenri desktop` in a terminal. Scenri only ever writes the icon to your own Desktop folder and
 never needs an administrator to do it, so a failure here is usually a folder that moved (OneDrive
 taking over your Desktop mid-install) or security software holding the file open.

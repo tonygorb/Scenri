@@ -1,6 +1,6 @@
 # Roadmap
 
-What Scenri is for, what it does today, and what comes next. This is a solo side project, so treat the ordering as intent rather than as dates.
+What Scenri is for, what it does today, and what comes next. This is a solo project, so treat the ordering as intent rather than as dates.
 
 Have an opinion on any of it? Open an issue. The ordering below is not fixed, and what people actually hit changes it.
 
@@ -16,29 +16,33 @@ Anything that would break one of those is out of scope, however useful it sounds
 
 ## Working today
 
-- Brand kits, drafted from a website URL or built from scratch
+- Brand kits, drafted from a website URL (name, logo, palette, and the site's products when it sells any) or built from scratch
 - The `.brand` open format, with a JSON Schema and a validator
-- Products and presenters as locked reference photos
-- Product catalog import: Shopify, WooCommerce, Webflow, and a generic sitemap and JSON-LD reader
-- Seventy-two photographic scenes, each with a preview and a six-shot reference gallery, plus a composer where `$` reaches for a product, `@` a presenter, `/` a scene and `#` a colour
-- The version tree: generate, branch an edit from any shot, keep the winners
-- Drift-diff, a pixel heatmap between any two shots
-- Export packs, and a per-engine cost ledger with monthly spend caps
-- Five engines: Demo, Codex CLI, OpenRouter, Replicate, fal
+- Products from your own photos, or imported from a store: Shopify, WooCommerce, Webflow, and a generic sitemap and JSON-LD reader
+- Presenters made in a short conversation: describe a person or start from photos of one, approve the face, then the views built from it; edits are saved as revisions
+- Scenes made the same way, from a sentence, a few guided questions, pictures of a place or one of your own shots, drawn as the place and the place in use
+- A library to start from: demo products, presenters and scenes, and a wall of worked examples on Home that each reopen as the prompt that made them
+- A composer where `$` reaches for a product, `@` a presenter, `/` a scene and `#` a colour
+- Refinement: say what to change, and every step stays on the shot's trail; star the keepers
+- Downloads of any picture, an export of the whole library, and `.brand` export
+- The cost of each shot on paid providers, and a monthly spend cap per provider
+- Four engines: Codex CLI, OpenRouter, Replicate, fal
+- Local access: open Scenri from a phone or tablet on your own network, with a six-digit code
+- A desktop icon on macOS and Windows that starts Scenri and opens it in your browser
+- Updates that download in the background and wait for you to restart into them
+- A guided first shot for someone new, and Learn for everything after it
 
 ## Next
 
-**Make the first five minutes undeniable.** The gap between `npx scenri` and a shot worth keeping is still too wide. Better first-run guidance, faster URL to brand kit, clearer messaging when an engine is missing or a key is wrong.
-
-**Accessibility.** The known-defect backlog in [docs/A11Y-BACKLOG.md](docs/A11Y-BACKLOG.md) is clear and every Biome a11y rule now runs at `error`, so regressions fail CI. What automation cannot see is next: a real screen-reader pass over Create and the shot overlay, and keyboard reachability of the composer's chips.
+**Accessibility.** The known-defect backlog in [docs/A11Y-BACKLOG.md](docs/A11Y-BACKLOG.md) is clear and Biome's recommended accessibility rules run at `error`, so regressions fail CI. What automation cannot see is next: a real screen-reader pass over Create and the shot overlay, and keyboard reachability of the composer's chips.
 
 **Make adapters easy to write.** An engine adapter is one file behind one interface. It should be documented well enough that adding a provider is an afternoon, and it is the contribution the project most wants.
 
 ## Later
 
-- Mask-based local edits, so a change can be scoped to a region rather than a whole frame
+- Choosing by hand the region an edit may change (today a local edit finds its region itself, and restores everything outside it from the original)
 - Batch generation across a product catalog
-- A documented plugin surface for scenes and export presets
+- A documented plugin surface for scenes
 - A published `.brand` spec site, so the format can be adopted independently of this app
 
 ## Not planned

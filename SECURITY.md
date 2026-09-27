@@ -4,7 +4,7 @@
 
 Please report privately, not in a public issue.
 
-- Preferred: GitHub private vulnerability reporting, via the **Security** tab on this repository.
+- Preferred: GitHub private vulnerability reporting, via the **Security** tab on this repository ([report a vulnerability](https://github.com/tonygorb/Scenri/security/advisories/new)). It needs a GitHub account.
 - Fallback: security@scenri.co.
 
 Include what you did, what happened, and what you expected. A proof of concept helps a lot. You will get a first response within 5 working days, and an assessment within 14 days. This is a solo-maintained project, so please allow for that in your disclosure timeline.
@@ -65,5 +65,5 @@ Over plain http the code and the cookie travel unencrypted, like everything else
 
 - The brand-from-URL and catalog importers fetch the URL you give them and follow redirects. They refuse private-network destinations unless `SCENRI_SCRAPE_ALLOW_PRIVATE=1`, and they can only be invoked by the person at the keyboard or a device holding the access code. A report showing these reachable **without** local access is very much in scope.
 - Updates are staged with `npm install`, so integrity rests on npm's own tarball checksums plus two checks of our own: the staged manifest must match the requested name and version, and the staged version must boot and answer `verify` before it is promoted. There is no additional signature layer.
-- The library imagery archive is fetched once over HTTPS from this repository's GitHub Releases, and its sha256 is checked against the value pinned in that Scenri version (`CONTENT_SHA256` in `packages/cli/src/content/fetch.ts`) before anything is unpacked. An archive from a custom `SCENRI_CONTENT_URL` (a mirror or a fork) is its owner's choice and is not checked. It contains imagery only and is never executed.
+- The library imagery archive is fetched over HTTPS from this repository's GitHub Releases (again only when a Scenri version pins a newer one), and its sha256 is checked against the value pinned in that Scenri version (`CONTENT_SHA256` in `packages/cli/src/content/fetch.ts`) before anything is unpacked. An archive from a custom `SCENRI_CONTENT_URL` (a mirror or a fork) is its owner's choice and is not checked. It contains imagery only and is never executed.
 - One dependency override exists, in the root `package.json`: `tsup>esbuild` is held at `>=0.28.1`, because the version tsup would otherwise resolve carries an advisory affecting esbuild's development server on Windows. It is scoped to tsup deliberately. Vite resolves its own, older esbuild that predates the affected range, and the fixed release cannot compile to the browser targets the studio builds for, so applying the override globally breaks the build rather than securing anything.

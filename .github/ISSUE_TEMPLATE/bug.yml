@@ -31,7 +31,6 @@ body:
     attributes:
       label: Which engine
       options:
-        - Demo (no key needed)
         - Codex CLI
         - OpenRouter
         - Replicate
