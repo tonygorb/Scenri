@@ -242,6 +242,61 @@ describe('a website with no shop on it', () => {
 });
 
 /**
+ * An address that never answers: mistyped, down, or no network here. Every
+ * probe swallows its own failure, so this used to finish exactly like a site
+ * with no shop on it, as a completed import saying "No shop found".
+ */
+describe('an address that never answers', () => {
+  let home: string;
+  let core: ReturnType<typeof createCore>;
+  let app: ReturnType<typeof buildServer>;
+  let asked = 0;
+
+  beforeEach(() => {
+    home = mkdtempSync(join(tmpdir(), 'sc-unreachable-'));
+    core = createCore(home);
+    asked = 0;
+    const nothingThere = (async () => {
+      asked++;
+      throw new TypeError('fetch failed');
+    }) as unknown as typeof fetch;
+    app = buildServer({ core, engines: registryWith(), fetchImpl: nothingThere });
+  });
+  afterEach(async () => {
+    await app.drain();
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  });
+
+  it('fails saying the address could not be reached, never "no shop"', { timeout: 120_000 }, async () => {
+    const brand = await app.inject({
+      method: 'POST',
+      url: '/api/brands',
+      payload: { brand: { specVersion: '0.1', meta: { name: 'Typo' } } },
+    });
+    const brandId = brand.json().id;
+    const start = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brandId}/catalog/import`,
+      payload: { url: 'https://shop.examlpe' },
+    });
+    expect(start.statusCode).toBe(200);
+
+    let job: any;
+    for (let i = 0; i < 1100; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+      job = (
+        await app.inject({ method: 'GET', url: `/api/brands/${brandId}/catalog/jobs/${start.json().jobId}` })
+      ).json();
+      if (job.finishedAt) break;
+    }
+    expect(job.stage).toBe('failed');
+    expect(job.message).toBe('Could not reach shop.examlpe.');
+    expect(job.errors).toEqual([{ code: 'unreachable', message: 'Could not reach shop.examlpe.', retryable: true }]);
+    expect(asked).toBeGreaterThan(0);
+  });
+});
+
+/**
  * A 2,201-product import used to write nothing until every page had been read.
  * The bell said "0 of 2,199" for sixteen minutes, the Products page stayed
  * empty, and an OOM at minute nineteen left zero products behind for all of it.
