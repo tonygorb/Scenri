@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
-import { contentFile } from '../content/overlay.js';
+import { shownFile } from '../content/overlay.js';
 import {
   PRESENTER_FRAME_FILE,
   presenterAvatarPath,
@@ -17,16 +17,18 @@ export function registerPresenterRoutes(
   deps: { templatesRoot: string; presenters: Presenter[]; thumbs: ThumbStore },
 ): void {
   const { templatesRoot, presenters, thumbs } = deps;
-  const presenterThumbPath = (id: string) => contentFile(templatesRoot, 'previews', 'presenters', `${id}.jpg`);
+  // Every picture here is for showing, so each reads what a download in progress
+  // has already checked too (shownFile): a picture appears the moment it arrives.
+  const presenterThumbPath = (id: string) => shownFile(templatesRoot, 'previews', 'presenters', `${id}.jpg`);
   // The card is the portrait, whole, at 564 wide so an install can carry it. Its
   // derivatives come from the library's full-size portrait once that is here:
   // a card laid out wider than 564 device pixels was the small copy enlarged.
-  const portraitPath = (id: string) => contentFile(templatesRoot, 'previews', 'presenters', id, 'portrait.jpg');
+  const portraitPath = (id: string) => shownFile(templatesRoot, 'previews', 'presenters', id, 'portrait.jpg');
   const cardSource = (id: string) => {
     const path = portraitPath(id);
     return existsSync(path) ? { path, key: fileKey('presenter-portrait', id, path) } : undefined;
   };
-  const avatarPath = (id: string) => presenterAvatarPath(templatesRoot, id);
+  const avatarPath = (id: string) => presenterAvatarPath(templatesRoot, id, shownFile);
   const decoratePresenter = (p: Presenter) => ({
     ...p,
     previewUrl: existsSync(presenterThumbPath(p.id))
@@ -60,7 +62,7 @@ export function registerPresenterRoutes(
   app.get('/api/presenter-previews/:id', async (req, reply) => {
     const id = /^[a-z0-9-]+$/.exec(String((req.params as any).id))?.[0];
     if (!id) return reply.status(400).send({ error: 'bad presenter id' });
-    const frames = presenterPageFrames(templatesRoot, id).map((f) => ({
+    const frames = presenterPageFrames(templatesRoot, id, shownFile).map((f) => ({
       url: `/api/presenter-previews/${id}/${f.slot}.jpg${mtimeQS(f.path)}`,
       angle: f.angle,
     }));
@@ -70,7 +72,7 @@ export function registerPresenterRoutes(
     const p = req.params as any;
     const id = /^[a-z0-9-]+$/.exec(String(p.id))?.[0];
     const slot = PRESENTER_FRAME_FILE.exec(String(p.file))?.[1];
-    const path = id && slot ? presenterRefPath(templatesRoot, id, slot) : null;
+    const path = id && slot ? presenterRefPath(templatesRoot, id, slot, shownFile) : null;
     if (!path || !existsSync(path)) return reply.status(404).send({ error: 'no frame' });
     return serveJpeg(req, reply, path);
   });

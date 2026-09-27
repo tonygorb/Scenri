@@ -14,6 +14,7 @@ import { readMeta } from './meta.js';
 import { anotherScenriLines, portBusyLines, shouldAdoptRunning } from './bootError.js';
 import { isIPv4Literal, isLoopbackName, isWildcardHost } from './network/hosts.js';
 import { localUrl as localUrlFor, startLines } from './banner.js';
+import { finishContentInstall } from './content/fetch.js';
 
 const PORT = Number(process.env.SCENRI_PORT || 4747);
 /**
@@ -91,6 +92,10 @@ async function run(): Promise<void> {
 
   // a SCENRI_HOST given as a name is a Host header we must accept; addresses always pass
   const named = isLoopbackName(HOST) || isWildcardHost(HOST) || isIPv4Literal(HOST) ? [] : [HOST];
+
+  // A library download that finished during the last run moves into place
+  // now, before anything is served (never while pictures are being read).
+  finishContentInstall();
 
   const app = buildServer({
     core,
@@ -181,8 +186,8 @@ async function run(): Promise<void> {
   // brand and patches one presenter by id, so a live write is never clobbered.
   void repairPresenterCrops(core, (line) => console.log(line)).catch(() => undefined);
   app.updates.schedule();
-  // The one-time library download, shortly after listen. ensure() honours
-  // SCENRI_NO_CONTENT_FETCH and its Settings toggle, and stays silent offline.
+  // The one-time library download, right after listen, Home's pictures first.
+  // ensure() honours SCENRI_NO_CONTENT_FETCH and stays silent offline.
   app.content.schedule();
 
   // The real port, whatever was asked for, then the phone listeners beside it.

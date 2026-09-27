@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
-import { contentFile } from '../content/overlay.js';
+import { shownFile } from '../content/overlay.js';
 import { loadShowcase, showcaseFacetsOf, type ShowcaseEntry } from '../showcase.js';
 import type { ThumbStore } from '../thumbs.js';
 import { fileKey, mtimeQS, serveJpegSized } from './shared.js';
@@ -15,7 +15,8 @@ export function registerShowcaseRoutes(
   // the exact brief.tokens that produced its hero image — so opening one
   // reproduces the identical chips, ready to remix.
   const { showcase } = loadShowcase(join(templatesRoot, 'showcase'));
-  const showcaseHeroPath = (id: string) => contentFile(templatesRoot, 'previews', 'showcase', `${id}.jpg`);
+  // a wall picture shows the moment it arrives, before the whole library has (shownFile)
+  const showcaseHeroPath = (id: string) => shownFile(templatesRoot, 'previews', 'showcase', `${id}.jpg`);
   const decorateShowcase = (s: ShowcaseEntry) => ({
     ...s,
     previewUrl: existsSync(showcaseHeroPath(s.id))

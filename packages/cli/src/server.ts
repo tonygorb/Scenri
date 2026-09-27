@@ -31,6 +31,8 @@ import { SpendCapError, ASPECT_TOLERANCE, BUDGET_EXHAUSTED, budgetSize, type OnI
 import { readMeta } from './meta.js';
 import { createUpdateChecker, type UpdateChecker } from './update/check.js';
 import { createContentFetcher, type ContentFetcher } from './content/fetch.js';
+import { homeFirst } from './content/priority.js';
+import { loadShowcase } from './showcase.js';
 import type { stageVersion } from './update/stage.js';
 import { validateBrand, buildFromUrl, mergeScrape, normalizeSiteUrl } from '@scenri/brand';
 import { inspectMark } from './markShape.js';
@@ -2865,7 +2867,22 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   const runtime = opts.runtime ?? { installKind: 'unknown' as const, supervised: false };
   const updates = createUpdateChecker({ name: meta.name, store: core.store, fetchImpl: opts.fetchImpl });
   app.decorate('updates', updates);
-  app.decorate('content', createContentFetcher({ store: core.store, fetchImpl: opts.fetchImpl }));
+  app.decorate(
+    'content',
+    createContentFetcher({
+      store: core.store,
+      fetchImpl: opts.fetchImpl,
+      // Home's pictures first, read from the records Home is built from
+      priority: () =>
+        homeFirst({
+          templatesRoot,
+          showcase: loadShowcase(join(templatesRoot, 'showcase')).showcase,
+          demoProducts,
+          presenters,
+          scenes,
+        }),
+    }),
+  );
   registerUpdateRoutes(app, {
     core,
     meta,
@@ -2901,6 +2918,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       // a studio draw writes an image when it lands: never into a home being torn down
       await settleSceneStudio();
       await settleAssetBuilds();
+      // what the library download has landed stays, and the next start resumes the rest
+      await app.content.settle();
       await sceneExamples?.settle();
       await settlePresenterDrafts();
       await thumbs.settle();

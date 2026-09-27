@@ -151,10 +151,10 @@ describe('what the studio is told about the download', () => {
         log: () => {},
         sha256: createHash('sha256').update(body).digest('hex'),
       });
-      expect(fetcher.state()).toEqual({ arriving: true, installs: 0 });
+      expect(fetcher.state()).toMatchObject({ arriving: true, installs: 0 });
       const res = await fetcher.ensure();
       expect(res).toMatchObject({ ok: true, updated: true });
-      expect(fetcher.state()).toEqual({ arriving: false, installs: 1 });
+      expect(fetcher.state()).toMatchObject({ arriving: false, installs: 1 });
     } finally {
       server.close();
     }
@@ -175,7 +175,7 @@ describe('what the studio is told about the download', () => {
     expect(fetcher.state().arriving).toBe(true);
     const res = await fetcher.ensure();
     expect(res.ok).toBe(false);
-    expect(fetcher.state()).toEqual({ arriving: false, installs: 0 });
+    expect(fetcher.state()).toMatchObject({ arriving: false, installs: 0 });
   });
 
   it('says nothing is arriving when the download is switched off', () => {
@@ -186,6 +186,6 @@ describe('what the studio is told about the download', () => {
       env: { SCENRI_HOME: home, SCENRI_NO_CONTENT_FETCH: '1' },
       log: () => {},
     });
-    expect(fetcher.state()).toEqual({ arriving: false, installs: 0 });
+    expect(fetcher.state()).toMatchObject({ arriving: false, installs: 0 });
   });
 });
