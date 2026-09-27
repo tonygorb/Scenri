@@ -483,6 +483,23 @@ describe('what stays bounded on a big brand', () => {
     expect(seen.indexOf(fresh.id)).toBeLessThan(seen.indexOf(oldRunning.id));
   });
 
+  it('activity keeps every running shot, however many finished ones came after it', () => {
+    // Try again runs the same card and keeps its created_at: a re-run behind
+    // more finished shots than the limit is still work in flight
+    const rerun = shot({ prompt: 'run again from last month' });
+    const raw = openDb(home);
+    raw
+      .prepare("UPDATE nodes SET created_at = datetime('now', '-30 days'), status = 'running' WHERE id = ?")
+      .run(rerun.id);
+    raw.close();
+    for (let i = 0; i < 61; i++) shot({ prompt: `a newer shot ${i}` });
+    const seen = core.store.recentActivity(brandId);
+    expect(seen.map((n) => n.id)).toContain(rerun.id);
+    // the limit still bounds what finished
+    expect(seen.filter((n) => n.status !== 'running')).toHaveLength(60);
+    expect(seen.at(-1)?.id).toBe(rerun.id);
+  });
+
   it('the feed page, the counts and the lineage read indexes, never the table', () => {
     shot();
     const raw = openDb(home);
