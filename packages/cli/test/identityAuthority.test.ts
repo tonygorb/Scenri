@@ -78,6 +78,33 @@ describe('presenter identity authority', () => {
       5,
     );
     expect(r.prompt).toContain("never in the stand-in's outfit");
+    expect(r.prompt).toContain("each garment and the shoes are a different kind from the stand-in's");
+    expect(r.prompt).toContain("in none of the stand-in's colours");
+  });
+
+  it('beside a picture of someone else, the presenter is the only person in the image', () => {
+    const one = compile(
+      [
+        { t: 'character', id: 'dax' },
+        { t: 'text', v: ' in a cafe doorway, posed like ' },
+        { t: 'ref', imageHash: 'r1' },
+      ],
+      5,
+    );
+    expect(one.prompt).toContain(
+      "The presenter is the only person in this image unless this shot's own words ask for others: no customers, " +
+        'staff or passers-by, and nobody glimpsed through glass or in the distance.',
+    );
+    expect(referenceIdentityGuard(2)).toContain('The attached presenters are the only people in this image');
+    // Without a picture of someone else the guard is not spoken at all.
+    const alone = compile(
+      [
+        { t: 'character', id: 'dax' },
+        { t: 'text', v: ' in a cafe doorway' },
+      ],
+      5,
+    );
+    expect(alone.prompt).not.toContain('the only person in this image');
   });
 
   it("the presenter's notes are claimed as theirs in every shot, accessories included", () => {

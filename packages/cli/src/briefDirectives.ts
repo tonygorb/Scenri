@@ -299,7 +299,7 @@ export function characterEditIdentityDirective(name: string): string {
  * the reference. Prompt-side only; the escape is removing the presenter chip,
  * at which point this is never emitted.
  */
-export function referenceIdentityGuard(): string {
+export function referenceIdentityGuard(people = 1): string {
   return (
     'A reference shot lends its composition, lighting and treatment, never its cast: the attached presenter is ' +
     'the only source of person identity in this shot, and any person visible in a reference shot is a stand-in ' +
@@ -310,7 +310,19 @@ export function referenceIdentityGuard(): string {
     // held in 7 of 8; a sentence about the body alone did nothing (2026-09-24).
     "The stand-in's clothes are not part of the pose: unless this shot's own words dress the presenter, dress them " +
     "for this place in clothes of their own that show their own build, never in the stand-in's outfit. " +
-    'This holds even where the direction asks to use someone from a reference — the attached presenter is that someone.'
+    // "Outfit" was read as the exact clothes: read word for word, it came back
+    // recoloured in 4 of 4, the same ribbed tank, pleated wide-leg trousers and
+    // white sneakers in olive and oat, and the stand-in's cobalt came back on
+    // its own in 2 of 4 (2026-09-27). So the kind and the colour are named.
+    "Not a recoloured copy of it either: each garment and the shoes are a different kind from the stand-in's, in " +
+    "none of the stand-in's colours. " +
+    'This holds even where the direction asks to use someone from a reference — the attached presenter is that someone. ' +
+    // Nothing said who else may be in the frame, and read word for word a café
+    // doorway filled with customers, a barista and people on the street in 3
+    // of 4 (2026-09-27). People come from presenters, never from a place.
+    (people > 1 ? 'The attached presenters are the only people' : 'The presenter is the only person') +
+    " in this image unless this shot's own words ask for others: no customers, staff or passers-by, and nobody " +
+    'glimpsed through glass or in the distance.'
   );
 }
 
