@@ -8,6 +8,7 @@ import {
   presenterRecordFrom,
   SCENE_INSTRUCTION_MAX,
   sceneRecordFrom,
+  TYPED_TEXT_MAX,
   type CustomPresenter,
 } from '../src/assetRecords.js';
 
@@ -95,7 +96,7 @@ describe('revisions', () => {
           ' shorter hair ',
           'Shorter hair',
           'a fuller beard',
-          ...Array.from({ length: 10 }, (_, i) => `edit ${i} ${'x'.repeat(200)}`),
+          ...Array.from({ length: 10 }, (_, i) => `edit ${i} ${'x'.repeat(TYPED_TEXT_MAX)}`),
         ],
         revisionOf: 'up-00000001',
         supersededBy: 'up-00000002',
@@ -103,7 +104,7 @@ describe('revisions', () => {
     );
     expect(p.identityEdits).toHaveLength(8);
     expect(p.identityEdits?.slice(0, 2)).toEqual(['shorter hair', 'a fuller beard']);
-    expect(p.identityEdits?.[2]).toHaveLength(120);
+    expect(p.identityEdits?.[2]).toHaveLength(TYPED_TEXT_MAX);
     expect(p.revisionOf).toBe('up-00000001');
     expect(p.supersededBy).toBeUndefined();
     // an edit that never mentions them keeps them; an empty list clears them

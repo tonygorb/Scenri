@@ -78,6 +78,7 @@ import {
   nextToDraw,
 } from './presenterStudioRules.js';
 import { TRAITS, type TraitId, traitOf, traitSentence } from './presenterTraits.js';
+import { COMPOSED_TEXT_MAX, TEXT_MAX } from '../../conversation/textMax.js';
 
 /**
  * The creation conversation, as rules.
@@ -163,7 +164,7 @@ export const sourceFromText = (text: string): Source | null =>
  * and the flow asks it to, once, then again with a redraw when a face lands.
  */
 const asStored = (text: string, max: number): string => text.trim().slice(0, max).trimEnd();
-const DIRECTION_CHARS = 400;
+const DIRECTION_CHARS = COMPOSED_TEXT_MAX;
 
 /** The sentence the engine is given: the rows as a person, or the description with the follow-up folded in. */
 export function compileDirection(a: Answers): string {
@@ -205,7 +206,7 @@ export function keepItems(a: Answers): string[] {
  * does, so a cap only one side applies is a question that can never be
  * answered. `presenterKeepParity.test.ts` holds both caps to the server's.
  */
-const KEEP_ITEM_CHARS = 200;
+const KEEP_ITEM_CHARS = TEXT_MAX;
 const KEEP_ITEMS_MAX = 12;
 
 /** One thing kept, as the draft stores it: what it is, and the pictures of it. */

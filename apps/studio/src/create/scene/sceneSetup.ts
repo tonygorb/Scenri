@@ -1,4 +1,5 @@
 import type { Answer, Aside } from '../../conversation/question.js';
+import { TEXT_MAX } from '../../conversation/textMax.js';
 import { COPY } from './sceneCopy.js';
 import { followUps, intentOf } from './sceneIntent.js';
 import { optionOf, ROW_ORDER, type SceneRow, SUGGESTED_IDEA } from './sceneRows.js';
@@ -337,7 +338,7 @@ export function deserializeSetup(raw: unknown): SetupState | null {
   const a: Answers = {};
   const src = o.answers.source;
   if (src && ['photos', 'shot', 'guided', 'words'].includes(src.door))
-    a.source = { door: src.door, ...(typeof src.text === 'string' ? { text: src.text.slice(0, 400) } : {}) };
+    a.source = { door: src.door, ...(typeof src.text === 'string' ? { text: src.text.slice(0, TEXT_MAX) } : {}) };
   const ph = o.answers.photos;
   if (ph && Array.isArray(ph.hashes))
     a.photos = { hashes: ph.hashes.filter((h: unknown) => typeof h === 'string').slice(0, 4), done: !!ph.done };
@@ -357,7 +358,7 @@ export function deserializeSetup(raw: unknown): SetupState | null {
     const pick =
       // one of the row's own options, the general ones or the tapped world's
       typeof g.pick === 'string' && (g.pick === PASSED || !!optionOf(r, g.pick)) ? g.pick : undefined;
-    const words = typeof g.words === 'string' ? g.words.slice(0, 200) : undefined;
+    const words = typeof g.words === 'string' ? g.words.slice(0, TEXT_MAX) : undefined;
     if (pick || words) a[r] = { ...(pick ? { pick } : {}), ...(words ? { words } : {}) };
   }
   const asides: Aside[] = Array.isArray(o.asides)

@@ -22,6 +22,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import type { SceneDraft, SceneHeroMode, SceneHold } from '@scenri/engine-codex';
+import { TYPED_TEXT_MAX } from './assetRecords.js';
 import {
   brandScenes,
   checkedPicture,
@@ -172,7 +173,8 @@ export const SHOT_READ =
 
 /** The pictures a studio takes. Style references are one to four everywhere that measured it. */
 export const STUDIO_PICTURES_MAX = 4;
-const ASK_MAX = 400;
+/** A change said in the studio: as long as the composer lets them type. */
+const ASK_MAX = TYPED_TEXT_MAX;
 const KEEP_PER_BRAND = 24;
 /**
  * A finished job is kept long enough for someone who left while it ran to come

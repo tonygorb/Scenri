@@ -22,9 +22,11 @@ import { basename } from 'node:path';
 import type { Core } from '@scenri/core';
 import type { PresenterDraft as AnalyzerDraft } from '@scenri/engine-codex';
 import {
+  COMPOSED_TEXT_MAX,
   IDENTITY_EDIT_CHARS,
   IDENTITY_EDITS_MAX,
   LIKENESS_VERSION,
+  TYPED_TEXT_MAX,
   brandCharacters,
   commit,
   headOf,
@@ -589,10 +591,15 @@ export function sweepPresenterDrafts(core: Core): number {
   return swept;
 }
 
-/** How much of one kept thing is stored, and how many of them. */
-const KEEP_ITEM_CHARS = 200;
-/** Room for the answers and the forty asides the studio keeps, and no more. */
-const SETUP_CHARS = 40_000;
+/** How much of one kept thing is stored (whatever the composer lets them type), and how many of them. */
+const KEEP_ITEM_CHARS = TYPED_TEXT_MAX;
+/**
+ * Room for the answers and the forty asides the studio keeps, each as long as
+ * the composer allows, and no more. The setup is the conversation serialized:
+ * one past this is refused whole (the draft keeps the last that fit), never
+ * cut, because a cut serialization never reads back.
+ */
+const SETUP_CHARS = 64 * TYPED_TEXT_MAX;
 const KEEP_ITEMS_MAX = 12;
 /** Photographs a draft keeps: what a saved presenter holds (presenterRecordFrom). The studio offers four. */
 const SOURCES_MAX = 8;
@@ -603,9 +610,10 @@ const SOURCES_MAX = 8;
  * The cap is per item, which is the whole point of the shape: the sentence
  * they used to arrive as was capped at 240 and the cut landed mid-clause, so
  * the last detail chosen was the first one lost and "in place of their left
- * arm" became "in place of their le". Two hundred characters is more than
- * twice the longest thing the rows can produce, and an item longer than that
- * loses its own tail rather than somebody else's.
+ * arm" became "in place of their le". The rows produce well under a hundred
+ * characters; a detail in their own words is as long as the composer lets
+ * them type, and an item longer than that loses its own tail rather than
+ * somebody else's.
  */
 function keepItemsOf(raw: unknown, has?: (h: string) => boolean): KeepItem[] | undefined {
   if (!Array.isArray(raw)) return undefined;
@@ -691,7 +699,7 @@ export async function createPresenterDraft(
   const brand = core.store.getBrand(input.brandId);
   if (!brand) throw fail('brand not found', 404);
   const source: PresenterSource = input.source === 'synthetic' ? 'synthetic' : 'photos';
-  const direction = str(input.direction, 400);
+  const direction = str(input.direction, COMPOSED_TEXT_MAX);
   const keep = str(input.keep, 240);
   const keepItems = keepItemsOf(input.keepItems, (h) => core.images.has(h));
   // Capped here, not at save: every one of them is sent to the read, and one
@@ -1141,7 +1149,7 @@ export async function generateView(
      * typed at a person who has no description is that description, not an
      * adjustment to one that does not exist.
      */
-    const said = str(opts.adjustment, 400);
+    const said = str(opts.adjustment, TYPED_TEXT_MAX);
     if (!said) throw fail('describe who they are in a sentence', 400);
     rec = mutate(core, id, (r) => {
       r.direction = said;
@@ -1153,7 +1161,7 @@ export async function generateView(
     if (rec.views[dep].status !== 'approved') throw fail(`approve the ${VIEW_LABEL[dep]} first`, 400);
   }
   if (!engine || !engine.capabilities().maxReferenceImages) throw fail('no engine here can draw a person', 400);
-  const adjustment = str(opts.adjustment, 240) || undefined;
+  const adjustment = str(opts.adjustment, TYPED_TEXT_MAX) || undefined;
   const decide = opts.decide === 'auto' ? 'auto' : undefined;
   const before = rec.views[view].status;
   const saved = mutate(core, id, (r) => {
@@ -1773,8 +1781,11 @@ export async function updatePresenterDraft(
         .map((f) => str(f, 40))
         .filter(Boolean)
         .slice(0, 8);
-    if (patch.direction !== undefined) r.direction = str(patch.direction, 400) || undefined;
-    if (patch.setup !== undefined) r.setup = str(patch.setup, SETUP_CHARS) || undefined;
+    if (patch.direction !== undefined) r.direction = str(patch.direction, COMPOSED_TEXT_MAX) || undefined;
+    if (patch.setup !== undefined) {
+      const setup = str(patch.setup, Number.POSITIVE_INFINITY);
+      if (setup.length <= SETUP_CHARS) r.setup = setup || undefined;
+    }
     // Items are the truth and bring the sentence and the picture map with
     // them; the two older fields are still taken on their own so a client
     // that has not moved yet keeps working.
