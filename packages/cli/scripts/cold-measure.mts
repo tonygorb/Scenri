@@ -7,7 +7,7 @@
  * /api/version every 100 ms stands in for the server's event loop. Times are
  * seconds from the moment Scenri was spawned (T0).
  */
-import { execFileSync, type ChildProcess } from 'node:child_process';
+import { execFileSync, spawnSync, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import type { createRequire } from 'node:module';
 import { join } from 'node:path';
@@ -97,6 +97,9 @@ export async function measure(ctx: Ctx): Promise<number> {
   const latency: { t: number; ms: number }[] = [];
   const procs: { t: number; rss: number; cpu: number }[] = [];
   const activity: { t: number; content: unknown }[] = [];
+  // when the wall's first N tiles, in the wall's own order, all have their picture
+  const FILL = [8, 16, 24, 32, 48, 64, 80, 96, 110];
+  const wallFill: Record<string, number | null> = Object.fromEntries(FILL.map((n) => [String(n), null]));
   let glyphMax = 0;
   let waitingMax = 0;
   let stop = false;
@@ -137,6 +140,9 @@ export async function measure(ctx: Ctx): Promise<number> {
             T.T4b_first_archive_picture_listed = now;
           }
           if (!T.T6_wall_listed_complete && list.every((s) => s.previewUrl)) T.T6_wall_listed_complete = now;
+          const lead = list.findIndex((s) => !s.previewUrl);
+          const pictured = lead < 0 ? list.length : lead;
+          for (const n of FILL) if (!wallFill[n] && pictured >= Math.min(n, list.length)) wallFill[n] = now;
           if (ctx.brandId) {
             const act = await (await api(`/api/brands/${ctx.brandId}/activity`)).json();
             activity.push({ t: now, content: act.content });
@@ -173,7 +179,10 @@ export async function measure(ctx: Ctx): Promise<number> {
           T.killed = now;
           if (ctx.child.pid) {
             try {
-              process.kill(process.platform === 'win32' ? ctx.child.pid : -ctx.child.pid, 'SIGKILL');
+              // the whole tree, as a power cut would: on Windows the launcher alone would leave serve downloading
+              if (process.platform === 'win32') {
+                spawnSync('taskkill', ['/pid', String(ctx.child.pid), '/T', '/F'], { stdio: 'ignore' });
+              } else process.kill(-ctx.child.pid, 'SIGKILL');
             } catch {
               /* gone */
             }
@@ -336,6 +345,7 @@ export async function measure(ctx: Ctx): Promise<number> {
     mode: ctx.mode,
     seconds: Object.fromEntries(Object.entries(T).map(([k, v]) => [k, k === 'wall_scroll_pass_seconds' ? v : at(v)])),
     homeSet: { files: homeSet.size },
+    wallFillSeconds: Object.fromEntries(Object.entries(wallFill).map(([n, v]) => [n, at(v)])),
     archive: ctx.archive ? { ...ctx.archive.stats, log: undefined } : null,
     apiLatencyMs: {
       p50: pct(

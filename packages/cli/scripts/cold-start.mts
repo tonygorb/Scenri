@@ -22,6 +22,7 @@
  *   --measure <label>  headless: time the first run into .scenri-cold/results/<label>.json
  *   --kill-at <pct>    with --measure and a local archive: stop Scenri once that share is served
  *   --k <n>            requests in flight at once (the bench; default the app's own)
+ *   --cap <MB>         the most one request reads when neighbours merge (the bench; default the app's own)
  *
  * Stop with Ctrl-C (the whole process tree goes), or Shut down in the studio.
  */
@@ -75,6 +76,7 @@ const opts = {
   measure: value('measure'),
   killAt: Number(value('kill-at') ?? 0),
   k: value('k'),
+  cap: value('cap'),
 };
 const local = opts.throttle > 0 || opts.fail > 0 || opts.flaky > 0 || opts.cut > 0 || Boolean(opts.archive);
 const say = (line: string) => console.log(`cold-start: ${line}`);
@@ -239,6 +241,7 @@ Object.assign(env, {
   ...(opts.open && !opts.brand ? {} : { SCENRI_NO_OPEN: '1' }),
   ...(archive ? { SCENRI_CONTENT_URL: archive.url } : {}),
   ...(opts.k ? { SCENRI_CONTENT_CONCURRENCY: opts.k } : {}),
+  ...(opts.cap ? { SCENRI_CONTENT_CAP_MB: opts.cap } : {}),
 });
 
 const url = `http://127.0.0.1:${port}/`;
@@ -348,6 +351,7 @@ if (opts.measure) {
       cut: opts.cut,
       resume: opts.resume,
       k: opts.k ?? 'default',
+      cap: opts.cap ?? 'default',
     },
   });
   await finish(code);
