@@ -221,6 +221,27 @@ test('a kit edit still being typed is kept through Back and through a change of 
   await expectSameSession(page);
 });
 
+// Escape in a kit field put its value back and blurred it, but the blur read
+// the text Escape was taking back and saved it: the brand was renamed, and its
+// address moved with the name.
+test('Escape in a kit field takes the edit back instead of saving it', async ({ page }) => {
+  const brand = await currentBrand(page);
+  await page.goto(`/${brand.slug}/create`);
+  await markSession(page);
+  await openSettings(page);
+  const before = (await brandJson(page.request, brand.id)).meta?.name;
+  const name = page.getByRole('dialog', { name: 'Settings' }).getByLabel('Name', { exact: true });
+  await name.click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.type('Not This Name');
+  await page.keyboard.press('Escape');
+  // long enough for a stray save, or the leave commit, to have landed
+  await page.waitForTimeout(800);
+  expect((await brandJson(page.request, brand.id)).meta?.name).toBe(before);
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/create`));
+  await expectSameSession(page);
+});
+
 // A kit save sent the window's whole copy of the kit, so a tagline typed in a
 // window that had not seen a rename put the old name back, and the two
 // windows and the server then disagreed (S4-01). The rename here is made
