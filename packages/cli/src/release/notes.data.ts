@@ -105,6 +105,21 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.20.3',
+    date: '2026-09-27',
+    title: 'A clear fix when npm 12 stops Scenri from starting',
+    sections: [
+      {
+        heading: 'Install',
+        body: "If npm 12 skipped the install script Scenri's database needs, the terminal now says so and prints the three commands that fix it, instead of blaming a Node update.",
+      },
+      {
+        heading: 'Fixes',
+        body: 'The Court sneakers in the cobalt room example on Home is redrawn, and the desktop icon offer in the terminal now points to Settings > Local access.',
+      },
+    ],
+  },
+  {
     version: '0.20.2',
     date: '2026-09-27',
     title: 'On a first start, Home fills in as the library arrives',
