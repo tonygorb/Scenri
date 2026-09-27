@@ -369,6 +369,15 @@ export function useSceneFlow(args: {
    * of its line. Resolved before it is answered, so the read that follows the
    * answer never starts ahead of the question about the scene.
    */
+  /**
+   * Codex reads pictures here. A press that would have them read while it
+   * cannot (Read them, a shot, Read a new scene from it) is refused before any
+   * request and stands as the setup line (`noReader`); the pictures stay, and
+   * once something can read, the same press reads. Nothing reads on its own.
+   */
+  const canRead = caps?.canRead ?? true;
+  const [noReader, setNoReader] = useState<'photos' | 'shot' | null>(null);
+
   const pickShot = useCallback(
     async (id: string) => {
       const node = lastShots.current.find((n) => n.id === id) ?? pages.items.find((n) => n.id === id);
@@ -384,12 +393,18 @@ export function useSceneFlow(args: {
       const name = sceneId
         ? (customSceneById(brand, sceneId)?.name ?? catalogScenes.find((x) => x.id === sceneId)?.name)
         : undefined;
+      // a shot made in a scene is first offered that scene, which needs no reading
+      if (!canRead && !(sceneId && name)) {
+        setNoReader('shot');
+        return;
+      }
+      setNoReader(null);
       answerSetup({
         shot: { id: node.id, hash: node.images[0], ...(sceneId && name ? { scene: { id: sceneId, name } } : {}) },
         reuse: undefined,
       });
     },
-    [brand, catalogScenes, pages.items],
+    [brand, catalogScenes, pages.items, canRead],
   );
 
   /** The shot's own scene, taken as it is: nothing is read, drawn or saved. */
@@ -408,6 +423,8 @@ export function useSceneFlow(args: {
     setup,
     studio,
     canDraw,
+    canRead,
+    noReader,
     uploading,
     // the same test leaving uses: Save is offered once something differs from the record
     edit: edit && { ...edit, changed: unsavedOf(studio, seed) },
@@ -426,7 +443,7 @@ export function useSceneFlow(args: {
       turnsFor(flow).map((t) =>
         t.kind === 'question' && attempt ? { ...t, question: { ...t.question, attempt } } : t,
       ),
-    [setup, studio, canDraw, uploading, editingName, shown, edit, shots, set, attempt],
+    [setup, studio, canDraw, canRead, noReader, uploading, editingName, shown, edit, shots, set, attempt],
   );
   const open = (() => {
     const last = turns[turns.length - 1];
@@ -519,8 +536,13 @@ export function useSceneFlow(args: {
         else if (act.type === 'instead') answerSetup({ source: { door: 'shot' } });
         else if (act.type === 'remove') setupDispatch({ type: 'photos', hashes: hashes.filter((h) => h !== act.hash) });
         else if (act.type === 'reject') setNote(COPY.onlyPictures);
-        else if (act.type === 'submit' && hashes.length) answerSetup({ photos: { hashes, done: true } });
-        else if (act.type === 'back') answerSetup({ source: { door: 'guided' } });
+        else if (act.type === 'submit' && hashes.length) {
+          if (!canRead) setNoReader('photos');
+          else {
+            setNoReader(null);
+            answerSetup({ photos: { hashes, done: true } });
+          }
+        } else if (act.type === 'back') answerSetup({ source: { door: 'guided' } });
         return;
       }
       if (qid === 'shot' && ans.kind === 'pick') {
@@ -537,6 +559,14 @@ export function useSceneFlow(args: {
       }
       if (qid === 'reuse' && ans.kind === 'choice' && ans.id === 'use') {
         takeMadeIn();
+        return;
+      }
+      if (qid === 'reuse' && !canRead) {
+        setNoReader('shot');
+        return;
+      }
+      if (qid === 'noreader') {
+        if (ans.kind === 'confirm' && ans.id === 'unstop') setNoReader(null);
         return;
       }
       if (isQid(qid)) {
@@ -573,7 +603,19 @@ export function useSceneFlow(args: {
       else if (ans.id === 'use') void work.use();
       else if (ans.id === 'another-shot') onEditRef.current('shot');
     },
-    [addPictures, answerSetup, work.start, work.use, drawSet, finish, pickShot, takeMadeIn, openSettings, openSetup],
+    [
+      addPictures,
+      answerSetup,
+      work.start,
+      work.use,
+      drawSet,
+      finish,
+      pickShot,
+      takeMadeIn,
+      openSettings,
+      openSetup,
+      canRead,
+    ],
   );
 
   /** A sentence taken is gone from the line, the way every message box works. */

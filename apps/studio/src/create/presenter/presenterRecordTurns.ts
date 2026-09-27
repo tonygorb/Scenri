@@ -42,7 +42,6 @@ export interface RecordUi {
 
 export interface RecordArgs {
   draft: DraftLike;
-  canGenerate: boolean;
   ui: RecordUi;
   /** The setup exchanges that belong after the photographs were read: the details answered about them. */
   afterCoverage: Turn[];
@@ -110,7 +109,7 @@ export function recordEdge(d: DraftLike | null): string {
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, openId, placed }: RecordArgs): Turn[] {
+export function recordTurns({ draft: d, ui, afterCoverage, asides, openId, placed }: RecordArgs): Turn[] {
   const T: Turn[] = [];
   const say = (id: string, text: string, tone?: 'alert' | 'warn') => T.push({ kind: 'scenri', id, text, tone });
   const ask = (question: Question) => T.push({ kind: 'question', question });
@@ -142,28 +141,10 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
     return T;
   }
 
-  const coverage = coverageLine(d, canGenerate);
+  const coverage = coverageLine(d);
   if (coverage) say('coverage', coverage.text, coverage.tone);
   // the details the photographs were asked about, in their place after the read
   T.push(...afterCoverage);
-
-  if (!canGenerate && d.source === 'photos') {
-    if (name) named();
-    if (!name) {
-      askName();
-      return T;
-    }
-    ask({
-      id: 'blind',
-      kind: 'confirm',
-      prompt: 'No engine here can draw the other views. Save them from the photos as they are?',
-      options: [
-        { id: 'save', label: 'Save with photos' },
-        { id: 'setup', label: 'Set up' },
-      ],
-    });
-    return T;
-  }
 
   const p = d.views.portrait;
   const active = d.activeView as StudioView | null;

@@ -50,6 +50,23 @@ is whole, or from Continue on the photographs. Before that there is no row, so
 opening the studio and closing it leaves nothing behind, on the server or in
 storage.
 
+**Nothing is drawn without an engine, and photographs are no way round it.** They
+are evidence for a drawn face, never a view in themselves. With nothing that can
+draw, a description stops at its door and photographs stop at Continue, at the
+same setup line, and no row is made (`createPresenterDraft` refuses both). The
+photographs stay in the conversation, which is held (`held` in the reducer, so a
+reload keeps it), and once something can draw it waits for its own press:
+Continue, or Draw the presenter for a description said at the line. A start the
+server refuses for want of an engine is that same line, never a raw error.
+Until 2026-09-27 the photo door opened a row anyway and offered Save with photos,
+which put the first upload on the face as approved (`use-photo`, now deleted) and
+saved it: a logo became a presenter.
+
+**The save boundary.** `saveNew` saves the core views and the extras that were
+drawn, whatever can draw at the time, and refuses any view that holds one of the
+row's own photographs. A set drawn before the engine went away still saves:
+saving draws nothing. Presenters saved by the old door keep loading as they are.
+
 Views build in order, each drawn from the approved ones before it: face, full
 body, three-quarter, then back, left and right on request. The face and the full
 body are decided by hand; every other view decides itself and keeps what it

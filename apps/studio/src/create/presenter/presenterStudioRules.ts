@@ -140,21 +140,21 @@ export const identityLocked = (d: DraftLike): boolean =>
 export const drawing = (d: DraftLike): boolean => d.stage !== 'idle' || !!d.activeView;
 
 /**
- * Photos with no engine can still become a presenter: the face is enough.
- * With an engine, every view in play has to be approved.
+ * Every view in play approved, whatever can draw: a photograph is evidence for
+ * a drawn face, never the face itself, so there is no smaller set to save when
+ * nothing can draw. That smaller set was how a logo became somebody's face.
  */
-export function readyToSave(d: DraftLike, canGenerate: boolean): boolean {
-  if (allApproved(d)) return true;
-  return !canGenerate && d.source === 'photos' && d.views.portrait.status === 'approved';
+export function readyToSave(d: DraftLike): boolean {
+  return allApproved(d);
 }
 
 /** A candidate somewhere still waits for a decision. */
 const pending = (d: DraftLike) => viewsOf(d).some((v) => d.views[v].status === 'candidate');
 
 /** Identity until the face is used; review once everything stands; build in between. */
-export function phaseOf(d: DraftLike, canGenerate: boolean): Phase {
+export function phaseOf(d: DraftLike): Phase {
   if (!identityLocked(d)) return 'identity';
-  if (readyToSave(d, canGenerate) && !drawing(d) && !pending(d)) return 'review';
+  if (readyToSave(d) && !drawing(d) && !pending(d)) return 'review';
   return 'build';
 }
 
@@ -439,10 +439,9 @@ export function worthKeeping(d: DraftLike): boolean {
  * carries. A view that decided itself and still holds the one it replaced
  * is not a blocker; Keep previous is an offer, not a debt.
  */
-export function saveBlocker(d: DraftLike, name: string, canGenerate = true): string | null {
+export function saveBlocker(d: DraftLike, name: string): string | null {
   if (drawing(d)) return 'Still drawing';
-  const required: readonly StudioView[] = !canGenerate && d.source === 'photos' ? ['portrait'] : viewsOf(d);
-  for (const v of required) {
+  for (const v of viewsOf(d)) {
     const s = d.views[v];
     if (s.status === 'candidate') return `Decide on the ${lower(v)} first`;
     if (s.status === 'stale') return `Redo the ${lower(v)} first`;
@@ -534,7 +533,7 @@ export function composerState(text: string, selected: StudioView, d: DraftLike):
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** After the read: which views the photos already are, and which will be drawn. */
-export function coverageLine(d: DraftLike, canGenerate: boolean): { text: string; tone?: 'warn' } | null {
+export function coverageLine(d: DraftLike): { text: string; tone?: 'warn' } | null {
   if (d.source !== 'photos' || d.stage === 'analyzing') return null;
   const readError = d.readError?.trim();
   if (readError) {
@@ -563,17 +562,6 @@ export function coverageLine(d: DraftLike, canGenerate: boolean): { text: string
       : `${vs.slice(0, -1).map(lower).join(', ')} and ${lower(vs[vs.length - 1])}`;
   const from = photo.length ? `${cap(list(photo))} from your ${photo.length === 1 ? 'photo' : 'photos'}.` : '';
   if (!drawn.length) return { text: from };
-  // Nothing here can draw, so only the face is kept, from one of their own
-  // photographs. This used to say every view was "saved from the photos as
-  // they are", which stopped being true when photographs became evidence for a
-  // drawn face rather than views in themselves: it promised a set that is
-  // never made, and the save then refused for a face nothing had placed.
-  if (!canGenerate)
-    return {
-      text: [from || 'The face is kept from your photo as it is.', 'The other views need an engine that can draw.']
-        .filter(Boolean)
-        .join(' '),
-    };
   const rest =
     drawn.length >= 3 && photo.length
       ? 'The rest are drawn from them.'

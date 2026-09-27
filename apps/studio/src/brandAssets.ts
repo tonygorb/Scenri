@@ -41,7 +41,7 @@ export interface CustomScene extends Scene {
   custom: true;
   /** The user's own inspiration images. Read into words, and drawn beside for the scene's picture. Never sent with a shot. */
   refs: string[];
-  /** The scene's own picture as its store hash; null when none was drawn (`placeUrl` may then fall back to an upload). */
+  /** The scene's own picture as its store hash; null when none was drawn (and then `placeUrl` is null too). */
   previewHash: string | null;
   /**
    * The place: the picture a shot is given, the one its examples are drawn
@@ -204,9 +204,11 @@ const SCENE_VIEWS: readonly SceneView[] = ['place', ...EXAMPLE_ROLES];
 
 function toScene(s: any): CustomScene {
   const refs = urls(s.refs);
-  // No preview yet is normal: the scene works, it just has nothing to show
-  // but the references it was built from.
-  const place = assetUrl(s.preview) ?? refs[0] ?? null;
+  // No preview yet is normal: the scene works as words and has no picture of
+  // its own. Its uploads are what it was read from, never its place or its
+  // card: standing in for the picture nothing drew, the first one read as the
+  // scene on every card, picker and page.
+  const place = assetUrl(s.preview) ?? null;
   const examples: SceneExampleView[] | undefined = Array.isArray(s.examples)
     ? s.examples
         .filter((e: any) => EXAMPLE_ROLES.includes(e?.role) && assetUrl(e?.file))
