@@ -105,6 +105,26 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.20.0',
+    date: '2026-09-27',
+    title: "A What's New page, and pictures that develop where they are made",
+    announce: true,
+    sections: [
+      {
+        heading: "What's New",
+        body: 'Every release has a page of its own, newest first, and a headline update introduces itself in a short window. A feature that is new to you says New where it lives until you first use it.',
+      },
+      {
+        heading: 'Create',
+        body: 'A picture being made shows a quiet dithered swirl in its own place, and develops out of it when it lands. Refining moves to the new version at once, and the picture on the stage turns into its swirl.',
+      },
+      {
+        heading: 'Fixes',
+        body: "Home's shelves sit on the wall's grid and end on Show all. On a first run, library pictures still on their way hold their place and appear without a reload, and the bell shows a presenter draw as soon as it starts.",
+      },
+    ],
+  },
+  {
     version: '0.19.1',
     date: '2026-09-26',
     title: 'Codex keeps no copy of your pictures',
@@ -289,10 +309,6 @@ export const RELEASES: ReleaseEntry[] = [
       {
         heading: 'Scenes',
         body: 'Describe a place, start from your own pictures or a shot you already made, or press Guide me and choose a world, its surface and its light from pictures. Your pictures set the mood and are never copied.',
-        image: {
-          file: '0.15.1-choose-a-world.webp',
-          alt: 'Create scene asking What world?, with eight pictures of worlds to choose from and Sunlit stone chosen.',
-        },
       },
       {
         heading: 'Activity',
