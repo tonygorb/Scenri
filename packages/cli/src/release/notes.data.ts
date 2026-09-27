@@ -105,6 +105,21 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.20.1',
+    date: '2026-09-27',
+    title: 'Use in a shot starts a new prompt with just that pick',
+    sections: [
+      {
+        heading: 'Create',
+        body: 'From Products, Presenters or Scenes, Use in a shot opens a new prompt holding only what you picked. If you were writing one, a note offers Undo to bring it back.',
+      },
+      {
+        heading: 'Fixes',
+        body: 'An example you leave and come back to keeps its shape and quality, even if its scene view was still loading. A pick sent to Create while it is open joins your prompt instead of replacing it.',
+      },
+    ],
+  },
+  {
     version: '0.20.0',
     date: '2026-09-27',
     title: "Pictures develop in place, and What's new has its own page",
