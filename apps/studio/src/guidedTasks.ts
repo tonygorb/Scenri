@@ -502,7 +502,6 @@ export function presenterMoment(f: PresenterWalkFacts): Moment | null {
           [`${STUDIO} [data-turn]:has(+ [data-turn="q:${studio.open}"])`],
         );
       case 'save':
-      case 'blind':
         return at('save', COPY.presenterSave);
       default:
         return { id: 'studio', voice: 'quiet' };

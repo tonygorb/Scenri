@@ -65,6 +65,14 @@ export interface FlowArgs {
   shots?: ShotArgs;
   /** After Use: the place in use, as the saved scene and its run have it. */
   set?: SetArgs;
+  /** Codex can read pictures here. Words need nothing to be read. */
+  canRead?: boolean;
+  /**
+   * A press that asked for pictures to be read (Read them, a shot, Read a new
+   * scene from it) when nothing could read them: refused before any request,
+   * the pictures where they were. Once something can read, the same press reads.
+   */
+  noReader?: 'photos' | 'shot' | null;
 }
 
 /** The examples drawn after Use, as the conversation tells them. */
@@ -437,7 +445,27 @@ export function turnsFor(args: FlowArgs): Turn[] {
 
   // the one question the conversation ends on
   let open: Question | null = null;
-  if (openSetup) open = questionFor(openSetup, setup, false, args.uploading, args.shots);
+  // Pictures to read and nothing to read them: the setup line, never a failure.
+  // An upload stays a picture to read from; it never stands in for the place.
+  const stopped =
+    !edit && !job && !studio.versions.length && args.canRead === false && a.source?.door === args.noReader
+      ? args.noReader
+      : null;
+  if (stopped === 'photos' && a.photos?.hashes.length) {
+    T.push({ kind: 'you', id: 'photos', ...answerLine('photos', a) });
+  }
+  if (stopped)
+    open = {
+      id: 'noreader',
+      kind: 'confirm',
+      quiet: true,
+      prompt: COPY.noReader,
+      options: [
+        { id: 'remedy:setup', label: 'Set up' },
+        { id: 'unstop', label: stopped === 'photos' ? COPY.changePictures : COPY.anotherShot },
+      ],
+    };
+  else if (openSetup) open = questionFor(openSetup, setup, false, args.uploading, args.shots);
   else if (job) {
     if (job.kind === 'again' && firstPicture < 0 && !studio.named && !args.editingName) {
       const suggested = (job.pending ?? current(studio)?.reading)?.name ?? studio.name;
@@ -730,6 +758,7 @@ export function composerFor(args: FlowArgs, open: Question | null): ComposerFor 
   if (open.id === 'photos') return { ...off(COPY.photosOff), attach: true };
   if (open.id === 'shot') return off(COPY.shotOff);
   if (open.id === 'reuse') return off(COPY.reuseOff);
+  if (open.id === 'noreader') return off(COPY.noReaderOff);
   if (isRow(open.id)) return say({ kind: 'row', id: open.id }, COPY.rowPlaceholder(rowNoun(open.id)));
   if (open.id === 'name') return say({ kind: 'name' }, COPY.namePlaceholder);
   // Stop left the conversation open: they can tap Try again, or say the place

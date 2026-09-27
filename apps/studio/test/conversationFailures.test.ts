@@ -27,6 +27,9 @@ const REAL: Record<string, string> = {
   rate: 'OpenRouter request failed: HTTP 429: {"error":{"message":"Rate limit exceeded","code":429}}',
   malformed: 'OpenRouter returned non-JSON body (HTTP 200): <html><body>Bad gateway</body></html>',
   codexExit: 'codex exited with code 1: ERROR: code-mode host exited during handshake',
+  // the studio checks first; these reach it only when what it knew went stale
+  noEngine: 'no engine here can draw a person',
+  noReader: 'Reading pictures needs Codex. Describe the place in words, or set up Codex.',
 };
 
 /** Protocol, exit codes and JSON envelopes: the engine's words for an engineer. */
@@ -52,7 +55,7 @@ describe('the presenter conversation reads a provider failure', () => {
   });
 
   it('says a photo read that failed in words (FAIL-X6)', () => {
-    const line = coverageLine({ source: 'photos', stage: 'idle', readError: REAL.codexAuthMidJob } as any, true);
+    const line = coverageLine({ source: 'photos', stage: 'idle', readError: REAL.codexAuthMidJob } as any);
     expect(line?.text ?? '').not.toMatch(RAW);
   });
 });

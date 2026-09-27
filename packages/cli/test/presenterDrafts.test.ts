@@ -22,6 +22,7 @@ import {
   discardPresenterDraft,
   generateView,
   getPresenterDraft,
+  listPresenterDraftSummaries,
   mergeIdentityEdits,
   openPresenterEdit,
   planStep,
@@ -37,7 +38,6 @@ import {
   sweepAbandonedPresenterDrafts,
   sweepPresenterDrafts,
   updatePresenterDraft,
-  usePhotoForView,
   type PresenterDraftRecord,
 } from '../src/presenterDrafts.js';
 import { brandContext } from '../src/routes/shared.js';
@@ -587,22 +587,19 @@ describe('saving', () => {
 });
 
 describe('with no engine that can draw', () => {
-  it('a photos draft cannot be finished with no engine, and keeps the photographs it was given', async () => {
+  it('photographs cannot start a draft with no engine, exactly as a description cannot', async () => {
     analyzerOn = false;
     const a = core.images.save(await png('#a08070', 800, 1000));
     const b = core.images.save(await png('#b09080', 800, 1000));
     const blind = { ...deps(), engine: null };
-    let d = await createPresenterDraft(blind, { brandId, source: 'photos', imageHashes: [a, b], attestation: true });
-    for (let i = 0; i < 200 && runningDraftJobCount() > 0; i++) await new Promise((r) => setTimeout(r, 10));
-    d = getPresenterDraft(core, d.id)!;
-    // The face is drawn from the photographs, so with nothing able to draw
-    // there is no face and no set. A photograph is not put in its place: that
-    // is what this door used to do, and what it saved was two phone pictures
-    // called a reference set.
-    expect(view(d, 'portrait').status).toBe('empty');
-    expect(d.sources).toEqual([a, b]);
-    await updatePresenterDraft(core, d.id, { name: 'Noor' });
-    await expect(savePresenterDraft(blind, d.id)).rejects.toThrow('approve the face first');
+    // A person is what an engine draws, from a sentence or from photographs
+    // alike. This door used to open anyway, draw nothing, and then offer to
+    // save the first upload as the face: a logo became a presenter that way.
+    await expect(
+      createPresenterDraft(blind, { brandId, source: 'photos', imageHashes: [a, b], attestation: true }),
+    ).rejects.toMatchObject({ statusCode: 400, message: 'no engine here can draw a person' });
+    expect(listPresenterDraftSummaries(core, brandId)).toHaveLength(0);
+    expect(brandCharacters(core.store.getBrand(brandId)!.json)).toHaveLength(0);
     // and nothing of theirs was thrown away by the refusal
     for (const h of [a, b]) expect(existsSync(core.images.pathFor(h))).toBe(true);
   });
@@ -614,6 +611,59 @@ describe('with no engine that can draw', () => {
     ).rejects.toMatchObject({
       statusCode: 400,
     });
+  });
+
+  it('a set that was drawn still saves once the engine is gone: saving draws nothing', async () => {
+    const d = await cast();
+    await updatePresenterDraft(core, d.id, { name: 'Ilse' });
+    const { presenter } = await savePresenterDraft({ ...deps(), engine: null }, d.id);
+    expect(presenter.shots?.map((s) => s.file)).toEqual([
+      `asset:${d.views.portrait.hash}`,
+      `asset:${d.views.front.hash}`,
+      `asset:${d.views['three-quarter'].hash}`,
+    ]);
+  });
+
+  it('a face that was drawn but not the rest is not a presenter, with or without an engine', async () => {
+    let d = await synthetic();
+    d = await faceFirst(d.id);
+    await updatePresenterDraft(core, d.id, { name: 'Ilse' });
+    // the old no-engine save needed only the face; every save now needs the set
+    await expect(savePresenterDraft({ ...deps(), engine: null }, d.id)).rejects.toMatchObject({ statusCode: 400 });
+    expect(brandCharacters(core.store.getBrand(brandId)!.json)).toHaveLength(0);
+  });
+});
+
+describe('the save boundary: a photograph is never a view', () => {
+  it('refuses a draft that holds one of its own photographs as a view, engine or not', async () => {
+    // What the old no-engine door left behind: a photos draft whose face is
+    // the first upload, marked approved. No route can make one any more, so
+    // it is written straight to the row, the way a draft from before the fix
+    // would still be sitting in a library.
+    const [a, b] = [
+      core.images.save(await png('#a08070', 800, 1000)),
+      core.images.save(await png('#b09080', 800, 1000)),
+    ];
+    let d = await createPresenterDraft(deps(), { brandId, source: 'photos', imageHashes: [a, b], attestation: true });
+    for (let i = 0; i < 200 && runningDraftJobCount() > 0; i++) await new Promise((r) => setTimeout(r, 10));
+    d = await faceFirst(d.id);
+    d = await build(d.id, ['front', 'three-quarter']);
+    const { id, brandId: bid, createdAt: _c, updatedAt: _u, ...json } = d;
+    const legacy = {
+      ...json,
+      name: 'Acme',
+      views: { ...json.views, portrait: { ...json.views.portrait, hash: a, origin: 'photo' as const } },
+    };
+    core.store.putPresenterDraft({ id, brandId: bid, json: legacy });
+    for (const dp of [deps(), { ...deps(), engine: null }]) {
+      await expect(savePresenterDraft(dp, id)).rejects.toMatchObject({
+        statusCode: 400,
+        message: 'draw the face first',
+      });
+    }
+    expect(brandCharacters(core.store.getBrand(brandId)!.json)).toHaveLength(0);
+    // the photographs are still theirs, and still only the draft's sources
+    expect(getPresenterDraft(core, id)!.sources).toEqual([a, b]);
   });
 });
 
@@ -834,26 +884,18 @@ describe('from photos: the originals are evidence, never a view', () => {
     expect(brandCharacters(core.store.getBrand(brandId)!.json)).toHaveLength(1);
   });
 
-  it('a photo can be put in a slot by hand; changing the portrait stales what was drawn, never a photo', async () => {
+  it('a failed face keeps the photographs as sources and puts none of them in its place', async () => {
     analyzerOn = false;
     const [a, b] = await photos(2);
     let d = await createPresenterDraft(deps(), { brandId, source: 'photos', imageHashes: [a, b], attestation: true });
     d = await settled(d.id);
-    // Putting one there by hand is still yours to do; what changed is that the
-    // draft never does it for you.
-    d = await faceFirst(d.id);
-    await usePhotoForView(deps(), d.id, 'front', b);
-    d = getPresenterDraft(core, d.id)!;
-    expect(view(d, 'front')).toMatchObject({ status: 'approved', hash: b, origin: 'photo' });
-    d = await step(d.id, 'three-quarter');
-    await approveView(deps(), d.id, 'three-quarter');
-    await usePhotoForView(deps(), d.id, 'portrait', b);
-    d = getPresenterDraft(core, d.id)!;
-    expect(view(d, 'portrait').hash).toBe(b);
-    // the photograph stands whatever changed upstream; the drawn view does not
-    expect(view(d, 'front').status).toBe('approved');
-    expect(view(d, 'three-quarter').status).toBe('stale');
-    await expect(usePhotoForView(deps(), d.id, 'front', 'f'.repeat(32))).rejects.toMatchObject({ statusCode: 400 });
+    failNext = new Error('the engine refused');
+    d = await step(d.id, 'portrait');
+    // a draw that did not land is an error on the view, never a stand-in picture
+    expect(view(d, 'portrait').status).toBe('empty');
+    expect(view(d, 'portrait').hash ?? null).toBeNull();
+    expect(view(d, 'portrait').error).toMatch(/refused/);
+    expect(d.sources).toEqual([a, b]);
   });
 });
 

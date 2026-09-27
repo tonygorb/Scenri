@@ -214,8 +214,14 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
   // null used to erase the whole cost line, so the dialog said nothing at all
   // about what pressing the button would spend.
   const wantCaps = value !== null || onStudio || onEditor || onSceneStudio || onSceneEditor;
+  // And asked again when setup or Settings closes over a flow: a provider set
+  // up from the setup line is seen at once, the flow's work still in place,
+  // and nothing starts until the press that was refused is pressed again.
+  const setupOpen = useDialogParam('setup').value;
+  const settingsOpen = useDialogParam('settings').value;
+  const away = !!setupOpen || !!settingsOpen;
   useEffect(() => {
-    if (!wantCaps) return;
+    if (!wantCaps || away) return;
     let alive = true;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
     const ask = (retry: boolean) =>
@@ -231,7 +237,7 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
       alive = false;
       if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [wantCaps]);
+  }, [wantCaps, away]);
 
   /** How the build a stored draft was sent as is doing, so Try again can refill. */
   const pendingState = useCallback(

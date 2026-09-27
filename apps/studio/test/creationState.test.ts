@@ -274,6 +274,17 @@ describe('the state of a presenter being made', () => {
     expect(deserialize('not json')).toBeNull();
   });
 
+  it('a hold is a decision a reload keeps, and a start over forgets', () => {
+    let s = reduce(EMPTY_STATE, { type: 'answer', patch: scratch, ctx: NO_DRAFT });
+    s = reduce(s, { type: 'hold', held: true });
+    expect(s.held).toBe(true);
+    const back = deserialize(serialize(s));
+    expect(back?.held).toBe(true);
+    // written only when held, so a copy from before it reads back unchanged
+    expect(JSON.parse(serialize(reduce(s, { type: 'hold', held: false })))).not.toHaveProperty('held');
+    expect(reduce(s, { type: 'start-over' }).held).toBe(false);
+  });
+
   it('starts over with nothing but the words to begin from', () => {
     let s = reduce(EMPTY_STATE, {
       type: 'answer',

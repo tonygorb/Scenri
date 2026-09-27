@@ -201,10 +201,6 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
     (view: PresenterDraftView, hash: string) => putBack(() => api.restoreDraftView(brandId, draftId ?? '', view, hash)),
     [putBack, brandId, draftId],
   );
-  const placePhoto = useCallback(
-    (view: PresenterDraftView, hash: string) => act(() => api.placeDraftPhoto(brandId, draftId ?? '', view, hash)),
-    [act, brandId, draftId],
-  );
   const update = useCallback(
     (patch: {
       name?: string;
@@ -236,7 +232,6 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
     stop,
     stopping,
     restore,
-    placePhoto,
     update,
     clearErr,
   };

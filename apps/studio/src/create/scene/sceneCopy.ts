@@ -134,6 +134,14 @@ export const COPY = {
    */
   drawsTwo: 'It draws two pictures: the place, and the place in use.',
   agreeBlind: 'Here is the place, in full. Nothing here can draw yet, so it is saved as words.',
+  /**
+   * A picture or a shot is read by Codex before anything is written or drawn,
+   * so with nothing to read it the press stops here, calmly, the pictures kept.
+   * The same sentence the presenter says, about the step that needs setting up.
+   */
+  noReader: 'Reading pictures needs Codex, which is not set up yet.',
+  noReaderOff: 'Set up Codex above to read them.',
+  changePictures: 'Change pictures',
   readAgain: 'I read the place again.',
   draw: 'Draw the scene',
   saveWords: 'Save scene',
