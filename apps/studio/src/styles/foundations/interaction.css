@@ -98,6 +98,15 @@
   outline: none;
 }
 
+/* A page heading that takes focus on arrival (the What's New page, reached
+   from a menu, a dialog or Settings), or a release's title the keyboard is
+   handed to when Show older updates brings the last of them, is where the
+   keyboard starts, not a control anyone aimed at: announced, never ringed. */
+.sc-wn-page-head h1:focus,
+.sc-wn-row-hed:focus {
+  outline: none;
+}
+
 .sc-icon-btn,
 .sc-chip,
 .sc-btn,
@@ -120,11 +129,6 @@
 .sc-btn-ghost:active,
 .sc-btn-red:active {
   background: var(--sc-press);
-}
-/* Gold keeps its own tint, one step deeper, so the urgent variant does not go
-   grey under the finger. */
-.sc-btn-ghost[data-urgent]:active {
-  background: color-mix(in srgb, var(--sc-gold) 22%, transparent);
 }
 /* An inverse fill cannot take a light press surface, so it steps its opacity
    instead. Hover is 0.88, so the press has to land below it to read. */

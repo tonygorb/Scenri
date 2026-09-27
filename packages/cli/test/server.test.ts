@@ -518,6 +518,29 @@ describe('generation flow', () => {
     expect(retry.statusCode).toBe(400);
   });
 
+  // The answer is what the studio seats in place of its stand-ins. It used to
+  // be read before the brief was written, so every sibling came back with a
+  // null brief, drew square, and snapped to its shape on the next poll.
+  it('answers a send with the brief it just wrote, on every sibling', { timeout: 20_000 }, async () => {
+    const brand = await mkBrand();
+    const { project, root } = await mkProject(brand.id);
+    const brief = { tokens: [{ t: 'text', v: 'hero' }], format: 'landscape' };
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: { projectId: project.id, parentId: root.id, kind: 'generation', engineId: 'demo', count: 2, brief },
+    });
+    expect(res.statusCode).toBe(202);
+    const body = res.json() as {
+      brief: { format?: string } | null;
+      siblings: { id: string; brief: { format?: string } | null }[];
+    };
+    expect(body.brief?.format).toBe('landscape');
+    expect(body.siblings).toHaveLength(2);
+    for (const s of body.siblings) expect(s.brief?.format).toBe('landscape');
+    for (const s of body.siblings) await waitDone(s.id);
+  });
+
   it('generate -> done with images; edit child; keep; tree', { timeout: 20_000 }, async () => {
     const brand = await mkBrand();
     const { project, root } = await mkProject(brand.id);

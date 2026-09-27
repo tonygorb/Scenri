@@ -1,9 +1,10 @@
 import { memo, type CSSProperties } from 'react';
 import { Link } from 'react-router';
 import { nodeLabel, type FeedNode } from '../../api.js';
-import { elapsedSec, runSince } from '../../tasks.js';
+import { runSince } from '../../tasks.js';
 import { aspectOfFormat } from '../../composer/formats.js';
 import { RunningTag } from './RunningTag.js';
+import { Rendering } from '../Rendering.js';
 
 /** A shot that is still rendering: the shape the brief asked for, held, and a way to stop it. */
 export const RunningTile = memo(function RunningTile({
@@ -33,18 +34,13 @@ export const RunningTile = memo(function RunningTile({
       style={{ '--sc-cell-ar': aspectOfFormat(n.brief?.format) } as CSSProperties}
     >
       <Link className="sc-cell-open" to={shotHref(n.id)} aria-label={`Open ${nodeLabel(n)}, still rendering`}>
-        <span className="sc-shimmer" />
+        <Rendering index={n.batchIndex} since={runSince(n)} />
         <RunningTag since={runSince(n)} />
       </Link>
       {onCancel && (
         // the tile's own control skin, not a bordered panel pill: one
         // language for everything that sits on a card
-        <button
-          type="button"
-          className="sc-cell-ctl sc-cell-cancel"
-          data-urgent={elapsedSec(runSince(n)) >= 60 || undefined}
-          onClick={() => onCancel(n)}
-        >
+        <button type="button" className="sc-cell-ctl sc-cell-cancel" onClick={() => onCancel(n)}>
           Cancel
         </button>
       )}

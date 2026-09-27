@@ -294,12 +294,12 @@
 /* Status marks, shared by settings and anywhere else that reports state.
    Matches the .tag / .stat specimens on the system sheet. */
 .sc-tag {
-  font-size: 11px;
+  font-size: var(--sc-text-micro);
   line-height: 1.5;
   white-space: nowrap;
   border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius-full);
-  padding: 2px 8px;
+  padding: var(--sc-space-1) var(--sc-space-4);
   color: var(--sc-fg2);
 }
 .sc-tag-gold {
@@ -321,6 +321,22 @@
   .sc-tag-new {
     border-color: currentColor;
   }
+}
+/* A version (What's New): the same mark at the working size with figures that
+   line up, on the stronger line so a lone number still reads as a tag. The
+   version this computer runs is the same tag lit, the chips' on-state fill. */
+.sc-tag-version {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--sc-text-body);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  border-color: var(--sc-line-strong);
+}
+.sc-tag-version[data-on] {
+  border-color: transparent;
+  background: var(--sc-inv-bg);
+  color: var(--sc-inv-fg);
 }
 /* One state, so one dot. There used to be three colours for what is a single
    boolean on the server: green ready, grey unavailable, gold unavailable-and-
@@ -820,7 +836,7 @@ select.sc-in {
   border-radius: var(--sc-radius-xs);
   background: var(--sc-raised);
 }
-/* ink, not gold: gold stays reserved for credits, keepers and the shimmer */
+/* ink, not gold: gold stays reserved for credits, keepers and an update */
 .sc-heat-grid i[data-l="1"] {
   background: color-mix(in srgb, var(--sc-fg) 20%, var(--sc-raised));
 }

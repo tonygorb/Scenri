@@ -13,47 +13,6 @@
 .sc-notif-btn {
   position: relative;
 }
-.sc-bell-dot {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  min-width: 7px;
-  height: 7px;
-  border-radius: var(--sc-radius-full);
-  background: var(--sc-gold);
-  box-shadow: 0 0 0 2px var(--sc-bg);
-  pointer-events: none;
-}
-/* a number needs a plate to sit on; a pulse does not */
-.sc-bell-dot[data-count] {
-  top: 1px;
-  right: 0;
-  min-width: 15px;
-  height: 15px;
-  padding: 0 4px;
-  display: grid;
-  place-items: center;
-  font-size: 9.5px;
-  font-weight: 700;
-  line-height: 1;
-  color: var(--sc-gold-ink);
-  font-variant-numeric: tabular-nums;
-}
-.sc-bell-dot[data-running]:not([data-count]) {
-  animation: sc-bell-pulse 1.8s ease-in-out infinite;
-}
-@keyframes sc-bell-pulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.35;
-    transform: scale(0.82);
-  }
-}
-
 .sc-notif-pop {
   display: flex;
   flex-direction: column;
@@ -207,15 +166,10 @@
 .sc-notif-row-cancel:hover {
   background: var(--sc-hover);
 }
-.sc-notif-row-cancel[data-urgent] {
-  border-color: var(--sc-gold);
-  color: var(--sc-gold);
-  background: color-mix(in srgb, var(--sc-gold) 12%, transparent);
-}
 .sc-notif-row[data-running] {
   padding-right: 76px;
 }
-/* relative, so .sc-shimmer sits inside it unchanged */
+/* relative, so the placeholder or the band sits inside it */
 .sc-notif-thumb {
   position: relative;
   overflow: hidden;
@@ -280,7 +234,8 @@
 }
 .sc-notif-meter > div {
   height: 100%;
-  background: var(--sc-gold);
+  /* ink, like the top bar's ring for the same job: a counter is not an accent */
+  background: var(--sc-fg);
   transition: width 0.35s ease;
 }
 .sc-notif-empty {

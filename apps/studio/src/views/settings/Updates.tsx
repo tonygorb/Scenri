@@ -1,7 +1,10 @@
 import { useEffect, useState, type ReactNode, useRef } from 'react';
+import { Link } from 'react-router';
 import { api, type VersionInfo } from '../../api.js';
 import { useUpdateCenter } from '../../app/UpdateCenter.js';
+import { useBrand } from '../../app/BrandLayout.js';
 import { useWhatsNew } from '../../app/WhatsNew.js';
+import { whatsNewPath } from '../../routes.js';
 import { canOneClick } from '../../app/updateRules.js';
 import { Group } from './Group.js';
 
@@ -26,6 +29,7 @@ function updateCommand(kind: VersionInfo['installKind'] | undefined): string {
 export function Updates({ version }: { version: VersionInfo | null }) {
   const updates = useUpdateCenter();
   const whatsNew = useWhatsNew();
+  const { brand } = useBrand();
   const s = updates.status;
   const [autoCheck, setAutoCheck] = useState<boolean | null>(null);
   const [copied, setCopied] = useState(false);
@@ -189,18 +193,16 @@ export function Updates({ version }: { version: VersionInfo | null }) {
         </button>
       </div>
       {/* Permanent, never gated on an update being available: after you
-          update is exactly when you want to read what you got. One renderer,
-          one dialog — this row only opens it. */}
+          update is exactly when you want to read what you got. It goes to the
+          What's New page, which leaves Settings; Back returns here. */}
       <div className="sc-set-row">
         <span className="txt">
           <b>What's new</b>
-          <small>
-            {whatsNew.entry?.title ?? `What changed in ${whatsNew.version ? `v${whatsNew.version}` : 'this version'}.`}
-          </small>
+          <small>{whatsNew.featured?.title ?? 'What changed in Scenri, newest first.'}</small>
         </span>
-        <button type="button" className="sc-btn sc-btn-ghost" onClick={() => whatsNew.open()}>
+        <Link className="sc-btn sc-btn-ghost" to={whatsNewPath(brand)}>
           Show
-        </button>
+        </Link>
       </div>
     </Group>
   );

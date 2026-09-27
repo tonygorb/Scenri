@@ -1,7 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, useMemo } from 'react';
 import { Outlet, ScrollRestoration, useSearchParams } from 'react-router';
 import { Flex, Spinner } from '@radix-ui/themes';
-import { api, type Brand, type EngineInfo, type Presenter, type DemoProduct, type ShowcaseEntry } from '../api.js';
+import {
+  api,
+  type Brand,
+  type ContentState,
+  type EngineInfo,
+  type Presenter,
+  type DemoProduct,
+  type ShowcaseEntry,
+} from '../api.js';
 import { loadGuide } from '../guide.js';
 import { DocumentTitleCtx, useDocumentTitle } from '../useDocumentTitle.js';
 import { useScenes, type UseScenesResult } from '../useScenes.js';
@@ -56,6 +64,18 @@ interface AppData extends UseScenesResult {
    * already out when this landed cannot undo it (see brandRows.ts).
    */
   applyBrand: (next: Brand) => void;
+  /**
+   * Library pictures are still on their way to this machine (a first run's
+   * one-time download). A catalog card with no picture yet shows its place
+   * held rather than the empty glyph while this is true.
+   */
+  contentArriving: boolean;
+  /**
+   * What the activity poll last said about the download. When it has
+   * installed, the four catalogs are read again, quietly, so the pictures
+   * appear on the cards already on screen without a reload.
+   */
+  noteContent: (content: ContentState | undefined) => void;
 }
 
 const Ctx = createContext<AppData | null>(null);
@@ -80,6 +100,30 @@ export function AppShell() {
   const presenters = usePresenters();
   const demoProducts = useDemoProducts();
   const showcase = useShowcase();
+
+  const [content, setContent] = useState<ContentState | null>(null);
+  const noteContent = useCallback((next: ContentState | undefined) => {
+    if (!next) return;
+    setContent((cur) => (cur && cur.arriving === next.arriving && cur.installs === next.installs ? cur : next));
+  }, []);
+  // The catalogs were read once, at startup, and the library download lands
+  // later: without this its pictures stayed missing until a reload. The first
+  // answer that shows an install made by this server reads them again (the
+  // install may have landed while the person was still in setup), and so does
+  // every install after it. Quietly: the cards stay, and gain their pictures.
+  const handledInstalls = useRef<number | null>(null);
+  const { refetch: refetchScenes } = scenes;
+  const { refetch: refetchPresenters } = presenters;
+  const { refetch: refetchDemoProducts } = demoProducts;
+  const { refetch: refetchShowcase } = showcase;
+  useEffect(() => {
+    if (!content) return;
+    const was = handledInstalls.current;
+    handledInstalls.current = content.installs;
+    if (content.installs === 0 || was === content.installs) return;
+    for (const refetch of [refetchScenes, refetchPresenters, refetchDemoProducts, refetchShowcase])
+      refetch({ quiet: true });
+  }, [content, refetchScenes, refetchPresenters, refetchDemoProducts, refetchShowcase]);
 
   /**
    * One counter orders every write to the list: a mutation answer applied, a
@@ -192,6 +236,8 @@ export function AppShell() {
             refresh,
             refreshBrands,
             applyBrand,
+            contentArriving: !!content?.arriving,
+            noteContent,
           },
     [
       brands,
@@ -220,6 +266,8 @@ export function AppShell() {
       refresh,
       refreshBrands,
       applyBrand,
+      content?.arriving,
+      noteContent,
     ],
   );
 

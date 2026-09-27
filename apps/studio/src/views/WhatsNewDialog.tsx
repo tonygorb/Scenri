@@ -1,78 +1,100 @@
-import { useEffect, useRef } from 'react';
-import { ArrowSquareOut, X } from '@phosphor-icons/react';
+import { type MouseEvent, useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router';
+import { ArrowRight, X } from '@phosphor-icons/react';
 import { useDialogParam } from '../app/AppShell.js';
+import { useBrand } from '../app/BrandLayout.js';
 import { useWhatsNew } from '../app/WhatsNew.js';
+import { moreLabel } from '../app/whatsNewRules.js';
 import { DialogSheet, SheetClose, SheetDescription, SheetTitle } from '../layout/DialogSheet.js';
-import { readableDate } from '../release.js';
+import { whatsNewPath } from '../routes.js';
+import fallbackArt from '../assets/whatsnew-fallback.svg';
+import stageSky from '../assets/whatsnew-stage.webp';
+import { FAILED, NOTHING_YET, ReleaseMeta, WhatsNewFallback, WhatsNewPicture, pictureOf } from './WhatsNewParts.js';
 
 /**
- * What changed, in the version you are running.
+ * One update, introduced once.
  *
- * The ordinary What's new dialog: this release, then a way out. History is
- * the releases page. A written lede, when there is one, is this screen's one
- * Playfair moment. One product area is the sentence alone; two to four keep
- * their names as captions.
+ * It opens by itself only while a headline update this computer has not read
+ * is waiting, and it shows the newest update, headline or small: the one the
+ * page leads with, so the dialog and the page never name two versions. An
+ * excerpt: its picture on the media stage, its version and date, its title.
+ * The excerpt is one link to that release on the What's New page, where its
+ * areas, its release notes and every other update are. `?whatsnew` opens the
+ * same update by hand. It stands behind the app's darker scrim (`tone="dim"`,
+ * no blur), so a bright card under it never reads as the dialog's own edge.
  *
- * Nothing here asks the user to do anything; the asking belongs to the update
- * float. Every way out is an acknowledgement — Escape, the ×, the backdrop and
- * "Got it" all mean the same thing, so there is no way to read it and still be
- * shown it again.
+ * Nothing here asks the user to do anything. Every way out of a real showing
+ * is an acknowledgement (Escape, the X, the backdrop, Got it, Back, and both
+ * links to the page), so there is no way to read it and still be shown it again.
  */
-
 export function WhatsNewDialog() {
   const param = useDialogParam('whatsnew');
-  const { status, version, entry, changelogUrl, releasesUrl, markSeen } = useWhatsNew();
-  const open = param.value !== null;
+  const { brand } = useBrand();
+  const { status, featured, recent, unseen, lead, running, markSeen } = useWhatsNew();
+  // The read is local and quick; opening only once it has answered keeps the
+  // dialog from arriving as a sentence and then jumping to a picture.
+  const open = param.value !== null && status !== 'loading';
+  const shown = featured;
+
+  // Counted as it opens: how many other updates wait. Acknowledging clears
+  // them while the dialog animates away.
+  const snap = useRef({ open: false, more: 0 });
+  if (open && !snap.current.open) {
+    snap.current = { open: true, more: unseen.filter((v) => v !== shown?.version).length };
+  } else if (!open) snap.current.open = false;
 
   const close = () => {
     markSeen();
     param.close();
   };
 
-  // Browser Back closes it without any of the dialog's own ways out, and it is
-  // still a close: seen once, never shown again for this version.
+  // Browser Back, and the links to the page, close it without any of the
+  // dialog's own ways out, and each is still a close: read once, never again.
   const wasOpen = useRef(open);
   useEffect(() => {
     if (wasOpen.current && !open) markSeen();
     wasOpen.current = open;
   }, [open, markSeen]);
 
-  const unreleased = status === 'ready' && !entry && !changelogUrl;
-  const named = entry !== null && entry.sections.length > 1;
+  // A picture that fails to load gives way to the fallback, as one that was never there.
+  const [broken, setBroken] = useState<string | null>(null);
+  const picture = shown && broken !== shown.version ? pictureOf(shown) : null;
+  // The settle before it opens by itself is time enough to fetch its picture,
+  // or the artwork that stands in for one, and the sky under either: asked for
+  // first, because the page beneath may be loading a wall of pictures of its own.
+  const heroUrl = picture?.src ?? fallbackArt;
+  useEffect(() => {
+    if (!lead) return;
+    for (const src of [heroUrl, stageSky]) {
+      const img = new Image();
+      img.fetchPriority = 'high';
+      img.src = src;
+    }
+  }, [lead, heroUrl]);
 
-  const silence =
-    status === 'loading'
-      ? 'Reading the release notes.'
-      : status === 'failed'
-        ? 'Scenri could not read its release notes. If you are running a development server, it may predate this feature; restart it and try again.'
-        : unreleased
-          ? 'You are running a development build. What changed in a version appears here once that version is published.'
-          : entry
-            ? 'Maintenance only. Nothing here changes how Scenri works for you.'
-            : 'This version went out without a written summary.';
-
-  const subtitle = entry ? (
-    <>
-      <span className="sc-vh">Version </span>
-      <span className="sc-wn-ver">{entry.version}</span>
-      <span aria-hidden="true"> · </span>
-      {readableDate(entry.date)}
-    </>
-  ) : status === 'failed' ? (
-    'Release notes unavailable'
-  ) : status === 'loading' ? (
-    'Loading'
-  ) : unreleased ? (
-    'Development build'
-  ) : (
-    <>
-      <span className="sc-vh">Version </span>
-      <span className="sc-wn-ver">{version}</span>
-    </>
-  );
+  // Leaving by a link hands the keyboard to the page, not back to whatever
+  // the dialog opened over. A modified click opens the page elsewhere and
+  // leaves this dialog open, so it hands nothing.
+  const toPage = useRef(false);
+  const leave = (e: MouseEvent) => {
+    if (!e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) toPage.current = true;
+  };
 
   return (
-    <DialogSheet open={open} className="sc-wn" maxWidth="420px" described onDismiss={close}>
+    <DialogSheet
+      open={open}
+      className="sc-wn"
+      tone="dim"
+      maxWidth="520px"
+      described
+      onDismiss={close}
+      onCloseAutoFocus={(e) => {
+        if (toPage.current) {
+          e.preventDefault();
+          toPage.current = false;
+        }
+      }}
+    >
       <div className="sc-newdlg-head">
         <SheetTitle className="sc-newdlg-title">What's new</SheetTitle>
         <SheetClose>
@@ -82,28 +104,36 @@ export function WhatsNewDialog() {
         </SheetClose>
       </div>
 
-      <SheetDescription className="sc-wn-sub">{subtitle}</SheetDescription>
-
       <div className="sc-newdlg-body">
-        {entry?.title && <p className="sc-wn-lede sc-accent">{entry.title}</p>}
-        {entry && entry.sections.length > 0 ? (
-          entry.sections.map((s) => (
-            <section key={s.heading} className="sc-wn-sec">
-              {named && <h3 className="sc-wn-head">{s.heading}</h3>}
-              <p className="sc-wn-txt">{s.body}</p>
-            </section>
-          ))
+        {shown ? (
+          // One link, stretched over the excerpt: the picture, the date and the
+          // headline are one target and one stop for the keyboard.
+          <article className="sc-wn-ex">
+            {picture ? (
+              <WhatsNewPicture key={shown.version} picture={picture} eager onBroken={() => setBroken(shown.version)} />
+            ) : (
+              <WhatsNewFallback version={shown.version} current={shown.version === running} />
+            )}
+            <ReleaseMeta entry={shown} current={shown.version === running} hideVersion={!picture} />
+            <SheetDescription asChild>
+              <h3 className="sc-wn-hed">
+                <Link className="sc-wn-ex-link" to={`${whatsNewPath(brand)}#v${shown.version}`} replace onClick={leave}>
+                  {shown.title}
+                </Link>
+              </h3>
+            </SheetDescription>
+          </article>
         ) : (
-          <p className="sc-wn-txt">{silence}</p>
+          <SheetDescription className="sc-wn-txt">{status === 'failed' ? FAILED : NOTHING_YET}</SheetDescription>
         )}
       </div>
 
       <div className="sc-newdlg-foot sc-wn-foot">
-        {releasesUrl && (
-          <a className="sc-wn-link" href={releasesUrl} target="_blank" rel="noreferrer">
-            All releases
-            <ArrowSquareOut size={13} />
-          </a>
+        {recent.length > 0 && (
+          <Link className="sc-wn-link" to={whatsNewPath(brand)} replace onClick={leave}>
+            {moreLabel(snap.current.more)}
+            <ArrowRight size={13} aria-hidden="true" />
+          </Link>
         )}
         <SheetClose>
           <button type="button" className="sc-btn sc-btn-primary">
