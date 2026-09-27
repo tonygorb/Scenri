@@ -1556,6 +1556,12 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     let { width = 1024, height = 1024 } = req.body as any;
     const project = core.store.getProject(String(projectId));
     if (!project) return reply.status(404).send({ error: 'project not found' });
+    // A shot deleted elsewhere (another tab, a phone) is nothing to build on,
+    // and that is said before anything is compiled or written: the store's own
+    // check came only after the source picture and the working canvases had
+    // been saved, and answered 500 "parent node not found in project".
+    if (parentId && core.store.getNode(String(parentId))?.projectId !== project.id)
+      return reply.status(404).send({ error: 'That shot is no longer there.' });
 
     /**
      * Which reshape op an edit with a new shape means. Absent keeps the
