@@ -7,6 +7,7 @@ import {
   composeStory,
   type Director,
   direct,
+  makeFromShowcase,
   seedStoryBrand,
   storyPrefs,
 } from './composeStory.js';
@@ -46,8 +47,6 @@ test('the compose story walks from Home to a refined shot, on its own library', 
   const brands = (await (await request.get('/api/brands')).json()) as { json?: { meta?: { name?: string } } }[];
   expect(brands.map((b) => b.json?.meta?.name)).toEqual([barrierCream.brand]);
 
-  // what Generate sends: the prompt as written, both ingredients and every word around them
-  const sent = page.waitForRequest((r) => r.url().endsWith('/api/nodes') && r.method() === 'POST');
   const reached: Beat[] = [];
   const checked: Director = {
     ...direct,
@@ -59,6 +58,10 @@ test('the compose story walks from Home to a refined shot, on its own library', 
     },
   };
   await storyPrefs(page);
+  // the brand's earlier work, one picture a recipe, before the story starts
+  for (const id of barrierCream.history) await makeFromShowcase(page, brand.slug, id);
+  // what Generate sends: the prompt as written, both ingredients and every word around them
+  const sent = page.waitForRequest((r) => r.url().endsWith('/api/nodes') && r.method() === 'POST');
   const { shotId, refinedId } = await composeStory(page, barrierCream, brand.slug, checked);
 
   expect(reached).toEqual(BEATS);
@@ -66,6 +69,13 @@ test('the compose story walks from Home to a refined shot, on its own library', 
   for (const part of barrierCream.line) {
     expect(body).toContain(typeof part === 'string' ? part.trim() : part.token.slice(2));
   }
+
+  // the new shot joined the brand's history rather than replacing it
+  const feed = (await (await request.get(`/api/brands/${brand.id}/feed?limit=60`)).json()) as {
+    items: { id: string }[];
+  };
+  expect(feed.items.map((i) => i.id)).toContain(shotId);
+  expect(feed.items.length).toBeGreaterThanOrEqual(barrierCream.history.length + 1);
 
   // the refinement is made from the shot, and the stage says which step it shows
   const child = (await (await request.get(`/api/nodes/${refinedId}`)).json()) as { parentId: string };

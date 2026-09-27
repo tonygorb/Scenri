@@ -26,6 +26,11 @@ export type Pick = {
 export type Story = {
   /** The fictional brand the product is sold under, seeded by name. */
   brand: string;
+  /**
+   * The brand's earlier work: showcase recipes (templates/showcase) remade before the story starts,
+   * so Create opens on a feed that has been used rather than an empty one.
+   */
+  history: string[];
   /** The prompt as a person writes it: words, and ingredients inline. It is the whole direction: nothing else is sent. */
   line: (string | Pick)[];
   /** The one refinement, typed on the open shot. */
@@ -35,6 +40,8 @@ export type Story = {
 /** The public recipe templates/showcase/barrier-cream-caddy.json, written as one sentence. */
 export const barrierCream: Story = {
   brand: 'Fenwick Slade',
+  // the product's other shipped recipes; the caddy itself is left out, it is the shot being made
+  history: ['barrier-cream-cheek', 'barrier-cream-ice-core', 'barrier-cream-oats'],
   line: [
     { sigil: '$', query: 'barr', name: 'Barrier Cream', token: 'p:fenwick-slade-barrier-cream' },
     ' on the ',
@@ -92,6 +99,21 @@ export async function storyPrefs(page: Page): Promise<void> {
     localStorage.setItem('scenri:count', '1');
     localStorage.setItem('scenri:format', JSON.stringify('portrait'));
   });
+}
+
+/**
+ * One earlier shot, made the way a person reuses a recipe from the wall: open it in Create, where it
+ * fills the composer (its sentence and quality, never its variant count), and press Generate.
+ */
+export async function makeFromShowcase(page: Page, slug: string, showcaseId: string, landMs = 30_000): Promise<string> {
+  await page.goto(`/${slug}/create?showcase=${showcaseId}`);
+  const dock = page.locator('.sc-canvas-dock');
+  await dock.locator('.sc-brief-line [data-tok]').first().waitFor();
+  const sent = page.waitForResponse(postsNode);
+  await dock.getByRole('button', { name: 'Generate', exact: true }).click();
+  const id = firstId(await (await sent).json());
+  await finished(page, id, landMs);
+  return id;
 }
 
 /**
