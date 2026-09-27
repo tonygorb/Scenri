@@ -292,6 +292,16 @@ test('a circle draws a logo it can hold, and the initial for one it cannot', asy
   expect(await drawn('Rounded Icon').evaluate((i) => getComputedStyle(i).objectFit)).toBe('cover');
 });
 
+/** The brand menu's own row for a brand, pressed, and the Home it lands on. */
+async function switchTo(p: Page, name: string, slug: string) {
+  await openMenu(p);
+  await p
+    .locator('.sc-menu-item')
+    .filter({ has: p.locator('.sc-menu-brand-lb > span:first-child', { hasText: new RegExp(`^${name}$`) }) })
+    .click();
+  await p.waitForURL(`**/${slug}`);
+}
+
 test('switching brand leaves the brief with the brand it was written for', async ({ page }) => {
   // Home stays mounted across a switch, so the sentence on screen used to stay
   // too: the next brand showed the last one's brief, products and all, and
@@ -304,20 +314,41 @@ test('switching brand leaves the brief with the brand it was written for', async
   await line.click();
   await page.keyboard.type('a brief for the first brand');
 
-  const switchTo = async (name: string, slug: string) => {
-    await openMenu(page);
-    await page
-      .locator('.sc-menu-item')
-      .filter({ has: page.locator('.sc-menu-brand-lb > span:first-child', { hasText: new RegExp(`^${name}$`) }) })
-      .click();
-    await page.waitForURL(`**/${slug}`);
-  };
-  await switchTo('Pewter', slugs.get('Pewter')!);
+  await switchTo(page, 'Pewter', slugs.get('Pewter')!);
   await expect(line).not.toContainText('a brief for the first brand');
   // past the draft debounce: nothing of the first brand's is saved as this one's
   await page.waitForTimeout(700);
-  await switchTo(ownName, own);
+  await switchTo(page, ownName, own);
   await expect(line).toContainText('a brief for the first brand');
-  await switchTo('Pewter', slugs.get('Pewter')!);
+  await switchTo(page, 'Pewter', slugs.get('Pewter')!);
   await expect(line).not.toContainText('a brief for the first brand');
+});
+
+test("an example staged on one brand's Home stays there, and the next brand's own brief comes back", async ({
+  page,
+}) => {
+  // Staging an example seeds Home's dock, and that seed used to keep the next
+  // brand's parked brief from ever loading, then got saved over it.
+  const own = await home(page);
+  const slugs = await addBrands(page, ['Quill']);
+  const ownName = [...slugs].find(([, slug]) => slug === own)?.[0] ?? own;
+  const line = page.locator('.sc-brief-line').first();
+  await page.goto(`/${slugs.get('Quill')}`);
+  await line.click();
+  await page.keyboard.type("Quill's own brief");
+
+  await switchTo(page, ownName, own);
+  const card = page.locator('[data-wall] .sc-lookcard').first();
+  await card.waitFor();
+  await card.hover();
+  await card.locator('.sc-lookcard-use').click();
+  await expect(page.locator('.sc-toast', { hasText: 'Starting from' })).toBeVisible();
+
+  await switchTo(page, 'Quill', slugs.get('Quill')!);
+  await expect(line).toContainText("Quill's own brief");
+  // and it is still Quill's after the draft debounce has had its turn
+  await page.waitForTimeout(700);
+  await switchTo(page, ownName, own);
+  await switchTo(page, 'Quill', slugs.get('Quill')!);
+  await expect(line).toContainText("Quill's own brief");
 });
