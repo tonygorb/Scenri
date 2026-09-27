@@ -225,26 +225,45 @@ export async function composeStory(
   await d.beat('open', stage);
 
   // each refinement said in words on the step before it; the stage moves onto the new step and it lands in place
-  const edit = page.locator('.sc-ovl-edit');
-  const editLine = edit.locator('.sc-brief-line');
   const refinedIds: string[] = [];
   for (const [i, words] of story.refinements.entries()) {
-    const step = i + 1;
-    await d.click(editLine);
-    await page.keyboard.press('End');
-    await d.type(editLine, words);
-    await d.beat(`refine-${step}`, edit);
-    const asked = page.waitForResponse(postsNode);
-    await d.click(edit.getByRole('button', { name: 'Refine', exact: true }));
-    const id = ((await (await asked).json()) as { id: string }).id;
-    await page.waitForURL(new RegExp(`/shots/${id}(?:[?#]|$)`));
-    await d.beat(`refining-${step}`, page.locator('.sc-ovl-stage'));
-    await onStage(page, await finished(page, id, landMs));
-    await page.locator('.sc-ovl-head b', { hasText: `Refinement ${step}` }).waitFor();
-    await d.beat(`refined-${step}`, stage);
-    refinedIds.push(id);
+    refinedIds.push(await refineOnStage(page, words, i + 1, d, landMs));
   }
   return { shotId, refinedIds };
+}
+
+/** Open a shot on the stage, finished: where a refinement is said. */
+export async function openShot(page: Page, slug: string, shotId: string, landMs = 30_000): Promise<void> {
+  await page.goto(`/${slug}/create/shots/${shotId}`);
+  await onStage(page, await finished(page, shotId, landMs));
+}
+
+/**
+ * Say one refinement of the shot on the stage, as step `step` of the story: type it on the step,
+ * press Refine, and wait for the new step to land in place. Answers the new step's id.
+ */
+export async function refineOnStage(
+  page: Page,
+  words: string,
+  step: number,
+  d: Director = direct,
+  landMs = 30_000,
+): Promise<string> {
+  const edit = page.locator('.sc-ovl-edit');
+  const editLine = edit.locator('.sc-brief-line');
+  await d.click(editLine);
+  await page.keyboard.press('End');
+  await d.type(editLine, words);
+  await d.beat(`refine-${step}`, edit);
+  const asked = page.waitForResponse(postsNode);
+  await d.click(edit.getByRole('button', { name: 'Refine', exact: true }));
+  const id = ((await (await asked).json()) as { id: string }).id;
+  await page.waitForURL(new RegExp(`/shots/${id}(?:[?#]|$)`));
+  await d.beat(`refining-${step}`, page.locator('.sc-ovl-stage'));
+  await onStage(page, await finished(page, id, landMs));
+  await page.locator('.sc-ovl-head b', { hasText: `Refinement ${step}` }).waitFor();
+  await d.beat(`refined-${step}`, page.locator('.sc-ovl-stage .sc-stage-img'));
+  return id;
 }
 
 const postsNode = (r: Response) => r.url().endsWith('/api/nodes') && r.request().method() === 'POST';

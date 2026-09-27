@@ -6,6 +6,7 @@ import {
   barrierCream,
   beatsOf,
   composeStory,
+  openShot,
   type Director,
   direct,
   makeFromShowcase,
@@ -76,4 +77,9 @@ test('the compose story walks from Home to a refined shot, on its own library', 
       `Refinement ${i + 1}: ${words}`,
     );
   }
+
+  // any step opens on the stage by its id, finished, ready to be refined again (a film redraws one
+  // step this way rather than the whole story)
+  await openShot(page, brand.slug, refinedIds[0]);
+  await expect(page.locator('.sc-ovl-head b')).toHaveText('Refinement 1');
 });
