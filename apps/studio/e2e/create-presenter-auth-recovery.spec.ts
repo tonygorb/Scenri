@@ -46,6 +46,10 @@ async function setUpAndReturn(p: Page) {
   await p.unroute(CAPS);
   await answer(p, 'Set up').click();
   await p.waitForURL(/[?&]setup=/);
+  // The address moves before the dialog is there to hear a key: an Escape
+  // sent the moment the URL changed was lost on a loaded runner, and the wait
+  // below ran out at two minutes (PR #278, twice in one CI run).
+  await expect(p.locator('.sc-setup')).toBeVisible();
   await p.keyboard.press('Escape');
   await p.waitForURL((u) => !u.searchParams.has('setup'));
 }
