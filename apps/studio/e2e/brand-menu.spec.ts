@@ -291,3 +291,33 @@ test('a circle draws a logo it can hold, and the initial for one it cannot', asy
   await expect(avatar('Clear Logo')).not.toHaveAttribute('data-bleed');
   expect(await drawn('Rounded Icon').evaluate((i) => getComputedStyle(i).objectFit)).toBe('cover');
 });
+
+test('switching brand leaves the brief with the brand it was written for', async ({ page }) => {
+  // Home stays mounted across a switch, so the sentence on screen used to stay
+  // too: the next brand showed the last one's brief, products and all, and
+  // half a second later saved it as its own draft.
+  const own = await home(page);
+  const slugs = await addBrands(page, ['Pewter']);
+  const ownName = [...slugs].find(([, slug]) => slug === own)?.[0] ?? own;
+  await page.goto(`/${own}`);
+  const line = page.locator('.sc-brief-line').first();
+  await line.click();
+  await page.keyboard.type('a brief for the first brand');
+
+  const switchTo = async (name: string, slug: string) => {
+    await openMenu(page);
+    await page
+      .locator('.sc-menu-item')
+      .filter({ has: page.locator('.sc-menu-brand-lb > span:first-child', { hasText: new RegExp(`^${name}$`) }) })
+      .click();
+    await page.waitForURL(`**/${slug}`);
+  };
+  await switchTo('Pewter', slugs.get('Pewter')!);
+  await expect(line).not.toContainText('a brief for the first brand');
+  // past the draft debounce: nothing of the first brand's is saved as this one's
+  await page.waitForTimeout(700);
+  await switchTo(ownName, own);
+  await expect(line).toContainText('a brief for the first brand');
+  await switchTo('Pewter', slugs.get('Pewter')!);
+  await expect(line).not.toContainText('a brief for the first brand');
+});
