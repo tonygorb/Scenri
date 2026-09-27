@@ -107,20 +107,24 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.20.0',
     date: '2026-09-27',
-    title: "Pictures develop where they are made, and What's New has a page",
+    title: "Pictures develop in place, and What's new has its own page",
     announce: true,
     sections: [
       {
         heading: 'Create',
-        body: 'A picture being made is a quiet swirl in the place it will land, and develops out of it when it arrives. Refining moves to the new step at once.',
+        body: 'While a picture is being made, a quiet swirl holds its place, and the picture develops out of it when it is ready. Refine a shot and the new refinement opens at once, swirling until it lands.',
+        image: {
+          file: '0.20.0-made-in-place.webp',
+          alt: 'Two shots from one prompt in Create: the first has landed, and the second is still being made, a swirl with its clock.',
+        },
       },
       {
-        heading: 'Presenters and scenes',
-        body: "The chats take long descriptions. Beside a reference picture your presenter stays the only person, in clothes of their own. With nothing set up to draw, an upload never becomes a face or a scene's picture.",
+        heading: "What's new",
+        body: "Every update is on one page now, newest first: open What's new from Help, or from Settings > Updates. After a big update, a short window introduces it once.",
       },
       {
         heading: 'Fixes',
-        body: 'Try again never pays twice, and the send shortcut never sends from behind a dialog. Closing the terminal stops what was drawing, a cap typed as $20 is set, and the Mac icon finds Codex.',
+        body: 'Try again starts one new picture, never two, and presenter and scene chats take long descriptions. Beside a reference picture, your presenter keeps their own clothes and no strangers join the shot.',
       },
     ],
   },

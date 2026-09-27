@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { type APIRequestContext, expect, type Locator, type Page, test } from '@playwright/test';
 import { isolate } from '../e2e/harness.js';
 import { prep } from '../visual/shared.js';
@@ -11,7 +12,15 @@ import { seedBrand, seedPresenter, seedScene, shootIsolated, shootWindow, stubLo
  * 1920x1080 window for a change that is a page, or the component that changed,
  * isolated from the page exactly as the app draws it.
  */
-isolate({ brand: false });
+isolate({
+  brand: false,
+  env: {
+    // 0.20.0 holds a batch's later pictures while its first lands (no other capture here draws),
+    // and the first answers with a tracked showcase photograph rather than the demo engine's card.
+    SCENRI_DEMO_STAGGER_MS: '600000',
+    SCENRI_DEMO_PHOTOS: fileURLToPath(new URL('../../../templates/previews/showcase/', import.meta.url)),
+  },
+});
 
 let seeded: Promise<{ id: string; slug: string }> | null = null;
 const brand = (request: APIRequestContext) => {
@@ -150,6 +159,56 @@ const cardPadding = (what: Locator, side: 'bottom' | 'left') =>
 
 /** A block's own padding on its left, CSS px: how far the page keeps words from its edge. */
 const paddingOf = (l: Locator) => l.evaluate((el) => Number.parseFloat(getComputedStyle(el).paddingLeft));
+
+test('0.20.0-made-in-place', async ({ page, request }) => {
+  // isolated: Create's newest batch, two shots from one prompt: the first has landed, and the
+  // second is still being made, a swirl in the place its picture will land, with its clock and
+  // Cancel. A landed tile is its picture, with no box of its own once it has pixels, so the feed's
+  // ground is kept round the pair, as far as the gap between its two tiles.
+  const { id, slug } = await seedBrand(request, 'Brixa');
+  await page.setViewportSize(WINDOW);
+  await prep(page, 'dark');
+  await page.goto(`/${slug}/create`);
+  await page.evaluate(() => {
+    localStorage.setItem('scenri:count', '2');
+    localStorage.setItem('scenri:format', JSON.stringify('portrait'));
+  });
+  await page.goto(`/${slug}/create`);
+  const line = page.locator('.sc-canvas-dock .sc-brief-line');
+  await expect(line).toBeVisible();
+  const answered = page.waitForResponse((r) => r.url().endsWith('/api/nodes') && r.request().method() === 'POST');
+  await line.click();
+  await page.keyboard.type('A bottle on warm stone in low evening sun');
+  await page.locator('.sc-canvas-dock .sc-send').click();
+  const ids = ((await (await answered).json()).siblings as { id: string }[]).map((s) => s.id);
+  expect(ids).toHaveLength(2);
+  const tile = (n: string) => page.locator(`.sc-cell[data-fb-node="${n}"]`);
+  // the first has landed and painted; the second is still being made, with its swirl
+  await expect(tile(ids[0]).locator('.sc-cellimg[data-loaded]')).toBeVisible({ timeout: 30_000 });
+  for (const n of ids.slice(1)) {
+    await expect(tile(n)).toHaveAttribute('data-running', 'true');
+    await expect(tile(n).locator('.sc-rendering canvas')).toBeVisible();
+    await expect(tile(n).getByRole('button', { name: 'Cancel' })).toBeVisible();
+  }
+  // The page clock is frozen before the server's; pinned a little after the pair started, the
+  // clock reads as a picture being worked on rather than one not begun.
+  const feed = await (await request.get(`/api/brands/${id}/feed?limit=60`)).json();
+  const since = (feed.items as { id: string; startedAt?: string | null; createdAt: string }[])
+    .filter((x) => ids.includes(x.id))
+    .map((x) => x.startedAt || x.createdAt)
+    .map((t) => Date.parse(t.includes('T') ? t : `${t.replace(' ', 'T')}Z`));
+  await page.clock.setFixedTime(Math.max(...since) + 14_000);
+  for (const n of ids.slice(1)) await expect(tile(n).locator('.sc-cell-tag')).toHaveText('0:14');
+  // one row, in the order they were asked for
+  const boxes = await Promise.all(ids.map((n, i) => box(tile(n), `shot ${i + 1}`)));
+  for (let i = 1; i < boxes.length; i++) {
+    expect(Math.abs(boxes[i].y - boxes[0].y), 'the pair sits in one row').toBeLessThan(2);
+    expect(boxes[i].x, 'the batch runs in the order it was asked for').toBeGreaterThan(boxes[i - 1].x);
+  }
+  const room = Math.round(boxes[1].x - (boxes[0].x + boxes[0].width));
+  expect(room, 'the gap between the two tiles').toBeGreaterThanOrEqual(8);
+  await shootIsolated(page, '0.20.0-made-in-place', ids.map(tile), { room });
+});
 
 test('0.19.0-home-examples', async ({ page, request }) => {
   // window: Home scrolled to the examples, their kinds just under the top bar, the wall below and
