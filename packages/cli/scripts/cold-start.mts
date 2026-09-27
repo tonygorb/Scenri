@@ -197,6 +197,12 @@ function stopTree(child: ChildProcess) {
 const why = refuseHome(HOME, COLD, REAL_HOME);
 if (why) die(`refusing the cold-start home: ${why}`);
 const entry = installPublishedShape();
+// The shape check: the installed package carries exactly the starter wall,
+// never the checkout's 110 (read from the package itself: the download starts
+// at listen and Home's pictures come first, so the live wall races it).
+const bundled = join(dirname(entry), '..', 'templates', 'previews', 'showcase');
+const carried = existsSync(bundled) ? readdirSync(bundled).filter((f) => f.endsWith('.jpg')).length : 0;
+if (carried !== 15) die(`the packed build carries ${carried} wall pictures, not the published 15`);
 if (!opts.resume) freshHome(HOME, COLD, REAL_HOME);
 else if (!existsSync(HOME)) die('nothing to resume: run without --resume first');
 
@@ -273,12 +279,17 @@ child.on('exit', (code) => {
 });
 
 const api = async (path: string, init?: RequestInit) => fetch(`http://127.0.0.1:${port}${path}`, init);
+// once Scenri is spawned, a failure stops it too, rather than leaving it running with the lock held
+const fail = async (line: string) => {
+  console.error(`cold-start: ${line}`);
+  await finish(1);
+};
 let t1 = 0;
 for (let i = 0; i < 600 && !t1; i++) {
   try {
     const v = (await (await api('/api/version')).json()) as { name?: string; home?: string };
     if (v.name === 'scenri') {
-      if (v.home && v.home !== HOME) die(`the server on :${port} serves ${v.home}, not the cold home`);
+      if (v.home && v.home !== HOME) await fail(`the server on :${port} serves ${v.home}, not the cold home`);
       t1 = Date.now();
     }
   } catch {
@@ -286,12 +297,7 @@ for (let i = 0; i < 600 && !t1; i++) {
   }
   if (!t1) await new Promise((r) => setTimeout(r, 100));
 }
-if (!t1) die('Scenri did not start within a minute (see .scenri-cold/server.log)');
-
-// The shape check: a fresh install shows exactly the bundled starter wall.
-const wall = (await (await api('/api/showcase')).json()).showcase as { id: string; previewUrl: string | null }[];
-const pictured = wall.filter((s) => s.previewUrl).length;
-if (!opts.resume && pictured !== 15) die(`expected the 15 bundled wall pictures on a fresh home, found ${pictured}`);
+if (!t1) await fail('Scenri did not start within a minute (see .scenri-cold/server.log)');
 
 let brandId: string | null = null;
 if (opts.brand || opts.measure) {
@@ -303,7 +309,7 @@ if (opts.brand || opts.measure) {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ brand: { specVersion: '0.1', meta: { name: 'Cold start' } } }),
     });
-    if (!made.ok) die(`could not make the brand: ${made.status} ${await made.text()}`);
+    if (!made.ok) await fail(`could not make the brand: ${made.status} ${await made.text()}`);
     brandId = ((await made.json()) as { id: string }).id;
   }
 }
