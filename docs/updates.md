@@ -74,21 +74,29 @@ downloaded once from a versioned archive on the project's GitHub releases and
 cached under `~/.scenri/content`.
 
 The archive is read by byte range, a file at a time and the pictures Home shows
-first, and each file is kept only once its own sha256 matches the value pinned
-in that Scenri version (`packages/cli/src/content/archive-v3.json`), so
-pictures appear as they arrive. A download that is stopped resumes where it
-stopped on the next start; a file that does not arrive is tried again a minute
-later, and after that on the next start. Nothing is sent, and it is silent when
-offline. A host that does not answer byte ranges gets one GET for the whole
-archive, checked against its pinned sha256 before anything is unpacked.
+first, and each file is kept, the moment its bytes are in, only once its own
+sha256 matches the value pinned in that Scenri version
+(`packages/cli/src/content/pin.json`), so pictures appear as they arrive. Files
+the npm package already carries byte for byte are copied from it instead of
+downloaded. A download that is stopped resumes where it stopped on the next
+start; after a dropped connection it tries once more as soon as the host
+answers again, and after that on the next start. Nothing is sent, and it is
+silent when offline. A host that does not answer byte ranges is read whole and
+installed from memory the same way, file by file against the pin; so is the
+archive CI hydrates with `pull-content`.
 
 - `SCENRI_NO_CONTENT_FETCH=1` skips the download entirely; Scenri stays on the
   starter wall and the cards.
-- `SCENRI_CONTENT_URL` points a fork or an airgap mirror at its own archive. A
-  mirror of the published archive is checked file by file all the same. A
-  different archive can be pinned the same way with `SCENRI_CONTENT_PIN`, a file
-  written by `pnpm exec tsx packages/cli/scripts/pin-content.mts <zip> --out
-  <pin.json>`; without one it is taken whole, as its owner's choice.
+- `SCENRI_CONTENT_URL` points an airgap mirror or a fork at an archive. A mirror
+  of the published archive is checked file by file all the same. An archive of
+  one's own needs its pin in `SCENRI_CONTENT_PIN`, a file written by
+  `pnpm exec tsx packages/cli/scripts/pin-content.mts <zip> --out <pin.json>`;
+  without one, an archive that is not the published one is refused.
+
+A content release is one command: `pin-content.mts <zip>` rewrites `pin.json`,
+which is the one place the archive's version, tag and sha256 live; the tag in
+the CI and publish workflows follows it (`contentVersion.test.ts` names each
+place).
 
 `~/.scenri/content` is a cache, not user data: deleting it is always safe and
 the next launch restores it.

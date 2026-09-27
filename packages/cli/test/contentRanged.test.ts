@@ -12,12 +12,12 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { inflateRawSync } from 'node:zlib';
 import JSZip from 'jszip';
 import { zipEntries } from '../scripts/zip-entries.mjs';
 import { type ArchiveServerOptions, startArchiveServer } from './archive-server.mjs';
-import { type ArchivePin, installByRange, type PinnedFile } from '../src/content/ranged.js';
+import { type ArchivePin, archiveFetch, installByRange, type PinnedFile } from '../src/content/ranged.js';
 import {
   CONTENT_PIN,
   CONTENT_SHA256,
@@ -178,6 +178,8 @@ describe('installing by range', () => {
     const landedAgain: string[] = [];
     const done = await installByRange({ ...base(second.url, pin), onLanded: (f) => landedAgain.push(f[0]) });
     expect(done).toEqual({ kind: 'complete' });
+    // what was kept is counted first, as it is checked, so a restart's count starts from it
+    expect(landedAgain.slice(0, landedFirst.length - 1).sort()).toEqual(landedFirst.slice(1).sort());
     expect(existsSync(`${onDisk('previews/showcase/d.jpg')}.part`)).toBe(false);
     expect(existsSync(join(partial, 'stray', 'old.jpg'))).toBe(false);
     for (const [name, , , , , hash] of pin.files) expect(sha(readFileSync(onDisk(name)))).toBe(hash);
@@ -230,7 +232,7 @@ describe('installing by range', () => {
     expect(s.stats.ranges).toBeLessThanOrEqual(1 + 3 * 2 + 2);
   });
 
-  it('leaves a host that does not answer ranges to the whole-archive path', async () => {
+  it('leaves a host that does not answer ranges to be taken whole', async () => {
     const { bytes, pin } = await fixture(LIBRARY());
     const plain = createServer((_req, res) => res.end(bytes));
     await new Promise<void>((r) => plain.listen(0, '127.0.0.1', r));
@@ -238,6 +240,67 @@ describe('installing by range', () => {
     const url = `http://127.0.0.1:${(plain.address() as { port: number }).port}/a.zip`;
     expect(await installByRange(base(url, pin))).toEqual({ kind: 'unranged' });
     expect(existsSync(onDisk('meta.json'))).toBe(false);
+  });
+
+  it('a read cut short keeps every file that fully arrived, and fetches only the rest', async () => {
+    const { bytes, pin } = await fixture(LIBRARY());
+    const cutAt = spanOf(pin, 'previews/showcase/c.jpg').start + 10;
+    // one merged read for everything but meta.json, its body ending once in the middle of c.jpg
+    const s = await serve(bytes, { faults: [{ start: cutAt, end: cutAt + 1, kind: 'short', times: 1 }] });
+    expect(await installByRange({ ...base(s.url, pin), capBytes: 1 << 20 })).toEqual({ kind: 'complete' });
+    for (const [name, at, packed, , , hash] of pin.files) {
+      expect(sha(readFileSync(onDisk(name)))).toBe(hash);
+      if (name === 'meta.json') continue;
+      // the files wholly before the cut landed from the first read and were never asked for again
+      expect(requestsFor(s.stats.log, spanOf(pin, name)), name).toBe(at + packed <= cutAt ? 1 : 2);
+    }
+  });
+
+  it('copies what the package already carries byte for byte, instead of fetching it', async () => {
+    const files = LIBRARY();
+    const { bytes, pin } = await fixture(files);
+    const seed = join(dir, 'templates');
+    // the package carries a record and a picture as they are, and another picture in a cut of its own
+    const carried: [string, Buffer][] = [
+      ['demo-products/mug.json', files['demo-products/mug.json']],
+      ['previews/showcase/a.jpg', files['previews/showcase/a.jpg']],
+      ['previews/showcase/b.jpg', Buffer.from('a smaller cut')],
+    ];
+    for (const [name, data] of carried) {
+      mkdirSync(dirname(join(seed, name)), { recursive: true });
+      writeFileSync(join(seed, name), data);
+    }
+    const s = await serve(bytes);
+    const landed: string[] = [];
+    const result = await installByRange({ ...base(s.url, pin), seed, onLanded: (f) => landed.push(f[0]) });
+    expect(result).toEqual({ kind: 'complete' });
+    for (const [name, , , , , hash] of pin.files) expect(sha(readFileSync(onDisk(name)))).toBe(hash);
+    expect(requestsFor(s.stats.log, spanOf(pin, 'demo-products/mug.json'))).toBe(0);
+    expect(requestsFor(s.stats.log, spanOf(pin, 'previews/showcase/a.jpg'))).toBe(0);
+    expect(requestsFor(s.stats.log, spanOf(pin, 'previews/showcase/b.jpg'))).toBe(1);
+    // and they count as landed, so the count the bell shows is the truth
+    expect(landed).toEqual(expect.arrayContaining(['demo-products/mug.json', 'previews/showcase/a.jpg']));
+  });
+
+  it('refuses a host serving an archive of another size after its one-byte probe', async () => {
+    const { bytes, pin } = await fixture(LIBRARY());
+    const s = await serve(Buffer.concat([bytes, Buffer.from('more')]));
+    expect(await installByRange(base(s.url, pin))).toEqual({ kind: 'mismatch', size: bytes.length + 4 });
+    expect(s.stats.requests).toBe(1);
+  });
+
+  it('installs an archive already in memory the same way, file by file', async () => {
+    const { bytes, pin } = await fixture(LIBRARY());
+    const landed: string[] = [];
+    const result = await installByRange({
+      ...base('archive:', pin),
+      fetchImpl: archiveFetch(bytes),
+      capBytes: 1 << 20,
+      onLanded: (f) => landed.push(f[0]),
+    });
+    expect(result).toEqual({ kind: 'complete' });
+    for (const [name, , , , , hash] of pin.files) expect(sha(readFileSync(onDisk(name)))).toBe(hash);
+    expect(landed.at(-1)).toBe('meta.json');
   });
 
   it('refuses an answer for a range it did not ask for, before reading it', async () => {
@@ -314,7 +377,7 @@ describe('the fetcher around it', () => {
       pin,
       concurrency: 2,
       backoffMs: [5, 5, 5, 5],
-      retryAfterMs: 20,
+      retryWaitsMs: [20],
     });
     expect(await f.ensure()).toMatchObject({ ok: true });
     expect(f.state()).toMatchObject({ outcome: 'complete', arriving: false });
@@ -328,12 +391,32 @@ describe('the fetcher around it', () => {
       pin,
       concurrency: 2,
       backoffMs: [5, 5, 5, 5],
-      retryAfterMs: 20,
+      retryWaitsMs: [20],
     });
     mkdirSync(join(dir, 'other'));
     expect(await g.ensure()).toMatchObject({ ok: false });
     expect(g.state()).toMatchObject({ outcome: 'partial', failed: 1, arriving: false });
   });
+
+  it('after a dropped connection, the one more pass starts once the host answers again', async () => {
+    const { bytes, pin } = await fixture(LIBRARY());
+    // the network goes for 800 ms, 300 ms in, while the library is still coming
+    const s = await serve(bytes, { mbps: 0.5, cut: { afterMs: 300, forMs: 800 } });
+    const f = createContentFetcher({
+      store: settings(),
+      url: s.url,
+      env: { SCENRI_HOME: home },
+      log: () => {},
+      pin,
+      concurrency: 2,
+      capBytes: 1,
+      backoffMs: [5, 5, 5, 5],
+      // asked every 100 ms: one wait that short would retry into the outage and end partial
+      retryWaitsMs: Array(40).fill(100),
+    });
+    expect(await f.ensure()).toMatchObject({ ok: true });
+    expect(f.state()).toMatchObject({ outcome: 'complete', failed: 0 });
+  }, 20_000);
 
   it('a stop keeps what landed, and the next start resumes', async () => {
     const { bytes, pin } = await fixture(LIBRARY());

@@ -1,17 +1,19 @@
 import { createHash } from 'node:crypto';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, normalize, relative, sep } from 'node:path';
 import { promisify } from 'node:util';
 import { inflateRaw, inflateRawSync } from 'node:zlib';
 
 /**
- * The library archive fetched a file at a time from where the pin says each
- * one's bytes are, the files Home shows first, and each installed only once
- * its own sha256 matches the pin. The archive is the one published, unchanged:
+ * The library archive installed a file at a time from where the pin says each
+ * one's bytes are, the files Home shows first, and each kept only once its own
+ * sha256 matches the pin. The archive is the one published, unchanged:
  * GitHub's release host answers byte ranges, so no second format and no
  * second host are needed for the order, the resume and the one-bad-file-fails-
- * alone that one whole-archive GET could not give.
+ * alone that one whole-archive GET could not give. An archive already in
+ * memory (a host that ignores ranges, pull-content's file) goes through the
+ * same install, answered from memory (archiveFetch).
  */
 
 const inflateAsync = promisify(inflateRaw);
@@ -41,6 +43,8 @@ export interface RangedOptions {
   partial: string;
   /** Names wanted first, in that order; every other pinned file follows in archive order. */
   order: readonly string[];
+  /** A directory already holding some of the library byte for byte (the package's own templates): those files are copied, not fetched. */
+  seed?: string;
   fetchImpl: typeof fetch;
   signal: AbortSignal;
   /** Requests in flight at once. */
@@ -49,7 +53,7 @@ export interface RangedOptions {
   capBytes: number;
   /** A request that receives nothing for this long is given up (and retried). */
   idleMs: number;
-  /** Waits before the second, third and fourth attempt at the same files. */
+  /** Waits before the second, third and fourth attempt at the same file. */
   backoffMs: readonly number[];
   onLanded: (file: PinnedFile) => void;
 }
@@ -57,8 +61,10 @@ export interface RangedOptions {
 export type RangedResult =
   | { kind: 'complete' }
   | { kind: 'partial'; missing: PinnedFile[] }
-  /** The host did not answer a byte range with this archive: the caller takes the whole archive instead. */
-  | { kind: 'unranged' };
+  /** The host did not answer a byte range: the caller takes the archive whole and installs it from memory. */
+  | { kind: 'unranged' }
+  /** The host answered a range of an archive of another size: not the one pinned, and nothing was fetched. */
+  | { kind: 'mismatch'; size: number };
 
 /** A pinned name as a path inside `root`, or null if it would leave it. */
 function placeOf(root: string, name: string): string | null {
@@ -96,12 +102,24 @@ async function renameRetrying(from: string, to: string): Promise<void> {
   }
 }
 
+/** A checked file into place: written aside, then renamed, so a stop never leaves half a file under its real name. */
+async function put(dest: string, data: Buffer): Promise<void> {
+  await mkdir(dirname(dest), { recursive: true });
+  await writeFile(`${dest}.part`, data);
+  await renameRetrying(`${dest}.part`, dest);
+}
+
 /**
  * What a previous run left in `partial`, checked against the pin: files whose
  * hash matches stay, and everything else goes (a .part a stop cut short, a
- * file of another version, anything the pin does not list).
+ * file of another version, anything the pin does not list). Each kept file is
+ * reported as it is checked, so a restart's count climbs from what was kept.
  */
-export async function keepVerified(partial: string, pin: ArchivePin): Promise<Set<string>> {
+export async function keepVerified(
+  partial: string,
+  pin: ArchivePin,
+  onKept: (file: PinnedFile) => void = () => {},
+): Promise<Set<string>> {
   const pinned = new Map(pin.files.map((f) => [f[0], f]));
   const kept = new Set<string>();
   if (!existsSync(partial)) return kept;
@@ -114,13 +132,32 @@ export async function keepVerified(partial: string, pin: ArchivePin): Promise<Se
       }
       const name = relative(partial, at).split(sep).join('/');
       const file = pinned.get(name);
-      const good = file && !name.endsWith('.part') && sha256(await readFile(at)) === file[5];
-      if (good) kept.add(name);
-      else await rm(at, { force: true, maxRetries: 3 });
+      if (file && !name.endsWith('.part') && sha256(await readFile(at)) === file[5]) {
+        kept.add(name);
+        onKept(file);
+      } else await rm(at, { force: true, maxRetries: 3 });
     }
   };
   await walk(partial);
   return kept;
+}
+
+/**
+ * An archive already in memory, answering byte ranges the way the release
+ * host does, so the whole-archive transports (a host that ignores ranges,
+ * pull-content's file) install through installByRange, file by file.
+ */
+export function archiveFetch(bytes: Buffer): typeof fetch {
+  return (async (_url: string | URL | Request, init?: RequestInit) => {
+    const m = /^bytes=(\d+)-(\d+)$/.exec(new Headers(init?.headers).get('range') ?? '');
+    if (!m) return new Response(new Uint8Array(bytes), { status: 200 });
+    const start = Number(m[1]);
+    const end = Math.min(bytes.length - 1, Number(m[2]));
+    return new Response(new Uint8Array(bytes.subarray(start, end + 1)), {
+      status: 206,
+      headers: { 'content-range': `bytes ${start}-${end}/${bytes.length}` },
+    });
+  }) as typeof fetch;
 }
 
 export async function installByRange(o: RangedOptions): Promise<RangedResult> {
@@ -128,25 +165,45 @@ export async function installByRange(o: RangedOptions): Promise<RangedResult> {
   const meta = pin.files.findIndex((f) => f[0] === 'meta.json');
   if (meta < 0) throw new Error('the pin names no meta.json');
   await mkdir(o.partial, { recursive: true });
-  const present = await keepVerified(o.partial, pin);
-  for (const name of present) {
-    const f = pin.files.find((x) => x[0] === name);
-    if (f && name !== 'meta.json') o.onLanded(f);
-  }
+  const present = await keepVerified(o.partial, pin, (f) => {
+    if (f[0] !== 'meta.json') o.onLanded(f);
+  });
   if (present.has('meta.json') && present.size === pin.files.length) return { kind: 'complete' };
 
   // Where the bytes are served from: the release URL answers with a redirect
   // to a signed address, which is reused for every range until it is refused.
   let resolved = o.url;
-  const probe = async (): Promise<boolean> => {
-    const res = await o.fetchImpl(o.url, { headers: { range: 'bytes=0-0' }, signal: o.signal });
+  const probe = async (): Promise<'ok' | 'unranged' | number> => {
+    const res = await o.fetchImpl(o.url, {
+      headers: { range: 'bytes=0-0' },
+      signal: AbortSignal.any([o.signal, AbortSignal.timeout(o.idleMs)]),
+    });
     const total = /\/(\d+)$/.exec(res.headers.get('content-range') ?? '')?.[1];
     await res.body?.cancel().catch(() => {});
-    if (res.status !== 206 || Number(total) !== pin.size) return false;
+    if (res.status !== 206 || !total) return 'unranged';
+    if (Number(total) !== pin.size) return Number(total);
     resolved = res.url || o.url;
-    return true;
+    return 'ok';
   };
-  if (!(await probe())) return { kind: 'unranged' };
+  const probed = await probe();
+  if (probed === 'unranged') return { kind: 'unranged' };
+  if (probed !== 'ok') return { kind: 'mismatch', size: probed };
+
+  // What the package already carries byte for byte (the catalog records, the
+  // scene cards) is copied from it rather than fetched.
+  if (o.seed) {
+    for (const f of pin.files) {
+      if (f[0] === 'meta.json' || present.has(f[0])) continue;
+      const from = placeOf(o.seed, f[0]);
+      const dest = placeOf(o.partial, f[0]);
+      if (!from || !dest || !existsSync(from) || statSync(from).size !== f[4]) continue;
+      const data = await readFile(from);
+      if (sha256(data) !== f[5]) continue;
+      await put(dest, data);
+      present.add(f[0]);
+      o.onLanded(f);
+    }
+  }
 
   // Order: what was asked for first, then the rest as it lies in the archive,
   // meta.json held back to be written last; runs of neighbours merged up to the cap.
@@ -181,8 +238,16 @@ export async function installByRange(o: RangedOptions): Promise<RangedResult> {
   let stopped = false;
   const failed = new Set<number>();
 
-  /** One ranged read of [start, end): the bytes, 'missing' (404/410/416) or 'network'. */
-  const read = async (start: number, end: number): Promise<Buffer | 'missing' | 'network'> => {
+  /**
+   * One ranged read of [start, end), handing the bytes over as they arrive:
+   * 'done', 'missing' (404/410/416, before any byte) or 'network' (it never
+   * started, or ended short). What arrived before a failure was handed over.
+   */
+  const read = async (
+    start: number,
+    end: number,
+    onBytes: (buf: Buffer, at: number) => void,
+  ): Promise<'done' | 'missing' | 'network'> => {
     const ctrl = new AbortController();
     const onAbort = () => ctrl.abort();
     o.signal.addEventListener('abort', onAbort, { once: true });
@@ -194,7 +259,7 @@ export async function installByRange(o: RangedOptions): Promise<RangedResult> {
         // the signed address expired: ask the release URL for a fresh one, once
         reresolved = true;
         await res.body?.cancel().catch(() => {});
-        if (await probe()) res = await get();
+        if ((await probe()) === 'ok') res = await get();
       }
       if (res.status === 404 || res.status === 410 || res.status === 416) {
         await res.body?.cancel().catch(() => {});
@@ -221,8 +286,9 @@ export async function installByRange(o: RangedOptions): Promise<RangedResult> {
         if (at + value.length > buf.length) return 'network';
         buf.set(value, at);
         at += value.length;
+        onBytes(buf, at);
       }
-      return at === buf.length ? buf : 'network';
+      return at === buf.length ? 'done' : 'network';
     } catch {
       return 'network';
     } finally {
@@ -252,45 +318,53 @@ export async function installByRange(o: RangedOptions): Promise<RangedResult> {
       return false;
     }
     if (data.length !== f[4] || sha256(data) !== f[5]) return false;
-    await mkdir(dirname(dest), { recursive: true });
-    await writeFile(`${dest}.part`, data);
-    await renameRetrying(`${dest}.part`, dest);
+    await put(dest, data);
     return true;
   };
 
-  /** A job's files, attempted until they land, their attempts run out, or the pass is stopped. */
+  /**
+   * A job's files, each landing the moment its own bytes are in, while the
+   * rest of the read streams on; tried again until they land, their attempts
+   * run out, or the pass is stopped.
+   */
   const run = async (job: number[]): Promise<void> => {
     let pending = job;
     let attempt = 0;
     while (pending.length && !stopped && !o.signal.aborted) {
       const start = pin.files[pending[0]][1];
       const last = pin.files[pending[pending.length - 1]];
-      const got = await read(start, last[1] + last[2]);
-      if (got === 'network') {
+      const tries = pending;
+      let next = 0;
+      const landing: Promise<boolean>[] = [];
+      const got = await read(start, last[1] + last[2], (buf, at) => {
+        for (; next < tries.length; next += 1) {
+          const f = pin.files[tries[next]];
+          if (f[1] + f[2] - start > at) break;
+          landing.push(land(tries[next], buf.subarray(f[1] - start, f[1] + f[2] - start)));
+        }
+      });
+      const landed = await Promise.all(landing);
+      const again: number[] = [];
+      landed.forEach((ok, j) => {
+        if (ok) o.onLanded(pin.files[tries[j]]);
+        else again.push(tries[j]);
+      });
+      again.push(...tries.slice(next));
+      if (got === 'network' && !landed.some(Boolean)) {
         networkStreak += 1;
         // Every request failing on the network is no network: end the pass now
         // rather than walk every file through its backoff with the Wi-Fi off.
         if (networkStreak >= 3 * o.concurrency) stopped = true;
-      }
-      if ((got === 'network' || got === 'missing') && pending.length > 1) {
-        // A read of several neighbours that failed is tried again one file at
-        // a time, each with tries of its own, so one bad file fails alone
-        // rather than taking the files it shared a read with down with it.
-        for (const i of pending) jobs.push([i]);
+      } else networkStreak = 0;
+      if (!again.length) return;
+      if (again.length > 1) {
+        // Several files still to come are tried again one at a time, each with
+        // tries of its own, so one bad file fails alone rather than taking the
+        // files it shared a read with down with it.
+        for (const i of again) jobs.push([i]);
         return;
       }
-      if (got !== 'network') {
-        networkStreak = 0;
-        const next: number[] = [];
-        for (const i of pending) {
-          const f = pin.files[i];
-          const ok = got !== 'missing' && (await land(i, got.subarray(f[1] - start, f[1] - start + f[2])));
-          if (ok) o.onLanded(f);
-          else next.push(i);
-        }
-        pending = next;
-        if (!pending.length) return;
-      }
+      pending = again;
       if (attempt >= o.backoffMs.length) break;
       await sleep(o.backoffMs[attempt], o.signal);
       attempt += 1;

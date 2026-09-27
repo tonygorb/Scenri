@@ -2872,6 +2872,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     createContentFetcher({
       store: core.store,
       fetchImpl: opts.fetchImpl,
+      // what the package carries byte for byte (records, scene cards) is copied, not fetched
+      seed: templatesRoot,
       // Home's pictures first, read from the records Home is built from
       priority: () =>
         homeFirst({

@@ -19,7 +19,7 @@
       "!docs/design",
       "!templates/previews",
       "!packages/brand-spec/test/fixtures",
-      "!packages/cli/src/content/archive-v*.json"
+      "!packages/cli/src/content/pin.json"
     ]
   },
   "formatter": {

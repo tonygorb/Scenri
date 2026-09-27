@@ -1,9 +1,6 @@
-import { createHash } from 'node:crypto';
-import { mkdirSync, renameSync, rmSync, existsSync, readFileSync, lstatSync, unlinkSync } from 'node:fs';
-import { writeFile } from 'node:fs/promises';
-import { dirname, join, normalize } from 'node:path';
-import JSZip from 'jszip';
-import pinV3 from './archive-v3.json' with { type: 'json' };
+import { existsSync, lstatSync, readFileSync, renameSync, rmSync, unlinkSync } from 'node:fs';
+import { join } from 'node:path';
+import pinJson from './pin.json' with { type: 'json' };
 import {
   contentCacheReady,
   contentCacheRoot,
@@ -11,7 +8,7 @@ import {
   contentPartialRoot,
   installedContentRoot,
 } from './overlay.js';
-import { type ArchivePin, installByRange, type PinnedFile } from './ranged.js';
+import { type ArchivePin, archiveFetch, installByRange, type PinnedFile, type RangedResult } from './ranged.js';
 
 /**
  * The library download: the npm package carries every catalog entry, the
@@ -20,40 +17,32 @@ import { type ArchivePin, installByRange, type PinnedFile } from './ranged.js';
  * presenter identity sets) arrives once from a versioned archive and is
  * cached under ~/.scenri/content. Same manners as the update check: said once
  * in the console, silent offline, opt-out-able (SCENRI_NO_CONTENT_FETCH=1),
- * URL overridable for forks and airgaps (SCENRI_CONTENT_URL).
+ * URL overridable for mirrors, forks and airgaps (SCENRI_CONTENT_URL, with
+ * SCENRI_CONTENT_PIN for an archive of their own).
  *
- * The pinned archive is read by byte range, a file at a time, Home's pictures
- * first (ranged.ts), each checked against its own hash in the pin before it
- * is kept; an archive with no pin that applies, or a host that does not
- * answer ranges, is taken whole as before (installContentArchive).
+ * One install, file by file (ranged.ts): the pinned archive is read by byte
+ * range, Home's pictures first, and each file is kept only once its own hash
+ * matches the pin. A host that does not answer ranges is read whole and
+ * installed from memory the same way.
  */
 
 /**
- * The archive this build expects. A cache older than CONTENT_VERSION is
- * replaced on the next launch, so a catalog that now names new pictures never
- * runs against the pictures of an older library. CI and the publish job
- * download the same tag (contentVersion.test.ts keeps them in step).
+ * The archive this build expects, file by file. The pin is the one place its
+ * version, tag and sha256 live: scripts/pin-content.mts writes it from the
+ * published zip, so a content release is that one command (and the tag in the
+ * workflows, which contentVersion.test.ts holds in step). A cache older than
+ * CONTENT_VERSION is replaced on the next launch, so a catalog that now names
+ * new pictures never runs against the pictures of an older library. A release
+ * asset can be replaced on GitHub; a build installs only the bytes it was
+ * released against.
  */
-export const CONTENT_VERSION = 3;
-export const CONTENT_TAG = 'content-v3';
-/**
- * The sha256 of the content-v3 release asset, checked before anything is
- * unpacked. A release asset can be replaced on GitHub; a build installs only
- * the bytes it was released against. A custom SCENRI_CONTENT_URL is its
- * owner's choice and is not pinned. Changes together with CONTENT_TAG, read
- * from the published asset.
- */
-export const CONTENT_SHA256 = 'c736f1f9142bc428e19bb80bc139c2d9e60a9dce7449b322760ffe8df333b734';
-
-/** The published content-v3 archive, file by file (scripts/pin-content.mts). */
-export const CONTENT_PIN = pinV3 as ArchivePin;
-
-export function archiveMatches(bytes: Buffer, expected: string = CONTENT_SHA256): boolean {
-  return createHash('sha256').update(bytes).digest('hex') === expected;
-}
+export const CONTENT_PIN = pinJson as ArchivePin;
+export const CONTENT_VERSION = CONTENT_PIN.version;
+export const CONTENT_TAG = `content-v${CONTENT_VERSION}`;
+export const CONTENT_SHA256 = CONTENT_PIN.sha256;
 
 const DEFAULT_CONTENT_URL = `https://github.com/tonygorb/scenri/releases/download/${CONTENT_TAG}/scenri-content.zip`;
-// The whole download, headers through last byte: ~155 MB inside it needs about 0.7 Mbps, and a
+// A host taken whole, headers through last byte: ~155 MB inside it needs about 0.7 Mbps, and a
 // socket that goes quiet is still cut off rather than held for the life of the process.
 const TIMEOUT_MS = 30 * 60 * 1000;
 
@@ -75,62 +64,12 @@ export function contentCacheStale(
 }
 
 /**
- * Unpack an archive into `root` through a staging directory: zip-slip guard,
- * meta.json as the completeness marker, then one swap. Returns why it refused,
- * or null once the new library is in place. Shared with pull-content.mts.
- */
-export async function installContentArchive(zipBytes: Buffer, root: string): Promise<string | null> {
-  const staging = `${root}.staging`;
-  rmSync(staging, { recursive: true, force: true });
-  mkdirSync(staging, { recursive: true });
-  try {
-    const zip = await JSZip.loadAsync(zipBytes);
-    for (const [name, entry] of Object.entries(zip.files)) {
-      if (entry.dir) continue;
-      // zip-slip guard: nothing may escape the staging directory
-      const rel = normalize(name);
-      if (rel.startsWith('..') || rel.startsWith('/') || /^[a-zA-Z]:/.test(rel)) continue;
-      const dest = join(staging, rel);
-      mkdirSync(dirname(dest), { recursive: true });
-      await writeFile(dest, await entry.async('nodebuffer'));
-    }
-    // meta.json doubles as the completeness marker overlay.ts keys on, so a
-    // half-written cache is never preferred over the bundled starter.
-    if (!existsSync(join(staging, 'meta.json'))) {
-      rmSync(staging, { recursive: true, force: true });
-      return 'archive carries no meta.json';
-    }
-    removeRoot(root);
-    renameSync(staging, root);
-    return null;
-  } catch (err) {
-    rmSync(staging, { recursive: true, force: true });
-    throw err;
-  }
-}
-
-/**
- * A worktree's lane home links content/ to the primary's cache
- * (worktree.ts shareContent). Replacing it drops the link; it never empties
- * the library the link points at.
- */
-function removeRoot(root: string): void {
-  let link = false;
-  try {
-    link = lstatSync(root).isSymbolicLink();
-  } catch {
-    return; // nothing there yet
-  }
-  if (link) unlinkSync(root);
-  else rmSync(root, { recursive: true, force: true });
-}
-
-/**
  * At start, before anything is served: a download that finished last time in
  * content.partial is moved into place. Never while the server runs, where a
  * picture being read or a derivative being cut could lose its file mid-way.
  * If the move fails (a Windows lock), the complete partial keeps serving as
- * the installed library and the next start tries again.
+ * the installed library and the next start tries again. A lane's linked cache
+ * is unlinked, never emptied.
  */
 export function finishContentInstall(env: Record<string, string | undefined> = process.env): 'moved' | 'kept' | 'none' {
   const root = contentCacheRoot(env);
@@ -154,6 +93,37 @@ export function finishContentInstall(env: Record<string, string | undefined> = p
   // the old library goes once the server is up, off the path of the first requests
   setTimeout(() => rmSync(aside, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }), 2000).unref();
   return 'moved';
+}
+
+/**
+ * An archive already in hand (pull-content's file, CI's download) installed
+ * the way the app installs a download: file by file against the pin, into
+ * content.partial, then moved into place. Returns why it refused, or null
+ * once the library is in place; a refused archive leaves the old one serving.
+ */
+export async function installArchive(
+  bytes: Buffer,
+  env: Record<string, string | undefined> = process.env,
+  pin: ArchivePin = CONTENT_PIN,
+): Promise<string | null> {
+  if (!pin.files.some((f) => f[0] === 'meta.json')) return 'archive carries no meta.json';
+  if (bytes.length !== pin.size) return `the archive is ${bytes.length} bytes, not the ${pin.size} its pin says`;
+  const result = await installByRange({
+    url: 'archive:',
+    pin,
+    partial: contentPartialRoot(env),
+    order: [],
+    fetchImpl: archiveFetch(bytes),
+    signal: new AbortController().signal,
+    concurrency: 4,
+    capBytes: 16 * 1024 * 1024,
+    idleMs: 30_000,
+    backoffMs: [],
+    onLanded: () => {},
+  });
+  if (result.kind === 'partial') return `${result.missing.length} files in the archive do not match its pin`;
+  if (result.kind !== 'complete') return 'the archive could not be read';
+  return finishContentInstall(env) === 'kept' ? 'the library could not be moved into place' : null;
 }
 
 interface SettingsLike {
@@ -220,27 +190,26 @@ export function createContentFetcher(deps: {
   url?: string;
   env?: Record<string, string | undefined>;
   log?: (line: string) => void;
-  /** The whole-archive download's bound, headers through last byte; tests shorten it. */
+  /** A host taken whole: the bound, headers through last byte; tests shorten it. */
   timeoutMs?: number;
-  /** The archive's expected sha256; CONTENT_SHA256 unless the URL is custom. */
-  sha256?: string | null;
-  /** The file-by-file pin; the built-in one for the release, SCENRI_CONTENT_PIN or a mirror's size match for a custom URL. */
+  /** The file-by-file pin: the built-in one for the release and its mirrors, SCENRI_CONTENT_PIN for an archive of one's own. */
   pin?: ArchivePin | null;
   /** Library files to fetch first, most wanted first (priority.ts); the rest follow in archive order. */
   priority?: () => readonly string[];
+  /** The package's own copy of the library files it carries (templates/): the identical ones are copied, not fetched. */
+  seed?: string;
   concurrency?: number;
   capBytes?: number;
   idleMs?: number;
   backoffMs?: readonly number[];
-  /** How long a run that ended partial waits before its one more pass. */
-  retryAfterMs?: number;
+  /** After a run that ended partial, when to ask whether the host answers again before the one more pass. */
+  retryWaitsMs?: readonly number[];
 }): ContentFetcher {
   const env = deps.env ?? process.env;
   const log = deps.log ?? console.log;
   const doFetch = deps.fetchImpl ?? fetch;
   const url = resolveContentUrl(env, deps.url);
   const custom = Boolean(deps.url ?? env.SCENRI_CONTENT_URL);
-  const expected = deps.sha256 !== undefined ? deps.sha256 : custom ? null : CONTENT_SHA256;
   const pin = (() => {
     if (deps.pin !== undefined) return deps.pin;
     if (custom && env.SCENRI_CONTENT_PIN) {
@@ -250,9 +219,12 @@ export function createContentFetcher(deps: {
         return null;
       }
     }
-    // The release, or a mirror of it: the probe refuses a host whose archive is not this size.
+    // The release, or a mirror of it: an archive of another size is refused before anything is fetched.
     return CONTENT_PIN;
   })();
+  // SCENRI_CONTENT_RETRY_MS is for specs only (e2e/first-run-library.spec.ts)
+  const specRetry = benchNumber(env.SCENRI_CONTENT_RETRY_MS, 0, 60_000);
+  const retryWaits = deps.retryWaitsMs ?? (specRetry !== undefined ? [specRetry] : [5_000, 10_000, 15_000, 30_000]);
 
   const enabled = () => env.SCENRI_NO_CONTENT_FETCH !== '1' && deps.store.getSetting('content.enabled') !== 'false';
 
@@ -281,93 +253,114 @@ export function createContentFetcher(deps: {
     deps.store.setSetting('content.disclosed', '1');
   };
 
-  async function download(): Promise<ContentFetchResult> {
-    const root = contentCacheRoot(env);
+  const pause = (ms: number) =>
+    new Promise<void>((resolve) => {
+      if (stop.signal.aborted) return resolve();
+      const t = setTimeout(resolve, ms);
+      t.unref?.();
+      stop.signal.addEventListener(
+        'abort',
+        () => {
+          clearTimeout(t);
+          resolve();
+        },
+        { once: true },
+      );
+    });
+
+  /** One pass of the file-by-file install, over the network, or from an archive in memory (no retries: its bytes never change). */
+  const pass = (active: ArchivePin, via: typeof fetch, inMemory = false) =>
+    installByRange({
+      url,
+      pin: active,
+      partial: contentPartialRoot(env),
+      order: deps.priority?.() ?? [],
+      seed: deps.seed,
+      fetchImpl: via,
+      signal: stop.signal,
+      // Eight at once, measured (pnpm cold-start --measure, 2026-09-27, each
+      // file landing as its bytes arrive): on a ~230 Mbps line to GitHub the
+      // Home set in 2.95-3.59 s against 3.48-4.90 at six, the library in
+      // 6.2-7.0 s against 6.9-8.2; at 20 Mbps the line is the limit whatever the
+      // number (60.2 s where the line needs 59.4), and eight costs the first
+      // picture 0.3 s there. Reads merge up to 4 MiB: 16 bought nothing and
+      // held more memory. SCENRI_CONTENT_CONCURRENCY and SCENRI_CONTENT_CAP_MB
+      // are for that bench only.
+      concurrency: deps.concurrency ?? benchNumber(env.SCENRI_CONTENT_CONCURRENCY, 1, 16) ?? 8,
+      capBytes: deps.capBytes ?? (benchNumber(env.SCENRI_CONTENT_CAP_MB, 1, 64) ?? 4) * 1024 * 1024,
+      idleMs: deps.idleMs ?? 30_000,
+      backoffMs: inMemory ? [] : (deps.backoffMs ?? [1000, 2000, 4000, 8000]),
+      onLanded: (f) => {
+        if (landedNames.has(f[0])) return;
+        landedNames.add(f[0]);
+        landedBytes += f[2];
+        if (isPicture(f)) landedPictures += 1;
+      },
+    });
+
+  /** A host that ignores ranges (a proxy, a plain file server): the archive read whole, within the bound. */
+  async function whole(): Promise<Buffer> {
+    const ctrl = new AbortController();
+    const onStop = () => ctrl.abort();
+    stop.signal.addEventListener('abort', onStop, { once: true });
+    const timer = setTimeout(() => ctrl.abort(), deps.timeoutMs ?? TIMEOUT_MS);
+    timer.unref?.();
     try {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), deps.timeoutMs ?? TIMEOUT_MS);
-      if (typeof timer === 'object') timer.unref?.();
       // The bytes are read inside the timer, and the signal aborts the body as
       // well as the request: a server that sends headers and then goes quiet
       // would otherwise hold this download, and every ensure() waiting on it,
       // for as long as the process lives.
-      let bytes: Buffer;
-      try {
-        const res = await doFetch(url, { signal: ctrl.signal });
-        if (!res.ok) return { ok: false, updated: false, error: `archive answered ${res.status}` };
-        bytes = Buffer.from(await res.arrayBuffer());
-      } finally {
-        clearTimeout(timer);
-      }
-      // A failed download or a refused archive leaves the old cache serving.
-      if (expected && !archiveMatches(bytes, expected)) {
-        return {
-          ok: false,
-          updated: false,
-          error: 'the library download does not match the archive this version expects',
-        };
-      }
-      const refused = await installContentArchive(bytes, root);
-      if (refused) return { ok: false, updated: false, error: refused };
-      return { ok: true, updated: true, error: null };
-    } catch (err) {
-      // Offline is a non-event: the bundled catalog and thumbnails carry the
-      // app (or the older cache does), and the next launch simply tries again.
-      return { ok: false, updated: false, error: String((err as Error)?.message ?? err) };
+      const res = await doFetch(url, { signal: ctrl.signal });
+      if (!res.ok) throw new Error(`archive answered ${res.status}`);
+      return Buffer.from(await res.arrayBuffer());
+    } finally {
+      clearTimeout(timer);
+      stop.signal.removeEventListener('abort', onStop);
     }
   }
 
-  async function byRange(active: ArchivePin): Promise<ContentFetchResult | 'unranged'> {
-    const pass = () =>
-      installByRange({
-        url,
-        pin: active,
-        partial: contentPartialRoot(env),
-        order: deps.priority?.() ?? [],
-        fetchImpl: doFetch,
-        signal: stop.signal,
-        // Six at once, measured (pnpm cold-start --measure, 2026-09-27): on a
-        // ~230 Mbps line to GitHub the whole Home set in 3.5-4.2 s against 4.5-4.7
-        // at four and 2.9-3.9 at eight, the library in 6.8-7.4 s against 8.5-8.8
-        // and 6.3-7.1; at 20 Mbps the line is the limit whatever the number, and
-        // more at once only delays the first picture (2.4 s at four, 2.95 at
-        // eight). SCENRI_CONTENT_CONCURRENCY is for that bench only.
-        concurrency: deps.concurrency ?? benchNumber(env.SCENRI_CONTENT_CONCURRENCY, 1, 16) ?? 6,
-        capBytes: deps.capBytes ?? 4 * 1024 * 1024,
-        idleMs: deps.idleMs ?? 30_000,
-        backoffMs: deps.backoffMs ?? [1000, 2000, 4000, 8000],
-        onLanded: (f) => {
-          if (landedNames.has(f[0])) return;
-          landedNames.add(f[0]);
-          landedBytes += f[2];
-          if (isPicture(f)) landedPictures += 1;
-        },
+  /** Whether the host answers a range again, so the one more pass has something to talk to. */
+  async function hostAnswers(): Promise<boolean> {
+    try {
+      const res = await doFetch(url, {
+        headers: { range: 'bytes=0-0' },
+        signal: AbortSignal.any([stop.signal, AbortSignal.timeout(10_000)]),
       });
-    let result = await pass();
-    if (result.kind === 'unranged') return 'unranged';
-    if (result.kind === 'partial' && !stop.signal.aborted) {
-      // One more pass a minute on, which rides out a dropped connection; what
-      // still fails waits for the next start. Never a loop.
-      await new Promise<void>((resolve) => {
-        // SCENRI_CONTENT_RETRY_MS is for specs only (e2e/first-run-library.spec.ts)
-        const t = setTimeout(
-          resolve,
-          deps.retryAfterMs ?? benchNumber(env.SCENRI_CONTENT_RETRY_MS, 0, 60_000) ?? 60_000,
-        );
-        t.unref?.();
-        stop.signal.addEventListener(
-          'abort',
-          () => {
-            clearTimeout(t);
-            resolve();
-          },
-          { once: true },
-        );
-      });
-      if (!stop.signal.aborted) result = await pass();
+      await res.body?.cancel().catch(() => {});
+      return res.status === 206;
+    } catch {
+      return false;
+    }
+  }
+
+  async function install(active: ArchivePin): Promise<ContentFetchResult> {
+    let result: RangedResult = await pass(active, doFetch);
+    if (result.kind === 'unranged') {
+      const bytes = await whole();
+      result =
+        bytes.length === active.size
+          ? await pass(active, archiveFetch(bytes), true)
+          : { kind: 'mismatch', size: bytes.length };
+    } else if (result.kind === 'partial' && !stop.signal.aborted) {
+      // One more pass as soon as the host answers again (asked at 5, 15, 30
+      // and 60 s): a dropped connection costs seconds rather than a fixed
+      // minute, and what still fails waits for the next start. Never a loop.
+      for (const ms of retryWaits) {
+        await pause(ms);
+        if (stop.signal.aborted || (await hostAnswers())) break;
+      }
+      if (!stop.signal.aborted) result = await pass(active, doFetch);
     }
     if (result.kind === 'complete') return { ok: true, updated: true, error: null };
-    if (result.kind === 'unranged') return 'unranged';
+    if (result.kind === 'mismatch') {
+      return {
+        ok: false,
+        updated: false,
+        error: `the archive there is ${result.size} bytes, not the ${active.size} this version pins (an archive of one's own needs SCENRI_CONTENT_PIN)`,
+      };
+    }
+    if (result.kind === 'unranged')
+      return { ok: false, updated: false, error: 'the library host stopped answering byte ranges' };
     failed = result.missing.filter(isPicture).length;
     return { ok: false, updated: false, error: `${result.missing.length} library files did not download` };
   }
@@ -380,9 +373,10 @@ export function createContentFetcher(deps: {
     rmSync(`${contentCacheRoot(env)}.staging`, { recursive: true, force: true, maxRetries: 3 });
     let result: ContentFetchResult;
     try {
-      const ranged = pin ? await byRange(pin) : 'unranged';
-      result = ranged === 'unranged' ? await download() : ranged;
+      result = pin ? await install(pin) : { ok: false, updated: false, error: 'SCENRI_CONTENT_PIN could not be read' };
     } catch (err) {
+      // Offline is a non-event: the bundled catalog and thumbnails carry the
+      // app (or the older cache does), and the next launch simply tries again.
       result = { ok: false, updated: false, error: String((err as Error)?.message ?? err) };
     }
     const seconds = ((Date.now() - began) / 1000).toFixed(1);
