@@ -2109,7 +2109,7 @@ describe('node watchdog', () => {
       },
     });
     expect(gen.statusCode).toBe(202);
-    return b.json().id as string;
+    return { brand: b.json().id as string, node: gen.json().id as string };
   };
 
   it("deleting a brand stops the shots it still has rendering, and no other brand's", async () => {
@@ -2117,7 +2117,7 @@ describe('node watchdog', () => {
     const local = track(buildServer({ core, engines: registryWith(engine), nodeTimeoutMs: 60_000 }));
     const gone = await startRendering(local, 'Gone');
     await startRendering(local, 'Stays');
-    expect((await local.inject({ method: 'DELETE', url: `/api/brands/${gone}` })).statusCode).toBe(200);
+    expect((await local.inject({ method: 'DELETE', url: `/api/brands/${gone.brand}` })).statusCode).toBe(200);
     await vi.waitFor(() => expect(aborted).toHaveLength(1));
     expect(aborted[0]).toContain('Gone');
     // the other brand's take is still drawing, a moment later too
@@ -2139,6 +2139,20 @@ describe('node watchdog', () => {
     expect(wipe.statusCode).toBe(200);
     await vi.waitFor(() => expect(aborted).toHaveLength(2));
     expect(aborted.some((p) => p.includes('One')) && aborted.some((p) => p.includes('Two'))).toBe(true);
+    await local.close();
+  });
+
+  it('refuses Try again on a shot whose run is still drawing, whatever its row says', async () => {
+    const { engine, aborted } = watched();
+    const local = track(buildServer({ core, engines: registryWith(engine), nodeTimeoutMs: 60_000 }));
+    const { node } = await startRendering(local, 'Swept');
+    // another process opened the library and swept the row; the run goes on
+    core.store.failNode(node, 'interrupted: server restarted mid-generation');
+    const again = await local.inject({ method: 'POST', url: `/api/nodes/${node}/retry` });
+    expect(again.statusCode).toBe(409);
+    // and the one run there is can still be stopped
+    expect((await local.inject({ method: 'POST', url: `/api/nodes/${node}/cancel` })).statusCode).toBe(200);
+    await vi.waitFor(() => expect(aborted).toHaveLength(1));
     await local.close();
   });
 

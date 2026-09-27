@@ -2743,7 +2743,12 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const id = (req.params as { id: string }).id;
     const n = core.store.getNode(id);
     if (!n) return reply.status(404).send({ error: 'node not found' });
-    if (n.status === 'running') return reply.status(409).send({ error: 'already running' });
+    // The run itself, not only the row: a row can read "interrupted" while its
+    // run is still drawing (a second process that opened the library swept
+    // it), and a Try again then paid for the same shot twice, the second run
+    // beyond the reach of Cancel.
+    if (n.status === 'running' || runningGenerations.has(id))
+      return reply.status(409).send({ error: 'already running' });
     if (n.status === 'done') return reply.status(400).send({ error: 'finished shots start a new take' });
     if (n.status !== 'error' && n.status !== 'cancelled') {
       return reply.status(400).send({ error: 'cannot retry this shot' });
