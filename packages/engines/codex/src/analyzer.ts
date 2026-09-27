@@ -176,7 +176,8 @@ export interface SizeRead {
 export interface CodexAnalyzer {
   isAvailable(): Promise<EngineAvailability>;
   analyze(req: AnalyzeRequest, signal?: AbortSignal): Promise<PresenterDraft | SceneDraft>;
-  measure(req: MeasureRequest, signal?: AbortSignal): Promise<SizeRead>;
+  /** Null when Codex answered twice with nothing that reads as a size; a run that fails throws. */
+  measure(req: MeasureRequest, signal?: AbortSignal): Promise<SizeRead | null>;
 }
 
 export interface CodexAnalyzerOptions extends RunnerOptions {
@@ -247,7 +248,7 @@ export function createCodexAnalyzer(opts: CodexAnalyzerOptions = {}): CodexAnaly
      * large; the size is worked out from what it is. Read once per product
      * and kept (productScale.ts is why it matters).
      */
-    async measure(req: MeasureRequest, signal?: AbortSignal): Promise<SizeRead> {
+    async measure(req: MeasureRequest, signal?: AbortSignal): Promise<SizeRead | null> {
       return runner.withWorkDir(async (dir) => {
         const ref = join(dir, 'ref-1.png');
         await copyReference(req.imagePath, ref);
@@ -270,7 +271,9 @@ export function createCodexAnalyzer(opts: CodexAnalyzerOptions = {}): CodexAnaly
           if (parsed.ok) return parsed.size;
           problems = parsed.problems;
         }
-        throw new Error(`Codex could not size this product: ${problems.join(' ')}`);
+        // Codex answered and the answer was no size: that is an answer about this photograph, kept as
+        // a miss (productSizes.ts). A run that failed has already thrown above, and is tried again.
+        return null;
       });
     },
   };

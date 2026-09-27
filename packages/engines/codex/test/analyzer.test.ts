@@ -664,8 +664,8 @@ describe('measure', () => {
       );
       child.emit('exit', 0, null);
     });
-    await expect(
-      createCodexAnalyzer({ platform: 'linux', spawnImpl: bad }).measure({ imagePath: photo(), name: 'X' }),
-    ).rejects.toThrow(/could not size this product/);
+    expect(
+      await createCodexAnalyzer({ platform: 'linux', spawnImpl: bad }).measure({ imagePath: photo(), name: 'X' }),
+    ).toBeNull();
   });
 });
