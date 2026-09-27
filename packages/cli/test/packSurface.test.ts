@@ -110,6 +110,18 @@ describe('the published package surface', () => {
     }
   });
 
+  // The same binding for heroes bundled because they were redrawn after the archive.
+  it('every redrawn-since-archive id resolves to a catalog entry and its picture', () => {
+    const script = readFileSync(join(pkgDir, 'scripts', 'prepack.mjs'), 'utf8');
+    const block = script.match(/REDRAWN_SINCE_ARCHIVE = new Set\(\[([\s\S]*?)\]\)/);
+    expect(block).not.toBeNull();
+    for (const [, id] of (block as RegExpMatchArray)[1].matchAll(/'([a-z0-9-]+)'/g)) {
+      const templates = join(pkgDir, '..', '..', 'templates');
+      expect(existsSync(join(templates, 'showcase', `${id}.json`)), id).toBe(true);
+      expect(existsSync(join(templates, 'previews', 'showcase', `${id}.jpg`)), id).toBe(true);
+    }
+  });
+
   // Only meaningful when a build exists to be excluded. publish.yml runs the
   // tests before `pnpm build`, so in CI there is nothing on disk to check and
   // asserting on an empty dist would pass for the wrong reason.
