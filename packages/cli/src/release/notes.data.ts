@@ -105,6 +105,21 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.20.2',
+    date: '2026-09-27',
+    title: 'On a first start, Home fills in as the library arrives',
+    sections: [
+      {
+        heading: 'Library',
+        body: "Home's pictures come first, and each card fills in where it stands as its picture lands. Activity counts the pictures, and a download that stops picks up where it left off.",
+      },
+      {
+        heading: 'Fixes',
+        body: 'Shut down waits until Scenri has stopped, then closes its tab where the browser allows it, or says Scenri is shut down. A shot sent again with Try again stops spinning when it ends, without a reload.',
+      },
+    ],
+  },
+  {
     version: '0.20.1',
     date: '2026-09-27',
     title: 'Use in a shot starts a new prompt with just that pick',
