@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Plus, TrashSimple, UploadSimple } from '@phosphor-icons/react';
 import { api, imgUrl, uploadLogo, type Brand } from '../../api.js';
 import { MARK_BACKGROUNDS, MARK_ROLES, MARK_ROLE_LABEL, marksOf, primaryOf, type Mark } from '../../brand/marks.js';
@@ -195,11 +195,24 @@ function KitField({
   onCommit: (next: string) => void;
 }) {
   const [draft, setDraft] = useState(value);
-  useEffect(() => setDraft(value), [value]);
-  useCommitOnLeave(() => {
-    const next = draft.trim();
+  // What the field holds this instant, for the blur and the leave to commit.
+  // State lags a render behind: Escape put the draft back and blurred in the
+  // same keystroke, and the blur, then Settings closing on that same Escape,
+  // committed the text Escape was taking back, renaming the brand.
+  const held = useRef(value);
+  const hold = (next: string) => {
+    held.current = next;
+    setDraft(next);
+  };
+  useEffect(() => {
+    held.current = value;
+    setDraft(value);
+  }, [value]);
+  const commit = () => {
+    const next = held.current.trim();
     if (next !== value) onCommit(next);
-  });
+  };
+  useCommitOnLeave(commit);
   return (
     <div className="sc-set-row">
       <span className="txt">
@@ -212,11 +225,10 @@ function KitField({
         aria-label={label}
         maxLength={maxLength}
         dir="auto"
-        onChange={(e) => setDraft(e.target.value)}
+        onChange={(e) => hold(e.target.value)}
         onBlur={() => {
-          const next = draft.trim();
-          if (next !== value) onCommit(next);
-          setDraft(next);
+          commit();
+          hold(held.current.trim());
         }}
         onKeyDown={(e) => {
           // Enter commits here and is spent here, the way LineField does it: left
@@ -227,7 +239,7 @@ function KitField({
             e.currentTarget.blur();
           }
           if (e.key === 'Escape') {
-            setDraft(value);
+            hold(value);
             e.currentTarget.blur();
           }
         }}
