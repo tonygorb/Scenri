@@ -20,6 +20,7 @@ export function registerDesktopRoutes(
     /** Injected in tests; the default reads the real launcher record and Desktop. */
     statusImpl?: () => Promise<DesktopStatus>;
     installImpl?: () => Promise<InstallResult>;
+    env?: Record<string, string | undefined>;
   },
 ): void {
   const { core, runtime } = deps;
@@ -74,6 +75,16 @@ export function registerDesktopRoutes(
         reason: 'dev',
       });
     }
+    // The switch that keeps the offer and the refresh off the real Desktop
+    // (worktree lanes, e2e, the cold-start helper) keeps this off it too: a
+    // packed build run by a harness counts as installed, and Add would write
+    // the real ~/.scenri/launcher and icon, pointing into a scratch directory.
+    if ((deps.env ?? process.env).SCENRI_NO_DESKTOP === '1') {
+      return reply.status(409).send({
+        error: 'Desktop shortcuts are switched off for this Scenri (SCENRI_NO_DESKTOP).',
+        reason: 'disabled',
+      });
+    }
     const res = await install();
     if (!res.ok) return reply.status(409).send({ error: res.message, reason: res.reason });
     return { ok: true, path: res.path };
@@ -86,8 +97,8 @@ export function registerDesktopRoutes(
     if (busy > 0) {
       return reply.status(409).send({ error: `work is still running (${busy} task${busy === 1 ? '' : 's'})` });
     }
-    // Answer first, then go: the browser needs this reply to show its stopped
-    // overlay before the socket disappears.
+    // Answer first, then go: the studio takes this reply as the go-ahead, then
+    // waits for the server to be gone before it shows it stopped and closes.
     reply.send({ ok: true });
     const exit = deps.exitImpl ?? ((code: number) => process.exit(code));
     setTimeout(() => {
