@@ -322,12 +322,15 @@ A chip is an inline atom in real text flow that owns its gap as a symmetric 2px 
 ### The brief in progress
 One draft per brand, kept by whichever composer is on screen (Home's dock, Create's).
 - **It survives leaving.** Tabs, Back, a reload and a brand switch bring the brief back as it was: its words,
-  its chips, and the settings a use case lent it (shape, count and quality, which never become the machine's
-  prefs). A use case still fetching its scene's view is the brief all the same, and finishes arriving on return.
+  its chips, and the settings it was lent (a use case's shape and quality, a Remix's count too), which never
+  become the machine's prefs. A use case still fetching its scene's view is the brief all the same, and
+  finishes arriving on return.
 - **"Use in a shot" reads the page it is pressed on.** Where a composer is on screen, the chip joins the brief
   there. On a page without one (a library, an asset's own page, Home on a phone) it starts a new brief holding
   only that chip, and the brief in progress is put aside behind the toast's Undo, never merged into a sentence
-  about something else.
+  about something else. The Undo hands the brief back to its own brand from wherever the person is by then,
+  and it lives as long as the toast, like the create dialogs' Undo: once the toast is gone, so is the brief
+  put aside.
 
 ### Composer attach picker (the "+")
 One panel, one grid, one insertion path. The "+" answers "what do you want to add to this shot": a head
