@@ -1149,7 +1149,9 @@ export function compileBrief(input: Brief, ctx: CompileContext): CompiledBrief {
   // actually rode (same honesty rule as the photo guard), and only on a
   // generation: an edit's identity rides the source frame.
   const refGuard =
-    ctx.mode !== 'edit' && hasPerson && kept.some((a) => a.role === 'reference') ? [referenceIdentityGuard()] : [];
+    ctx.mode !== 'edit' && hasPerson && kept.some((a) => a.role === 'reference')
+      ? [referenceIdentityGuard(people)]
+      : [];
   // A frame picked to follow, as it rode: it sets the camera (productInFrameDirective).
   const framed = ctx.mode !== 'edit' && kept.some((a) => a.role === 'reference' && frameRefs.has(a.hash));
   // The same for a product: a reference's own product never becomes this one.
