@@ -64,6 +64,12 @@ test("what's new sheet", async ({ page }) => {
   await shot(page, 'whatsnew');
 });
 
+test("what's new page", async ({ page }) => {
+  await prep(page);
+  await page.goto(`/${d.slug}/whats-new`);
+  await shot(page, 'whatsnew-page');
+});
+
 test('create-asset sheet', async ({ page }) => {
   await prep(page);
   await page.goto(`/${d.slug}/products?new=1`);

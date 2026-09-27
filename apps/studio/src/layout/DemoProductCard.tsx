@@ -4,6 +4,7 @@ import { productLabel } from '../displayName.js';
 import { categoryLabel } from '../productCategories.js';
 import { catalogMenuItems } from './catalogMenu.js';
 import { CatalogCard, type CatalogCardSize, type CatalogCardVariant } from './CatalogCard.js';
+import { useAppData } from '../app/AppShell.js';
 
 export type DemoProductCardVariant = CatalogCardVariant;
 export type DemoProductCardSize = Exclude<CatalogCardSize, 'shelf'>;
@@ -41,6 +42,7 @@ function DemoProductCardInner({
   size?: DemoProductCardSize;
 }) {
   const category = categoryLabel(product.category) ?? product.category;
+  const { contentArriving } = useAppData();
   const menu = useMemo(
     () =>
       catalogMenuItems({
@@ -55,6 +57,8 @@ function DemoProductCardInner({
     <CatalogCard
       id={product.id}
       previewUrl={product.previewUrl}
+      // a demo product's pictures come with the library download: on its way, not missing
+      pending={!product.previewUrl && contentArriving}
       title={`${productLabel(product, 'tooltip')} · ${category}`}
       primary={productLabel(product, 'card')}
       secondary=""

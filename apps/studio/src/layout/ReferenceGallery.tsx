@@ -1,7 +1,8 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { CaretLeft, CaretRight, ImageSquare } from '@phosphor-icons/react';
 import { CARD_SIZES, nodeLabel, type FeedNode, thumbUrl } from '../api.js';
+import { markPictureReady, pictureIsReady } from './pictureReady.js';
 
 /**
  * Shared between `ScenePage` and `PresenterPage`: the reference-frame grid,
@@ -13,46 +14,90 @@ import { CARD_SIZES, nodeLabel, type FeedNode, thumbUrl } from '../api.js';
 /** One reference frame. A 404 reads the same as never having had one: the
  * blank box, not a broken-image glyph the browser drew on its own. */
 export function RefFrame({ src }: { src: string }) {
-  const [broken, setBroken] = useState(false);
   return (
     <div className="sc-lookpage-ref">
-      {broken ? (
-        <span className="sc-lookpage-ref-blank">
-          <ImageSquare size={20} />
-        </span>
-      ) : (
-        <img src={src} alt="" loading="lazy" onError={() => setBroken(true)} />
-      )}
+      <Shown src={src} />
     </div>
   );
 }
 
 /**
  * A picture the record points at that may not be there any more, bare: no
- * frame around it, for a rail tile or a source thumb that draws its own.
+ * frame around it, for a card, a rail tile or a source thumb that draws its
+ * own.
  *
  * A hash outlives its file (a library restored without its images, a record
  * older than a sweep), and without this the browser drew its own broken glyph
- * instead of saying so.
+ * instead of saying so. The failure belongs to the src, so a card handed a
+ * new one (library imagery that has since arrived) tries again.
+ *
+ * It also owns the reveal every catalog picture shares with the feed: the
+ * picture stays invisible on its host's ground until it has decoded, then
+ * fades in, and a src this session already decoded paints at once with no
+ * fade, so a wall revisited does not flash. `wait` adds the still placeholder
+ * under it, for a host that is positioned and can hold one.
  */
-export function Shown({ src, srcSet, crop }: { src: string; srcSet?: string; crop?: string }) {
-  const [broken, setBroken] = useState(false);
-  if (broken)
+export function Shown({
+  src,
+  srcSet,
+  sizes = CARD_SIZES.large,
+  crop,
+  wait,
+  blank = 'sc-lookpage-ref-blank',
+}: {
+  src: string;
+  srcSet?: string;
+  /** How wide the host lays the picture out, for the srcset to choose by. */
+  sizes?: string;
+  crop?: string;
+  wait?: boolean;
+  /** The blank box's class: the catalog card and the reference frame draw it differently. */
+  blank?: string;
+}) {
+  const [failed, setFailed] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState<string | null>(null);
+  const img = useRef<HTMLImageElement | null>(null);
+  const becomeReady = useCallback(() => {
+    markPictureReady(src);
+    setLoaded(src);
+  }, [src]);
+  const measure = useCallback(
+    (el: HTMLImageElement | null) => {
+      img.current = el;
+      if (el?.complete && el.naturalWidth) becomeReady();
+    },
+    [becomeReady],
+  );
+  useLayoutEffect(() => {
+    const el = img.current;
+    if (el?.complete && el.naturalWidth) becomeReady();
+  }, [becomeReady]);
+  if (failed === src)
     return (
-      <span className="sc-lookpage-ref-blank" aria-hidden>
+      <span className={blank} aria-hidden>
         <ImageSquare size={20} />
       </span>
     );
+  const cached = pictureIsReady(src);
+  const ready = cached || loaded === src;
   return (
-    <img
-      src={src}
-      {...(srcSet ? { srcSet, sizes: CARD_SIZES.large } : {})}
-      alt=""
-      loading="lazy"
-      decoding="async"
-      {...(crop ? { 'data-crop': crop } : {})}
-      onError={() => setBroken(true)}
-    />
+    <>
+      {wait && !ready && <span className="sc-placeholder" />}
+      <img
+        ref={measure}
+        src={src}
+        {...(srcSet ? { srcSet, sizes } : {})}
+        alt=""
+        loading={cached ? 'eager' : 'lazy'}
+        decoding={cached ? 'sync' : 'async'}
+        data-reveal=""
+        data-ready={ready || undefined}
+        data-cached={cached || undefined}
+        {...(crop ? { 'data-crop': crop } : {})}
+        onLoad={becomeReady}
+        onError={() => setFailed(src)}
+      />
+    </>
   );
 }
 
@@ -72,16 +117,9 @@ export function EmptyRefFrame() {
 
 /** One shot in a "made/featuring this" slider — same broken-image fallback. */
 export function ShotThumb({ node, to }: { node: FeedNode; to: string }) {
-  const [broken, setBroken] = useState(false);
   return (
     <Link className="sc-lookcard" aria-label={`Open ${nodeLabel(node)}`} to={to}>
-      {broken ? (
-        <span className="sc-lookcard-blank">
-          <ImageSquare size={20} />
-        </span>
-      ) : (
-        <img src={thumbUrl(node.images[0], 'tile')} alt="" loading="lazy" onError={() => setBroken(true)} />
-      )}
+      <Shown src={thumbUrl(node.images[0], 'tile')} blank="sc-lookcard-blank" />
     </Link>
   );
 }

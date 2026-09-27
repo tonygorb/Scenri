@@ -5,6 +5,7 @@ import { type ShowcaseEntry, thumbOf } from '../api.js';
 import { placeTip } from '../composer/anchorPanel.js';
 import { CatalogCard, CatalogCardSkeleton, type CatalogCardSize } from './CatalogCard.js';
 import { useWallDensitySize } from './DensityControl.js';
+import { useAppData } from '../app/AppShell.js';
 
 export type ShowcaseCardSize = CatalogCardSize;
 
@@ -92,6 +93,7 @@ export function ShowcaseCard({
   decorative?: boolean;
   size?: ShowcaseCardSize;
 }) {
+  const { contentArriving } = useAppData();
   const recipe = [productName, presenterName, sceneName].filter(Boolean).join(' · ');
 
   const presenter: Credit | null = presenterName
@@ -134,6 +136,8 @@ export function ShowcaseCard({
       <CatalogCard
         id={entry.id}
         previewUrl={entry.previewUrl}
+        // most examples' pictures come with the library download: on its way, not missing
+        pending={!entry.previewUrl && contentArriving}
         title={entry.title}
         primary={entry.title}
         secondary={hideRecipe ? '' : recipe}

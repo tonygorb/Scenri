@@ -1,4 +1,7 @@
+import { LandingThumb, RenderingMark } from '../rendering/LandingThumb.js';
+import { runSince } from '../../tasks.js';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { Rendering } from '../Rendering.js';
 import { WarningCircle } from '@phosphor-icons/react';
 import { thumbUrl } from '../../api.js';
 import { briefProse, type ProseNames } from '../../briefDiff.js';
@@ -87,8 +90,13 @@ export function LineageStrip({
     // A narrower stage can leave the ringed step under a fade or past it:
     // slide it back, sideways only. Never scrollIntoView here, which on a
     // phone would also scroll the column whenever the keyboard resized it.
+    // While a refinement is being made it is the one kept in view: it appears
+    // at the end of the row while the shot it came from keeps the ring, and
+    // is the news, so it is seen where it renders rather than past the edge.
+    // Runs again when the row gains it, since the row's length is the key.
     const keep = () => {
-      const tile = el.querySelector<HTMLElement>('[aria-pressed="true"]');
+      const tile =
+        el.querySelector<HTMLElement>('[data-pending]') ?? el.querySelector<HTMLElement>('[aria-pressed="true"]');
       if (!tile) return;
       const t = tile.getBoundingClientRect();
       const b = el.getBoundingClientRect();
@@ -167,13 +175,14 @@ export function LineageStrip({
               data-original={s.index === 0 && trail.length > 1 ? '' : undefined}
               // the step's name and what it asked for, so a reader hears the
               // history the tiles show; the name alone when nothing was recorded
-              aria-label={said[i] ? `${s.label}: ${said[i]}` : s.label}
+              aria-label={`${said[i] ? `${s.label}: ${said[i]}` : s.label}${pending ? ', still rendering' : ''}`}
               aria-pressed={active}
-              aria-disabled={pending || undefined}
+              data-pending={pending || undefined}
               tabIndex={n.id === stop ? 0 : -1}
               onClick={() => {
-                // a picture that is not there yet cannot be looked at; the tile fills in when it lands
-                if (pending) return;
+                // A step still being made opens onto its own place on the
+                // stage, where its clock and Cancel are; the shot it came from
+                // is one click back.
                 peek.closeNow();
                 onSelect(n.id);
               }}
@@ -182,19 +191,11 @@ export function LineageStrip({
               onFocus={(e) => keyboardFocus(e.currentTarget) && s.state === 'ready' && peekAt(s, i, e.currentTarget)}
             >
               {s.state === 'ready' ? (
-                <img
-                  src={thumbUrl(n.images[0], 'micro')}
-                  alt=""
-                  className="sc-thumb"
-                  loading="lazy"
-                  decoding="async"
-                  data-active={active}
-                  width={52}
-                  height={52}
-                />
+                <LandingThumb id={n.id} src={thumbUrl(n.images[0], 'micro')} active={active} />
               ) : pending ? (
                 <span className="sc-thumb sc-thumb-wait" data-active={active}>
-                  <span className="sc-shimmer" />
+                  <Rendering since={runSince(n)} />
+                  <RenderingMark id={n.id} />
                 </span>
               ) : (
                 <span className="sc-thumb sc-thumb-failed" data-active={active}>

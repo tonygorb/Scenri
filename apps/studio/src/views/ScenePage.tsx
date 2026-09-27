@@ -49,6 +49,9 @@ const VIEW_ORDER: readonly SceneView[] = ['hero', 'place', 'close', 'hands', 'an
  * writes it, the same rule the presenter's casting prose already follows, and
  * the rest was a page that read once and was skipped ever after.
  */
+/** Places a set's rail holds while it is asked for: a set is three or more pictures. */
+const FRAMES_HELD = 3;
+
 export function ScenePage() {
   const { sceneId } = useParams();
   const { scenes: catalog, loaded, error, refetch, applyBrand, refreshBrands } = useAppData();
@@ -62,6 +65,8 @@ export function ScenePage() {
   const [refs, setRefs] = useState<string[]>([]);
   /** A curated scene's frames by what they show, when its library names them. */
   const [views, setViews] = useState<{ view: SceneView; url: string }[]>([]);
+  /** Which scene's pictures have been answered for: until then the rail's place is held, not guessed. */
+  const [framesFor, setFramesFor] = useState<string | null>(null);
   const [viewBusy, setViewBusy] = useState(false);
   /** The picture opened at full size, what to call it there, and which view it is. */
   const [open, setOpen] = useState<{ src: string; label: string; view?: SceneView } | null>(null);
@@ -95,9 +100,12 @@ export function ScenePage() {
         if (!alive) return;
         setRefs(r.frames);
         setViews(r.views ?? []);
+        setFramesFor(sceneId ?? '');
       })
       .catch(() => {
-        if (alive) setRefs([]);
+        if (!alive) return;
+        setRefs([]);
+        setFramesFor(sceneId ?? '');
       });
     return () => {
       alive = false;
@@ -430,6 +438,28 @@ export function ScenePage() {
             views do, and so do your own scene's, after its place. */}
         {owned ? (
           <SceneExamples key={owned.id} brandId={brand.id} scene={owned} onError={setErr} />
+        ) : framesFor !== (sceneId ?? '') ? (
+          // The set is still being asked for: its rail's place, held with still
+          // placeholders. Drawing the card's single picture meanwhile laid the
+          // page out one way and then swapped it for the rail when the set came.
+          <Rail
+            count={FRAMES_HELD}
+            label="Pictures of this place"
+            className="sc-refset-rail"
+            trackClassName="sc-refset"
+          >
+            {Array.from({ length: FRAMES_HELD }, (_, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: held places have no identity beyond their slot
+              <li key={i} aria-hidden>
+                <span className="sc-sceneview-frame">
+                  <span className="sc-refset-tile" data-state="loading">
+                    <span className="sc-placeholder" />
+                  </span>
+                </span>
+                <SceneViewCaption label="" isCover={false} />
+              </li>
+            ))}
+          </Rail>
         ) : frames.length > 1 ? (
           <Rail
             count={frames.length}

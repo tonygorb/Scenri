@@ -26,13 +26,18 @@ export const quantize = (v: number): number => Math.floor(v / SCROLL_QUANTUM) * 
 
 /**
  * A tile's height before it has been measured: the picture box at the
- * column's width inside the cell's 1px border, plus the gutter. A failed
- * tile has no picture and takes the same 4:5 the sending stand-in does.
+ * column's width inside the cell's 1px border, plus the gutter. A tile with
+ * no shape to go on takes the sending stand-in's 4:5. A failed tile keeps
+ * the shape it rendered in, and in a column of 200px or less it is never
+ * shorter than its note (failure.css holds it at 112px).
  */
+export const FAILED_TILE_FLOOR = 112;
 export function estimateHeight(kind: TileKind, aspect: number | undefined, colWidth: number): number {
   const inner = Math.max(0, colWidth - 2);
-  const ar = kind !== 'failed' && aspect && aspect > 0 ? aspect : 4 / 5;
-  return Math.round(inner / ar) + 2 + GAP;
+  const ar = aspect && aspect > 0 ? aspect : 4 / 5;
+  const box = Math.round(inner / ar) + 2;
+  const floored = kind === 'failed' && colWidth <= 200 ? Math.max(box, FAILED_TILE_FLOOR) : box;
+  return floored + GAP;
 }
 
 /** Where each tile of a column starts; one entry more than tiles, the last being the column's height. */

@@ -1,68 +1,472 @@
 /* ---------- what's new ----------
-   Title, one caption of version and date, the notes, then the way out.
-   Spacing does the hierarchy. No second heading, no rules around a
-   paragraph. The only gold in this feature is the unread dot. */
+   One update in a dialog (views/WhatsNewDialog.tsx), the history on a page
+   (views/WhatsNewPage.tsx), and one media stage for every picture in both.
+   The picture is the real app and the brightest thing here; type and spacing
+   do the rest. No serif, no badges, no rules around a paragraph. The only gold
+   in this feature is the unread dot.
 
-.sc-wn-sub {
-  flex: none;
-  margin: 2px 0 18px;
+   Built from the system's own parts: its tokens for every size, space, colour
+   and timing it has one for; its status mark for a version (.sc-tag-version,
+   settings.css); the scene page's corner control to say a picture opens larger
+   (.sc-corner .sc-cell-ctl, canvas.css); its icon button for the lightbox's
+   close. What the system has no token for is named once, here: the stage's
+   geometry and lift, and the page's own measures. */
+
+/* The media stage: every picture is the whole app at one window, 16:9
+   (apps/studio/capture/), on a soft painted sky (src/assets/whatsnew-stage.webp),
+   with the same margin on all four sides, so the dark window reads as an
+   object set on it. The picture is contained, never covered: a crop is the
+   capture's decision, never the renderer's. The stage holds its shape before
+   the picture decodes; the picture fades in. On the page it is a button that
+   opens the picture larger; in the dialog it sits inside the excerpt's link.
+   Its shape is fixed, 400:239: the 16:9 picture across 92% of its width with
+   4% of margin all round (0.92 x 9/16 + 0.08 = 0.5975). */
+.sc-wn-media {
+  /* The lift under a picture. Not a theme shadow: the sky is the same painting
+     in both themes, so the shadow on it is too, three soft layers tinted to
+     the sky rather than black, stated once as the shot tile states its mark's
+     (canvas.css, --sc-cell-mark-shadow). */
+  --sc-wn-lift: drop-shadow(0 1px 1px rgb(24 28 48 / 0.1)) drop-shadow(0 6px 12px rgb(24 28 48 / 0.14))
+    drop-shadow(0 18px 36px rgb(24 28 48 / 0.16));
+  /* the step of light under the pointer and the keyboard (below) */
+  --sc-wn-lit: brightness(1.12);
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  aspect-ratio: 400 / 239;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-raised) url("../../assets/whatsnew-stage.webp") center / cover no-repeat;
+  font: inherit;
+  overflow: hidden;
+  /* the margin below is a share of the stage's own width, whatever column it sits in */
+  container-type: inline-size;
+  transition: filter var(--sc-dur-slow) var(--sc-ease);
+}
+/* The page's stage opens the picture larger, so it asks for the magnifier
+   (the platform's pointer for every button would say it goes somewhere), and
+   it hosts the corner control at the scene page's size for its view. */
+button.sc-wn-media {
+  --sc-cell-ctl-size: 28px;
+  cursor: zoom-in;
+}
+/* The picture carries its own shape: whole windows captured with their rounded
+   corners as transparency, so no radius or ring is added here, and the lift is
+   a drop-shadow that follows those corners. The same margin on all four sides
+   (4% of the stage), and the window's shape held before it decodes: its box
+   is set in the stage's own units (cqi, a hundredth of the stage's width). */
+.sc-wn-media img {
+  position: absolute;
+  top: 4cqi;
+  left: 4cqi;
+  display: block;
+  width: 92cqi;
+  height: 51.75cqi;
+  margin: 0;
+  object-fit: contain;
+  filter: var(--sc-wn-lift);
+  opacity: 0;
+  transition: opacity var(--sc-dur-slow) var(--sc-ease);
+}
+.sc-wn-media[data-ready] img {
+  opacity: 1;
+}
+/* Under the pointer the stage brightens a step, and nothing moves: the
+   pickers' own answer and their reason (.sc-ap-card, "a zoom read as
+   sloppy. Nothing moves, nothing scales"). Measured on this stage, a picture
+   of the app that grows either blurs (a transform draws it from a cached,
+   softer copy, an eighth of its detail mid-growth) or wobbles (a resized box
+   steps a pixel at a time and its sides round apart). The step is clearer
+   than the pickers' 1.06, which is set for photographs and moved this pale
+   sky ten levels: 1.12 lights the sky clearly and stays calm, and never
+   darkens anything. The excerpt (the dialog) or the stage (the page) is the
+   target. On the page, where the stage opens the picture larger, the scene
+   page's corner control says so, revealed the way the scene page reveals it
+   (asset-pages.css, .sc-sceneview-frame): as a mark, because the whole stage
+   is the button. The keyboard gets all of it, and the ring. On a touch
+   screen the corner control stays, as it does on every card. */
+@media (hover: hover) {
+  .sc-wn-ex:hover .sc-wn-media,
+  button.sc-wn-media:hover {
+    filter: var(--sc-wn-lit);
+  }
+  button.sc-wn-media:hover .sc-corner .sc-cell-ctl {
+    opacity: 1;
+    transition-delay: 0s;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+}
+:where(:root:not([data-input="pointer"])) button.sc-wn-media:focus-visible {
+  filter: var(--sc-wn-lit);
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
+}
+:where(:root:not([data-input="pointer"])) button.sc-wn-media:focus-visible .sc-corner .sc-cell-ctl {
+  opacity: 1;
+  transition-delay: 0s;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+/* The fallback: the og-image as the picture, with a window picture's corners
+   (20px on the 1920px window, scaled to the 92cqi picture), and the release's
+   version on it where the artwork leaves room, its top-left, inset the way
+   the stage insets the picture. */
+.sc-wn-fallback img {
+  border-radius: calc(92cqi * 20 / 1920);
+}
+.sc-wn-fallback-chip {
+  position: absolute;
+  top: calc(4cqi + 3cqi);
+  left: calc(4cqi + 3cqi);
+  display: flex;
+}
+
+/* The picture larger, and nothing else: the app's scrim on the dialog layer
+   (95, tokens.css's stacking order, as .sc-newdlg-scrim), the picture as large
+   as the window allows at its own shape, and a press anywhere closes it. */
+.sc-wn-lb-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  background: var(--sc-scrim);
+  animation: sc-fade-in var(--sc-dur-slow) var(--sc-ease) both;
+}
+.sc-wn-lb {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: grid;
+  /* one track the size of the window, so the picture's 100% is the room it has */
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  place-items: center;
+  box-sizing: border-box;
+  padding: max(var(--sc-space-8), 4vmin);
+  cursor: zoom-out;
+  outline: none;
+}
+/* The same stage as the page's, larger: as wide as the window allows and no
+   taller than it. A stage is 0.5975 of its width tall (the 16:9 picture on
+   92% of it, and the 4% margin above and below). */
+.sc-wn-lb .sc-wn-lb-stage {
+  width: min(100%, calc((100dvh - 2 * max(var(--sc-space-8), 4vmin)) / 0.5975));
+  box-shadow: var(--sc-shadow-3);
+  cursor: inherit;
+  animation: sc-fade-in var(--sc-dur-slow) var(--sc-ease) both;
+}
+/* the app's icon button, for the keyboard and a screen reader: a pointer
+   closes it by pressing anywhere, so it shows only for the keyboard */
+.sc-wn-lb-close {
+  position: fixed;
+  top: max(var(--sc-space-6), env(safe-area-inset-top));
+  right: max(var(--sc-space-6), env(safe-area-inset-right));
+  opacity: 0;
+}
+:where(:root:not([data-input="pointer"])) .sc-wn-lb-close:focus-visible {
+  opacity: 1;
+}
+
+/* Which version and when: the version first, on the dialog's one line and
+   over the date in the page's column. The version is the tag; the date is
+   meta, in the third ink at the regular weight, as the app's other times are
+   (conversation.css, .sc-convo-time), so it never competes with the words. */
+.sc-wn-when {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--sc-space-4);
+  margin: 0;
   font-size: var(--sc-text-body);
+  font-weight: 400;
   line-height: 1.4;
   color: var(--sc-fg3);
 }
-.sc-wn-ver {
-  font-variant-numeric: tabular-nums;
-  color: var(--sc-fg);
+/* a date is one line in its column at every width */
+.sc-wn-when time {
+  white-space: nowrap;
 }
-.sc-wn .sc-newdlg-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sc-space-6);
-}
-.sc-wn-lede {
-  margin: 0;
-  font-size: 15.5px;
-  line-height: 1.35;
-  color: var(--sc-fg);
-  text-wrap: pretty;
-}
-.sc-wn-head {
-  margin: 0 0 4px;
-  font-size: var(--sc-text-body);
-  font-weight: 600;
-  line-height: 1.3;
-  color: var(--sc-fg);
-}
+
 .sc-wn-txt {
   margin: 0;
-  max-width: var(--sc-measure-lede);
-  font-size: 13.5px;
-  line-height: 1.6;
+  font-size: var(--sc-text-control);
+  line-height: 1.55;
   color: var(--sc-fg2);
   text-wrap: pretty;
 }
 
+/* the way to one version's full notes, and to the page: quiet, never a button */
+.sc-wn-link,
+.sc-wn-notes {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  font-size: var(--sc-text-body);
+  font-weight: 500;
+  color: var(--sc-fg2);
+  text-decoration: none;
+  transition: color var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-wn-notes {
+  color: var(--sc-fg3);
+}
+.sc-wn-link:hover:not(:active),
+.sc-wn-notes:hover:not(:active) {
+  color: var(--sc-fg);
+}
+
+/* The dialog is an excerpt: the picture on its stage, which version and when,
+   the title. One link, stretched over all three, opens the release on the page. */
+.sc-wn-ex {
+  position: relative;
+  border-radius: var(--sc-radius-lg);
+}
+.sc-wn-ex .sc-wn-media {
+  margin-bottom: var(--sc-space-6);
+}
+.sc-wn-hed {
+  margin: var(--sc-space-2) 0 0;
+  font-size: var(--sc-text-title);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  color: var(--sc-fg);
+  text-wrap: balance;
+}
+/* The headline says it is a link the way the app's links do (.sc-sec-more):
+   underlined under the pointer, anywhere on the excerpt. */
+.sc-wn-ex-link {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .sc-wn-ex:hover .sc-wn-ex-link {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+.sc-wn-ex-link::after {
+  content: "";
+  position: absolute;
+  /* a little past the excerpt, so the keyboard's ring clears the words */
+  inset: calc(-1 * var(--sc-space-3));
+  z-index: 1;
+  border-radius: calc(var(--sc-radius-lg) + var(--sc-space-3));
+}
+/* the keyboard's ring goes round the whole excerpt it opens, not the words */
+:where(:root:not([data-input="pointer"])) .sc-wn-ex-link:focus-visible {
+  outline: none;
+}
+:where(:root:not([data-input="pointer"])) .sc-wn-ex-link:focus-visible::after {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
+}
 .sc-wn-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-top: 8px;
+  gap: var(--sc-space-5);
 }
 .sc-wn-foot > .sc-btn:only-child {
   margin-left: auto;
 }
-.sc-wn-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: var(--sc-text-body);
-  color: var(--sc-fg3);
-  text-decoration: none;
-  transition: color var(--sc-dur-fast) var(--sc-ease);
+
+/* The page, in three levels and one rhythm. Its own name is a detail page's
+   name (look-page.css: 42/600, stepping down with the window at the same
+   widths); every update's title is the app's title size (20/600), the newest
+   and the oldest alike; each area is a heading of its own over its sentence
+   at the read-back size (15), the name in ink and the words in the second
+   ink. The version-and-date column is the quiet one. Space says what belongs
+   together: the scale's 20 after a title or a picture and 16 between areas,
+   and the page's beat and a hairline between updates. */
+.sc-wn-page {
+  /* The page's own measures, named once, because the spacing scale stops at
+     24px and a page's rhythm is larger: the version-and-date column, the gap
+     between it and the update, the beat between updates (either side of
+     their hairline), and an update's width, its picture's and its lines'. */
+  --sc-wn-side: 160px;
+  --sc-wn-gap: 48px;
+  --sc-wn-beat: 48px;
+  --sc-wn-measure: 600px;
+  /* the positioned ancestor of the visually hidden words in every row, so they
+     stay inside the scroll pane instead of stretching the window's own scroll */
+  position: relative;
+  /* exactly as wide as its two columns; the padding is the shell's */
+  box-sizing: content-box;
+  max-width: calc(var(--sc-wn-side) + var(--sc-wn-gap) + var(--sc-wn-measure));
+  margin: 0 auto;
+  /* the detail pages' shell (look-page.css, .sc-lookpage), step for step */
+  padding: 40px max(32px, env(safe-area-inset-right)) 120px max(32px, env(safe-area-inset-left));
 }
-.sc-wn-link:hover {
+.sc-wn-page-head {
+  margin: 0 0 var(--sc-wn-beat);
+}
+.sc-wn-page-head h1 {
+  margin: 0;
+  font: 600 var(--sc-text-h1) / 1.14 var(--sc-font);
+  letter-spacing: -0.035em;
   color: var(--sc-fg);
+}
+.sc-wn-page-head p {
+  margin: var(--sc-space-4) 0 0;
+  font-size: var(--sc-text-input);
+  line-height: 1.5;
+  color: var(--sc-fg2);
+}
+.sc-wn-page > .sc-wn-txt {
+  max-width: var(--sc-measure-prose);
+}
+
+.sc-wn-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sc-wn-row {
+  display: grid;
+  grid-template-columns: var(--sc-wn-side) minmax(0, 1fr);
+  column-gap: var(--sc-wn-gap);
+  align-items: first baseline;
+}
+/* the version over the date */
+.sc-wn-row > .sc-wn-when {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sc-space-3);
+}
+.sc-wn-list > .sc-wn-row + .sc-wn-row {
+  margin-top: var(--sc-wn-beat);
+  padding-top: var(--sc-wn-beat);
+  border-top: 1px solid var(--sc-line);
+}
+.sc-wn-what {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+  max-width: var(--sc-wn-measure);
+}
+/* every update's title, recent or years old: one size */
+.sc-wn-row-hed {
+  font-size: var(--sc-text-title);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  color: var(--sc-fg);
+  text-wrap: balance;
+}
+.sc-wn-row-hed {
+  margin: 0;
+}
+/* one picture per update, straight under its title, the width of its words:
+   the evidence first, then what each area changed. A headline stands out by
+   its picture, never by bigger type. */
+.sc-wn-what .sc-wn-media {
+  margin-top: var(--sc-space-7);
+}
+/* each area a heading over its sentence, never run into it */
+.sc-wn-areas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-6);
+  margin-top: var(--sc-space-7);
+}
+.sc-wn-area h3 {
+  margin: 0;
+  font-size: var(--sc-text-input);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--sc-fg);
+}
+.sc-wn-area p {
+  margin: var(--sc-space-1) 0 0;
+  font-size: var(--sc-text-input);
+  line-height: 1.6;
+  color: var(--sc-fg2);
+  text-wrap: pretty;
+}
+/* a release's full notes come last, after its words */
+.sc-wn-what > .sc-wn-notes {
+  align-self: flex-start;
+  margin-top: var(--sc-space-7);
+}
+
+/* the next ten: a real button, loading by itself as it comes into view */
+.sc-wn-more {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--sc-wn-beat);
+  padding-top: var(--sc-space-8);
+  border-top: 1px solid var(--sc-line);
+}
+
+.sc-wn-page-foot {
+  margin-top: var(--sc-wn-beat);
+  padding-top: var(--sc-space-8);
+  border-top: 1px solid var(--sc-line);
+}
+.sc-wn-page-foot p {
+  margin: 0 0 var(--sc-space-4);
+  max-width: var(--sc-measure-prose);
+  font-size: var(--sc-text-body);
+  line-height: 1.45;
+  color: var(--sc-fg3);
+}
+
+/* The shell and the page's name step down at the detail pages' widths
+   (look-page.css); the page's columns fold at the phone's (shells.css). */
+@media (max-width: 900px) {
+  .sc-wn-page {
+    --sc-text-h1: 34px;
+    --sc-wn-side: 136px;
+    --sc-wn-gap: 32px;
+    padding: 32px 28px 104px;
+  }
+}
+@media (max-width: 767px) {
+  /* The sheet's body scrolls on a phone, and a scroller clips at its padding:
+     room for the excerpt's ring on every side, given back by the margin so
+     nothing moves. */
+  .sc-wn .sc-newdlg-body {
+    margin: 0 calc(-1 * var(--sc-space-5)) calc(-1 * var(--sc-space-4));
+    padding: var(--sc-space-6) var(--sc-space-5) var(--sc-space-5);
+  }
+  .sc-wn-page {
+    --sc-wn-beat: 40px;
+  }
+  /* one column: the version over the date, then the update, its notes last */
+  .sc-wn-row {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--sc-space-5);
+  }
+  .sc-wn-what {
+    max-width: none;
+  }
+  /* A phone has no room beside the picture, so larger is the whole width: the
+     stage runs edge to edge and square, as a phone shows its own photos. With
+     the window's padding it came out narrower than the column it opened from. */
+  .sc-wn-lb {
+    padding-inline: 0;
+  }
+  .sc-wn-lb .sc-wn-lb-stage {
+    border-radius: 0;
+  }
+}
+@media (max-width: 640px) {
+  .sc-wn-page {
+    --sc-text-h1: 28px;
+    padding: 24px 20px 96px;
+  }
+}
+@media (max-width: 400px) {
+  .sc-wn-page {
+    --sc-text-h1: 24px;
+    padding: 20px 16px 88px;
+  }
 }
 
 .sc-menu-new {
@@ -74,8 +478,16 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sc-wn .sc-wn-link {
+  .sc-wn-link,
+  .sc-wn-notes,
+  .sc-wn-media,
+  .sc-wn-media img,
+  button.sc-wn-media .sc-cell-ctl {
     transition: none;
+  }
+  .sc-wn-lb-scrim,
+  .sc-wn-lb .sc-wn-lb-stage {
+    animation: none;
   }
 }
 

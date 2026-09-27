@@ -75,7 +75,10 @@ export function FailureNote({
       // The server writes one of these itself and it runs to three sentences.
       // Set at display size that is a headline which has stopped being one.
       data-long={failure.title.length > 90 || undefined}
-      role="alert"
+      // On the stage a failure is the news, said at once. On a tile it is one
+      // of many records in a grid, and the screen's one live region already
+      // says a shot failed; a grid of alerts spoke over each other.
+      role={tile ? undefined : 'alert'}
     >
       <span className="sc-fail-ic" aria-hidden>
         <WarningCircle size={tile ? 15 : 21} weight="fill" />

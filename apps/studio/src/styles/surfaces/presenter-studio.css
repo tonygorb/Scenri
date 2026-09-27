@@ -146,10 +146,10 @@
 }
 
 /* Nothing drawn and nothing drawing: the well keeps its box, so the picture
-   and the sweep arrive into the same geometry, and gives up its fill, because
-   a plate of raised grey this size reads as a picture that failed to load
-   rather than as a space one is coming to. The fill is back the instant
-   something is being drawn, under the sweep, where it belongs. */
+   and the moving band arrive into the same geometry, and gives up its fill,
+   because a plate of raised grey this size reads as a picture that failed to
+   load rather than as a space one is coming to. The fill is back the instant
+   something is being drawn, under the band, where it belongs. */
 .sc-pstudio-well[data-empty]:not([data-drawing]) {
   background: none;
 }
@@ -175,42 +175,11 @@
   opacity: 0;
 }
 
-.sc-pstudio-well[data-drawing] img {
-  opacity: 0.8;
-}
-
-/* The well is the largest surface the sweep crosses in the app, so it takes
-   the slowest pass, the way the stage does: one apparent speed everywhere
-   rather than a highlight that races across a big box. The slot is small and
-   takes the quick one. */
-.sc-pstudio-well > .sc-shimmer {
-  --sc-shimmer-dur: 2.9s;
-  border-radius: inherit;
-}
-.sc-pstudio-slot-inner > .sc-shimmer {
-  --sc-shimmer-dur: 1.15s;
-  border-radius: inherit;
-}
-
-/* a light sweeps the picture while its view is drawn again: worked on, not gone */
-.sc-pstudio-veil {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.16) 50%, transparent 65%);
-  background-size: 260% 100%;
-  animation: sc-pstudio-sweep 1800ms ease-in-out infinite;
-}
-
-@keyframes sc-pstudio-sweep {
-  from {
-    background-position: 120% 0;
-  }
-
-  to {
-    background-position: -120% 0;
-  }
-}
+/* While a view is drawn again the picture on the well stays whole: it is the
+   version in use until the new one lands, and the thing to compare against.
+   It used to dim to 0.8 under a white sweep, which made the current picture
+   read as the one being made. What is being drawn is said by the pill below
+   and marked on that view's slot in the strip. */
 
 /* what is being drawn, and for how long, in one pill at the foot of the stage */
 .sc-pstudio-doing {
@@ -234,40 +203,6 @@
 .sc-pstudio-doing time {
   color: var(--sc-fg3);
   font-variant-numeric: tabular-nums;
-}
-
-.sc-pstudio-slot-work {
-  position: absolute;
-  inset: auto 6px 6px auto;
-  color: var(--sc-fg);
-}
-
-.sc-pstudio-ring {
-  width: 12px;
-  height: 12px;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: sc-pstudio-ring 720ms linear infinite;
-}
-
-@keyframes sc-pstudio-ring {
-  to {
-    rotate: 360deg;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .sc-pstudio-veil {
-    animation: none;
-    background: rgba(255, 255, 255, 0.06);
-  }
-
-  .sc-pstudio-ring {
-    animation: none;
-    border-right-color: currentColor;
-    opacity: 0.5;
-  }
 }
 
 .sc-pstudio-well-blank {

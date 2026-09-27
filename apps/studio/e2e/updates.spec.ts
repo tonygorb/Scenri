@@ -215,7 +215,7 @@ test.describe
       await page.keyboard.press('Escape');
     });
 
-    test("Settings → Updates opens the canonical What's new dialog", async ({ page }) => {
+    test("Settings, Updates: the What's new row goes to the What's new page", async ({ page }) => {
       // straight to the brand path: the / redirect drops query params
       await page.goto(`${fx.base()}/acme?settings=updates`);
       await expect(page.locator('.sc-set .sc-tag-gold')).toHaveText('0.99.0 available');
@@ -228,18 +228,27 @@ test.describe
         updateRows(page).filter({ hasText: 'Updates' }).locator('a[href*="releases/tag/v0.99.0"]'),
       ).toHaveText("See what's in 0.99.0");
 
-      // the row is permanent now — it is about the version you are running,
-      // not the one on offer, so it does not come and go with the update check
-      const row = updateRows(page).filter({ hasText: "What's new" });
-      await row.locator('button', { hasText: 'Show' }).click();
-      await expect(page.locator('.sc-wn')).toBeVisible();
-      // the surface is the title; the version is a quiet fact under it
-      await expect(page.getByRole('dialog')).toHaveAccessibleName("What's new");
-      await page.keyboard.press('Escape');
-      await expect(page.locator('.sc-wn')).toHaveCount(0);
-
       // running from source in this spec, so the update row is git guidance
       await expect(updateRows(page).filter({ hasText: 'Update' }).first()).toBeVisible();
+
+      // the row is permanent: it is about the version you are running, not the
+      // one on offer, so it does not come and go with the update check. It
+      // leads to the page, which leaves Settings, and Back returns to it.
+      const row = updateRows(page).filter({ hasText: "What's new" });
+      const show = row.getByRole('link', { name: 'Show' });
+      await expect(show).toHaveAttribute('href', '/acme/whats-new');
+      await show.click();
+      await expect(page).toHaveURL((u) => u.pathname === '/acme/whats-new' && u.search === '');
+      await expect(page.locator('.sc-set')).toHaveCount(0);
+      await expect(page.getByRole('heading', { level: 1, name: "What's new" })).toBeFocused();
+      await expect(page).toHaveTitle("What's new - Scenri");
+      // the page, not the dialog: nothing opens over it
+      await expect(page.locator('.sc-wn')).toHaveCount(0);
+      await expect(page.locator('.sc-wn-row').first()).toBeVisible();
+
+      await page.goBack();
+      await expect(page).toHaveURL(/settings=updates/);
+      await expect(page.locator('.sc-set')).toBeVisible();
     });
 
     test('first-run setup never shows the float: its fallback has nothing to open there', async ({ page }) => {

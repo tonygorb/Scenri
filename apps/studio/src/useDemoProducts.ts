@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, type DemoProduct } from './api.js';
 
 export interface DemoProductsData {
@@ -11,7 +11,13 @@ export interface DemoProductsData {
 }
 
 export interface UseDemoProductsResult extends DemoProductsData {
-  refetch: () => void;
+  /**
+   * Read the catalog again. Quiet keeps what is on screen, and `loaded`, until
+   * the new answer replaces it, and keeps it if the read fails: for a catalog
+   * that has only gained pictures (the library download landing), where
+   * falling back to skeletons would be the flash this exists to avoid.
+   */
+  refetch: (opts?: { quiet?: boolean }) => void;
 }
 
 const EMPTY: DemoProductsData = { demoProducts: [], categories: [], loaded: false, error: false };
@@ -25,6 +31,7 @@ const EMPTY: DemoProductsData = { demoProducts: [], categories: [], loaded: fals
 export function useDemoProducts(): UseDemoProductsResult {
   const [data, setData] = useState<DemoProductsData>(EMPTY);
   const [tick, setTick] = useState(0);
+  const quiet = useRef(false);
 
   useEffect(() => {
     let alive = true;
@@ -34,15 +41,16 @@ export function useDemoProducts(): UseDemoProductsResult {
         if (alive) setData({ demoProducts: r.demoProducts, categories: r.categories, loaded: true, error: false });
       })
       .catch(() => {
-        if (alive) setData((d) => ({ ...d, loaded: true, error: true }));
+        if (alive && !quiet.current) setData((d) => ({ ...d, loaded: true, error: true }));
       });
     return () => {
       alive = false;
     };
   }, [tick]);
 
-  const refetch = useCallback(() => {
-    setData((d) => ({ ...d, loaded: false, error: false }));
+  const refetch = useCallback((opts?: { quiet?: boolean }) => {
+    quiet.current = !!opts?.quiet;
+    if (!quiet.current) setData((d) => ({ ...d, loaded: false, error: false }));
     setTick((t) => t + 1);
   }, []);
 

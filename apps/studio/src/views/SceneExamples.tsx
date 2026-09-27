@@ -7,6 +7,7 @@ import { type CustomScene, coverViewOf } from '../brandAssets.js';
 import { ImageLightbox } from '../composer/ImageLightbox.js';
 import { FRAMINGS, SETUPS_MAX } from '../create/scene/sceneSetups.js';
 import { Rail } from '../layout/Rail.js';
+import { Rendering } from '../layout/Rendering.js';
 import { SceneViewActions, SceneViewCaption } from '../layout/SceneViewActions.js';
 import { EmptyRefFrame, Shown } from '../layout/ReferenceGallery.js';
 import {
@@ -263,7 +264,7 @@ export function SceneExamples({
                 {t.state === 'drawing' ? (
                   <span className="sc-refset-tile" data-state="drawing" role="img" aria-label={`${label}, drawing`}>
                     {t.url && <Shown src={thumbOf(t.url, 'tile')} srcSet={tileSrcSet(t.url)} />}
-                    <span className="sc-shimmer" aria-hidden />
+                    <Rendering />
                   </span>
                 ) : t.state === 'failed' ? (
                   <span
@@ -275,6 +276,8 @@ export function SceneExamples({
                   >
                     <WarningCircle size={20} aria-hidden />
                     <span>Did not draw</span>
+                    {/* why, on the tile: a reason only in a tooltip is no reason on a phone */}
+                    {t.error && <small className="sc-refset-why">{failureWords(t.error) ?? t.error}</small>}
                   </span>
                 ) : (
                   <span className="sc-sceneview-frame" data-cover={coverView === t.role || undefined}>

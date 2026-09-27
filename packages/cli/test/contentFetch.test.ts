@@ -111,3 +111,81 @@ describe('the archive this build was tested against', () => {
     }
   });
 });
+
+/**
+ * What the studio is told while the library downloads. The attempt starts
+ * three seconds after listen and the studio asks at once, so "on its way" has
+ * to be true before the attempt begins, or the studio heard "nothing coming"
+ * and never looked again. A failed attempt must end it, or the cards would
+ * wait for pictures that are not coming.
+ */
+describe('what the studio is told about the download', () => {
+  const dirs: string[] = [];
+  afterEach(() => {
+    for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+  });
+  const store = () => {
+    const settings = new Map<string, string>();
+    return {
+      getSetting: (k: string) => settings.get(k) ?? null,
+      setSetting: (k: string, v: string) => void settings.set(k, v),
+    };
+  };
+
+  it('says pictures are arriving before the attempt starts, and counts the install that lands them', async () => {
+    const zip = new JSZip();
+    zip.file('meta.json', JSON.stringify({ version: 4 }));
+    const body = await zip.generateAsync({ type: 'nodebuffer' });
+    const server = createServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'application/zip', 'content-length': String(body.length) });
+      res.end(body);
+    });
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    const home = mkdtempSync(join(tmpdir(), 'scenri-state-'));
+    dirs.push(home);
+    try {
+      const fetcher = createContentFetcher({
+        store: store(),
+        url: `http://127.0.0.1:${(server.address() as AddressInfo).port}/scenri-content.zip`,
+        env: { SCENRI_HOME: home },
+        log: () => {},
+        sha256: createHash('sha256').update(body).digest('hex'),
+      });
+      expect(fetcher.state()).toEqual({ arriving: true, installs: 0 });
+      const res = await fetcher.ensure();
+      expect(res).toMatchObject({ ok: true, updated: true });
+      expect(fetcher.state()).toEqual({ arriving: false, installs: 1 });
+    } finally {
+      server.close();
+    }
+  });
+
+  it('stops saying so once an attempt fails, so nothing waits for ever', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'scenri-state-'));
+    dirs.push(home);
+    const fetcher = createContentFetcher({
+      store: store(),
+      url: 'http://127.0.0.1:9/scenri-content.zip',
+      env: { SCENRI_HOME: home },
+      log: () => {},
+      fetchImpl: (async () => {
+        throw new Error('offline');
+      }) as unknown as typeof fetch,
+    });
+    expect(fetcher.state().arriving).toBe(true);
+    const res = await fetcher.ensure();
+    expect(res.ok).toBe(false);
+    expect(fetcher.state()).toEqual({ arriving: false, installs: 0 });
+  });
+
+  it('says nothing is arriving when the download is switched off', () => {
+    const home = mkdtempSync(join(tmpdir(), 'scenri-state-'));
+    dirs.push(home);
+    const fetcher = createContentFetcher({
+      store: store(),
+      env: { SCENRI_HOME: home, SCENRI_NO_CONTENT_FETCH: '1' },
+      log: () => {},
+    });
+    expect(fetcher.state()).toEqual({ arriving: false, installs: 0 });
+  });
+});
