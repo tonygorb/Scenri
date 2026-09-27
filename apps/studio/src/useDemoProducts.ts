@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, type DemoProduct } from './api.js';
+import { keepIfSame, release } from './catalogRead.js';
 
 export interface DemoProductsData {
   demoProducts: DemoProduct[];
@@ -17,7 +18,7 @@ export interface UseDemoProductsResult extends DemoProductsData {
    * that has only gained pictures (the library download landing), where
    * falling back to skeletons would be the flash this exists to avoid.
    */
-  refetch: (opts?: { quiet?: boolean }) => void;
+  refetch: (opts?: { quiet?: boolean }) => Promise<void>;
 }
 
 const EMPTY: DemoProductsData = { demoProducts: [], categories: [], loaded: false, error: false };
@@ -32,27 +33,40 @@ export function useDemoProducts(): UseDemoProductsResult {
   const [data, setData] = useState<DemoProductsData>(EMPTY);
   const [tick, setTick] = useState(0);
   const quiet = useRef(false);
+  // whoever asked for a re-read, told when a read settles (AppShell waits on it)
+  const settled = useRef<(() => void)[]>([]);
 
   useEffect(() => {
     let alive = true;
     void api
       .demoProducts()
       .then((r) => {
-        if (alive) setData({ demoProducts: r.demoProducts, categories: r.categories, loaded: true, error: false });
+        if (alive)
+          setData((d) =>
+            keepIfSame(d, { demoProducts: r.demoProducts, categories: r.categories, loaded: true, error: false }),
+          );
       })
       .catch(() => {
         if (alive && !quiet.current) setData((d) => ({ ...d, loaded: true, error: true }));
+      })
+      .finally(() => {
+        if (alive) release(settled);
       });
     return () => {
       alive = false;
     };
   }, [tick]);
 
-  const refetch = useCallback((opts?: { quiet?: boolean }) => {
-    quiet.current = !!opts?.quiet;
-    if (!quiet.current) setData((d) => ({ ...d, loaded: false, error: false }));
-    setTick((t) => t + 1);
-  }, []);
+  const refetch = useCallback(
+    (opts?: { quiet?: boolean }) =>
+      new Promise<void>((resolve) => {
+        settled.current.push(resolve);
+        quiet.current = !!opts?.quiet;
+        if (!quiet.current) setData((d) => ({ ...d, loaded: false, error: false }));
+        setTick((t) => t + 1);
+      }),
+    [],
+  );
 
   return { ...data, refetch };
 }

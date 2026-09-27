@@ -30,6 +30,8 @@ import { ScrollPane } from '../layout/ScrollPane.js';
 import { SceneExamples } from './SceneExamples.js';
 import { SceneViewActions, SceneViewCaption } from '../layout/SceneViewActions.js';
 import { EXAMPLE_LABEL } from '../sceneExampleRules.js';
+import { useLibraryLanded } from '../app/useLibraryLanded.js';
+import { keepIfSame } from '../catalogRead.js';
 
 /** A scene's pictures in the order of what they are: the hero, the place, then the rest of the set. */
 const VIEW_ORDER: readonly SceneView[] = ['hero', 'place', 'close', 'hands', 'angle', 'bold'];
@@ -111,6 +113,21 @@ export function ScenePage() {
       alive = false;
     };
   }, [sceneId, isOwned]);
+  // frames still arriving with the first-run library join the rail as they land
+  const framesId = useRef(sceneId);
+  framesId.current = sceneId;
+  useLibraryLanded(() => {
+    if (isOwned) return;
+    const id = sceneId ?? '';
+    void api
+      .sceneFrames(id)
+      .then((r) => {
+        if (framesId.current !== sceneId) return;
+        setRefs((cur) => keepIfSame(cur, r.frames));
+        setViews((cur) => keepIfSame(cur, r.views ?? []));
+      })
+      .catch(() => {});
+  });
 
   /** Shots whose brief carried this scene, newest first. */
   const made = useMadeWith(brand.id, [sceneId ?? '']);

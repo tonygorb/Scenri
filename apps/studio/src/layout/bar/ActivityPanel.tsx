@@ -1,6 +1,14 @@
 import { type MouseEvent, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
-import { FilmSlate, IdentificationBadge, ImageSquare, Storefront, WarningCircle, XCircle } from '@phosphor-icons/react';
+import {
+  FilmSlate,
+  IdentificationBadge,
+  Images,
+  ImageSquare,
+  Storefront,
+  WarningCircle,
+  XCircle,
+} from '@phosphor-icons/react';
 import { api, thumbUrl } from '../../api.js';
 import { useBrand } from '../../app/BrandLayout.js';
 import { useTaskCenter } from '../../app/TaskCenter.js';
@@ -178,10 +186,12 @@ function Thumb({ task }: { task: Pick<Task, 'kind' | 'state' | 'thumb' | 'title'
   if (task.thumb) return <img src={thumbUrl(task.thumb, 'micro')} alt="" loading="lazy" decoding="async" />;
   // A picture being made carries the swirl; an import or the library
   // download is a load, and holds its place still (DESIGN.md, Waiting).
-  if (task.state === 'running') return task.kind === 'catalog' ? <span className="sc-placeholder" /> : <Rendering />;
+  if (task.state === 'running')
+    return task.kind === 'catalog' || task.kind === 'library' ? <span className="sc-placeholder" /> : <Rendering />;
   if (task.state === 'error') return <WarningCircle size={17} weight="fill" />;
   if (task.state === 'cancelled') return <XCircle size={17} color="var(--sc-fg3)" />;
   if (task.kind === 'catalog') return <Storefront size={17} />;
+  if (task.kind === 'library') return <Images size={17} />;
   // the same glyphs the nav uses for these two destinations
   if (task.kind === 'presenter') return <IdentificationBadge size={17} />;
   if (task.kind === 'scene') return <FilmSlate size={17} />;
@@ -220,7 +230,14 @@ function TaskRow({
         <b dir="auto">{task.title}</b>
         <small dir="auto">{task.subtitle}</small>
         {running && task.percent !== null ? (
-          <span className="sc-notif-meter">
+          <span
+            className="sc-notif-meter"
+            role="progressbar"
+            aria-label={task.title}
+            aria-valuenow={task.percent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
             <div style={{ width: `${task.percent}%` }} />
           </span>
         ) : null}

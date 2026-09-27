@@ -946,6 +946,16 @@ a.sc-lookcard {
     transition: opacity 0.15s ease;
   }
 }
+/* A tile's credits sit on its picture. While the picture is on its way (the
+   card still shows its placeholder) they wait with it instead of floating on
+   the grey, and appear as it fades in. They stay in the accessibility tree,
+   and one that takes keyboard focus shows. */
+.sc-showcase-tile:has(.sc-lookcard .sc-placeholder) .sc-showcase-chips:not(:focus-within) {
+  opacity: 0;
+}
+.sc-showcase-tile:has(.sc-lookcard .sc-placeholder) .sc-showcase-chips * {
+  pointer-events: none;
+}
 
 /* Credit hover preview — portaled fixed glass.
    Glass lives on the fixed pop itself (body child): no opacity animation,

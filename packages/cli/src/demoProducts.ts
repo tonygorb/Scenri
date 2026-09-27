@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 import type { Core } from '@scenri/core';
-import { contentFile } from './content/overlay.js';
+import { type ContentLookup, contentFile } from './content/overlay.js';
 
 /**
  * A demo product is a fictional-but-premium product with a full multi-angle
@@ -106,11 +106,12 @@ export function demoProductAngleFiles(
   templatesRoot: string,
   id: string,
   category: string,
+  find: ContentLookup = contentFile,
 ): { angle: string; path: string }[] {
   const plan = PRODUCT_ANGLES_BY_CATEGORY[category] ?? PRODUCT_ANGLES_BY_CATEGORY.other;
   return plan.flatMap((planned) => {
     const found = [planned, ...(STAND_INS[planned] ?? [])]
-      .map((angle) => ({ angle, path: demoProductRefPath(templatesRoot, id, angle) }))
+      .map((angle) => ({ angle, path: demoProductRefPath(templatesRoot, id, angle, find) }))
       .find((f) => existsSync(f.path));
     return found ? [found] : [];
   });
@@ -178,10 +179,16 @@ export function demoProductFacetsOf(demoProducts: DemoProduct[]): { categories: 
   return { categories: [...categories].sort() };
 }
 
-export function demoProductRefPath(templatesRoot: string, id: string, angle: string): string {
+export function demoProductRefPath(
+  templatesRoot: string,
+  id: string,
+  angle: string,
+  find: ContentLookup = contentFile,
+): string {
   // Overlays the downloaded library cache: the npm install carries no product
   // shots, so post-fetch these resolve into ~/.scenri/content transparently.
-  return contentFile(templatesRoot, 'previews', 'demo-products', id, `${angle}.jpg`);
+  // A picture route passes shownFile; what a shot is drawn from never does.
+  return find(templatesRoot, 'previews', 'demo-products', id, `${angle}.jpg`);
 }
 
 /**

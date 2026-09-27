@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { CaretLeft, CaretRight, ImageSquare } from '@phosphor-icons/react';
 import { CARD_SIZES, nodeLabel, type FeedNode, thumbUrl } from '../api.js';
@@ -38,12 +38,13 @@ export function RefFrame({ src }: { src: string }) {
  * under it, for a host that is positioned and can hold one.
  */
 export function Shown({
-  src,
-  srcSet,
+  src: asked,
+  srcSet: askedSet,
   sizes = CARD_SIZES.large,
   crop,
   wait,
   blank = 'sc-lookpage-ref-blank',
+  keep,
 }: {
   src: string;
   srcSet?: string;
@@ -53,7 +54,44 @@ export function Shown({
   wait?: boolean;
   /** The blank box's class: the catalog card and the reference frame draw it differently. */
   blank?: string;
+  /**
+   * A new `src` is the same picture from a better source (a card's cover or
+   * portrait arriving with the library): the decoded one stays until the new
+   * one has decoded off screen, then swaps in with no placeholder and no fade.
+   * Only for a host keyed by what it shows (CatalogCard); a record page's
+   * frame can become a different picture, and must not show the old one.
+   */
+  keep?: boolean;
 }) {
+  const [held, setHeld] = useState({ src: asked, srcSet: askedSet });
+  const upgrading = !!keep && held.src !== asked && pictureIsReady(held.src);
+  useEffect(() => {
+    if (!upgrading) {
+      setHeld((h) => (h.src === asked && h.srcSet === askedSet ? h : { src: asked, srcSet: askedSet }));
+      return;
+    }
+    let alive = true;
+    const next = new Image();
+    if (askedSet) {
+      next.sizes = sizes;
+      next.srcset = askedSet;
+    }
+    next.src = asked;
+    void next
+      .decode()
+      .catch(() => {})
+      .then(() => {
+        if (!alive) return;
+        markPictureReady(asked);
+        setHeld({ src: asked, srcSet: askedSet });
+      });
+    return () => {
+      alive = false;
+    };
+  }, [upgrading, asked, askedSet, sizes]);
+  // what is painted: the held picture while its better copy decodes, else the one asked for
+  const src = upgrading ? held.src : asked;
+  const srcSet = upgrading ? held.srcSet : askedSet;
   const [failed, setFailed] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<string | null>(null);
   const img = useRef<HTMLImageElement | null>(null);

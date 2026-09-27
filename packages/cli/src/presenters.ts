@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 import type { Core } from '@scenri/core';
-import { contentFile } from './content/overlay.js';
+import { type ContentLookup, contentFile } from './content/overlay.js';
 
 /**
  * A presenter is a curated, identity-locked person: a name, a fixed
@@ -123,8 +123,12 @@ const VIEW_FILES = ['front', 'three-quarter', 'back', 'left', 'right'] as const;
  * ships any v2 view is read as v2, and its older ref-NN frames are ignored;
  * one that ships none keeps the four-frame plan above.
  */
-export function presenterViews(templatesRoot: string, id: string): { slot: string; angle: string; path: string }[] {
-  const at = (slot: string, angle: string) => ({ slot, angle, path: presenterRefPath(templatesRoot, id, slot) });
+export function presenterViews(
+  templatesRoot: string,
+  id: string,
+  find: ContentLookup = contentFile,
+): { slot: string; angle: string; path: string }[] {
+  const at = (slot: string, angle: string) => ({ slot, angle, path: presenterRefPath(templatesRoot, id, slot, find) });
   const v2 = VIEW_FILES.map((view) => at(view, view)).filter((f) => existsSync(f.path));
   if (v2.length) return v2;
   return PRESENTER_ANGLES.map(([slot, angle]) => at(slot, angle)).filter((f) => existsSync(f.path));
@@ -139,19 +143,26 @@ export function presenterViews(templatesRoot: string, id: string): { slot: strin
 export function presenterPageFrames(
   templatesRoot: string,
   id: string,
+  find: ContentLookup = contentFile,
 ): { slot: string; angle: string; path: string }[] {
-  const views = presenterViews(templatesRoot, id);
-  const portrait = presenterRefPath(templatesRoot, id, 'portrait');
+  const views = presenterViews(templatesRoot, id, find);
+  const portrait = presenterRefPath(templatesRoot, id, 'portrait', find);
   return existsSync(portrait) ? [{ slot: 'portrait', angle: 'portrait', path: portrait }, ...views] : views;
 }
 
 /** A frame file name the preview route serves: the portrait, a v2 view or a ref-NN slot. */
 export const PRESENTER_FRAME_FILE = /^(ref-[0-9]{2}|portrait|front|three-quarter|back|left|right)\.jpg$/;
 
-export function presenterRefPath(templatesRoot: string, id: string, slot: string): string {
+export function presenterRefPath(
+  templatesRoot: string,
+  id: string,
+  slot: string,
+  find: ContentLookup = contentFile,
+): string {
   // Overlays the downloaded library cache: the npm install carries no identity
   // sets, so post-fetch these resolve into ~/.scenri/content transparently.
-  return contentFile(templatesRoot, 'previews', 'presenters', id, `${slot}.jpg`);
+  // A picture route passes shownFile; what a shot is drawn from never does.
+  return find(templatesRoot, 'previews', 'presenters', id, `${slot}.jpg`);
 }
 
 /**
@@ -166,8 +177,8 @@ export function presenterRefPath(templatesRoot: string, id: string, slot: string
  * shipping with every curated presenter and never leaving the disk, which is
  * why four outputs of one brief came back with four different jaws.
  */
-export function presenterAvatarPath(templatesRoot: string, id: string): string {
-  return contentFile(templatesRoot, 'previews', 'presenters', id, 'avatar.jpg');
+export function presenterAvatarPath(templatesRoot: string, id: string, find: ContentLookup = contentFile): string {
+  return find(templatesRoot, 'previews', 'presenters', id, 'avatar.jpg');
 }
 
 /**

@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import type { Core } from '@scenri/core';
 import type { FastifyInstance } from 'fastify';
 import sharp from 'sharp';
-import { contentDirList, contentFile } from '../content/overlay.js';
+import { shownDirList, shownFile } from '../content/overlay.js';
 import { facetsOf, isSceneView, SCENE_VIEW_SLOTS, type Scene, slotOfView } from '../scenes.js';
 import { vibrantColor } from '../swatch.js';
 import type { ThumbStore } from '../thumbs.js';
@@ -13,14 +13,16 @@ export function registerSceneRoutes(
   deps: { templatesRoot: string; scenes: Scene[]; thumbs: ThumbStore; core: Core },
 ): void {
   const { templatesRoot, scenes, thumbs, core } = deps;
-  const previewPath = (id: string) => contentFile(templatesRoot, 'previews', `${id}.jpg`);
+  // Every picture here is for showing (a pick copies one the page shows), so each
+  // reads what a download in progress has already checked too (shownFile).
+  const previewPath = (id: string) => shownFile(templatesRoot, 'previews', `${id}.jpg`);
   // The card is the scene's cover picture, whole, at 720 wide so an install can
   // carry it. Its derivatives come from the library's full-size cover once that
   // is here, under the frame's own key, so the card and the page share one file.
   const coverSlot = (id: string) => slotOfView(scenes.find((s) => s.id === id)?.cover ?? 'place');
   const coverPath = (id: string) => {
     const slot = coverSlot(id);
-    return slot ? contentFile(templatesRoot, 'previews', id, `${slot}.jpg`) : previewPath(id);
+    return slot ? shownFile(templatesRoot, 'previews', id, `${slot}.jpg`) : previewPath(id);
   };
   const cardSource = (id: string) => {
     const slot = coverSlot(id);
@@ -58,14 +60,13 @@ export function registerSceneRoutes(
   });
   // A scene's reference set: several frames sharing one light, one per subject.
   // Both segments are pattern-guarded, so nothing outside previews/ is reachable.
-  const refPath = (id: string, slot: string) => contentFile(templatesRoot, 'previews', id, `${slot}.jpg`);
+  const refPath = (id: string, slot: string) => shownFile(templatesRoot, 'previews', id, `${slot}.jpg`);
   /** Which reference frames a scene actually has. One ask, instead of probing. */
   app.get('/api/scene-previews/:id', async (req, reply) => {
     const id = /^[a-z0-9-]+$/.exec(String((req.params as any).id))?.[0];
     if (!id) return reply.status(400).send({ error: 'bad scene id' });
-    const files = contentDirList(templatesRoot, 'previews', id).filter((f) => /^ref-[0-9]{2}\.jpg$/.test(f));
-    const url = (f: string) =>
-      `/api/scene-previews/${id}/${f}${mtimeQS(contentFile(templatesRoot, 'previews', id, f))}`;
+    const files = shownDirList(templatesRoot, 'previews', id).filter((f) => /^ref-[0-9]{2}\.jpg$/.test(f));
+    const url = (f: string) => `/api/scene-previews/${id}/${f}${mtimeQS(shownFile(templatesRoot, 'previews', id, f))}`;
     // Each frame by what it shows, so the page names it and a cover or a pick
     // can say which one it means without counting.
     const views = files.flatMap((f) => {

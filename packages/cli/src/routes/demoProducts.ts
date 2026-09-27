@@ -7,6 +7,7 @@ import {
   primaryAngleFor,
   type DemoProduct,
 } from '../demoProducts.js';
+import { shownFile } from '../content/overlay.js';
 import type { ThumbStore } from '../thumbs.js';
 import { fileKey, mtimeQS, serveJpeg, serveJpegSized } from './shared.js';
 
@@ -23,12 +24,13 @@ export function registerDemoProductRoutes(
   const demoProductThumbPath = (id: string) => {
     const p = demoProductById(id);
     if (!p) return null;
-    const preferred = demoProductRefPath(templatesRoot, id, primaryAngleFor(p.category));
+    // for showing: a shot arrived in a download in progress counts (shownFile)
+    const preferred = demoProductRefPath(templatesRoot, id, primaryAngleFor(p.category), shownFile);
     if (existsSync(preferred)) return preferred;
     // A product may ship a partial angle set — hand-supplied reference photos
     // rarely cover all six. Fall back to the first angle actually on disk so
     // the catalog card renders instead of 404-ing on a missing primary angle.
-    return demoProductAngleFiles(templatesRoot, id, p.category)[0]?.path ?? preferred;
+    return demoProductAngleFiles(templatesRoot, id, p.category, shownFile)[0]?.path ?? preferred;
   };
   const decorateDemoProduct = (p: DemoProduct) => {
     const path = demoProductThumbPath(p.id);
@@ -59,7 +61,7 @@ export function registerDemoProductRoutes(
     if (!id) return reply.status(400).send({ error: 'bad product id' });
     const product = demoProductById(id);
     if (!product) return { frames: [] };
-    const frames = demoProductAngleFiles(templatesRoot, id, product.category).map((f) => ({
+    const frames = demoProductAngleFiles(templatesRoot, id, product.category, shownFile).map((f) => ({
       angle: f.angle,
       url: `/api/demo-product-previews/${id}/${f.angle}.jpg${mtimeQS(f.path)}`,
     }));
@@ -69,7 +71,7 @@ export function registerDemoProductRoutes(
     const p = req.params as any;
     const id = /^[a-z0-9-]+$/.exec(String(p.id))?.[0];
     const angle = /^([a-z0-9-]+)\.jpg$/.exec(String(p.file))?.[1];
-    const path = id && angle ? demoProductRefPath(templatesRoot, id, angle) : null;
+    const path = id && angle ? demoProductRefPath(templatesRoot, id, angle, shownFile) : null;
     if (!path || !existsSync(path)) return reply.status(404).send({ error: 'no frame' });
     return serveJpeg(req, reply, path);
   });

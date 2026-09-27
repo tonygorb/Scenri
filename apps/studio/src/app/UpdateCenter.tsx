@@ -1,12 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowCircleUp, Gift } from '@phosphor-icons/react';
+import { ArrowCircleUp, Gift, Power } from '@phosphor-icons/react';
 import { useLocation } from 'react-router';
 import { api, type UpdateStatus } from '../api.js';
 import { P } from '../routes.js';
 import { session } from '../storage.js';
 import { useOpenSettings } from './dialogs.js';
 import { floatState, floatVisible } from './updateRules.js';
+import { type QuitOutcome, waitUntilStopped } from './quitRules.js';
 
 /**
  * The machine-scoped update awareness, mounted once in AppShell — deliberately
@@ -58,15 +59,15 @@ interface UpdateCenterValue {
   dismiss(): void;
   /** The one click: download + verify, then restart into the new version. */
   apply(): Promise<void>;
-  /** The brand menu's Shut down: drain and stop, then this tab goes away. Resolves to the server's refusal, or null. */
-  quit(): Promise<string | null>;
+  /** The brand menu's Shut down: drain and stop, then this tab says so and closes where the browser allows. */
+  quit(): Promise<QuitOutcome>;
   /**
    * Whether this tab is on the computer running Scenri. Installing, restarting
    * and Shut down act on that computer and a phone holding the code is refused
    * them, so they are offered only there.
    */
   thisComputer: boolean;
-  busy: 'idle' | 'applying' | 'restarting';
+  busy: 'idle' | 'applying' | 'restarting' | 'stopping' | 'stopped';
   applyError: string | null;
 }
 
@@ -83,6 +84,8 @@ export function UpdateCenterProvider({ children }: { children: ReactNode }) {
   const [checking, setChecking] = useState(false);
   const [dismissedVersion, setDismissedVersion] = useState<string | null>(readDismissed);
   const timer = useRef<number | undefined>(undefined);
+  // Once Scenri has shut down nothing here asks the server anything again.
+  const stopped = useRef(false);
 
   // Asked once, as the studio loads. Until the answer comes nothing that acts
   // on the machine is offered, so a phone never shows a button it is refused.
@@ -103,7 +106,7 @@ export function UpdateCenterProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let alive = true;
     const tick = async () => {
-      if (!alive) return;
+      if (!alive || stopped.current) return;
       // hidden tabs skip the request but keep the clock running (TaskCenter's rule)
       if (!document.hidden) {
         try {
@@ -155,7 +158,7 @@ export function UpdateCenterProvider({ children }: { children: ReactNode }) {
 
   const dismissed = status?.latest != null && status.latest === dismissedVersion;
 
-  const [busy, setBusy] = useState<'idle' | 'applying' | 'restarting'>('idle');
+  const [busy, setBusy] = useState<'idle' | 'applying' | 'restarting' | 'stopping' | 'stopped'>('idle');
   const [applyError, setApplyError] = useState<string | null>(null);
 
   const restart = useCallback(async (oldVersion: string | undefined) => {
@@ -192,26 +195,42 @@ export function UpdateCenterProvider({ children }: { children: ReactNode }) {
     setApplyError('The restart did not complete. Check the terminal Scenri runs in.');
   }, []);
 
-  const quit = useCallback(async () => {
-    if (busy !== 'idle') return null;
+  const quit = useCallback(async (): Promise<QuitOutcome> => {
+    if (busy !== 'idle') return { kind: 'still-running' };
+    setBusy('stopping');
     try {
       await api.quit();
     } catch (err) {
       if (typeof (err as { status?: number }).status === 'number') {
         // alive and refusing (work still running): an answer, not a stop
-        return String((err as Error)?.message ?? err);
+        setBusy('idle');
+        return { kind: 'refused', reason: String((err as Error)?.message ?? err) };
       }
       /* the socket died mid-reply: that is the stop */
     }
-    // Nothing to show once the server is gone: the tab goes with it. A page
-    // may close itself only when the browser allows (Chrome: a tab with no
-    // history of its own, which the desktop icon's tab is); otherwise it is
-    // emptied, which reads the same: nothing of Scenri left on screen.
-    window.close();
-    setTimeout(() => {
-      if (!window.closed) location.replace('about:blank');
-    }, 300);
-    return null;
+    // The server said yes; the tab goes only once it is really gone (it drains,
+    // then exits within five seconds), never over a Scenri still running.
+    const gone = await waitUntilStopped(
+      () =>
+        fetch('/api/version', { cache: 'no-store' }).then(
+          (r) => r.status,
+          () => null,
+        ),
+      { boundMs: 8000, stepMs: 250 },
+    );
+    if (!gone) {
+      setBusy('idle');
+      return { kind: 'still-running' };
+    }
+    stopped.current = true;
+    setBusy('stopped');
+    return { kind: 'stopped' };
+  }, [busy]);
+  // Stopped, and the page says so: now the tab closes itself where the browser
+  // lets a page do that (a tab opened by the launcher or npx that has not
+  // moved inside the studio). Where it does not, the page stays, saying so.
+  useEffect(() => {
+    if (busy === 'stopped') window.close();
   }, [busy]);
 
   const apply = useCallback(async () => {
@@ -305,9 +324,15 @@ export function UpdateCenterProvider({ children }: { children: ReactNode }) {
         applyError,
       }}
     >
-      {children}
+      {/* stopped, the studio and everything that asks the server anything goes; the page says what happened */}
+      {busy === 'stopped' ? <StoppedOverlay /> : children}
       {/* a phone gets the news from the help dot and Settings, never an Update it is refused */}
-      {busy !== 'restarting' && thisComputer && floatVisible(status) && !dismissed && !onSetup && <UpdateFloat />}
+      {busy !== 'restarting' &&
+        busy !== 'stopped' &&
+        thisComputer &&
+        floatVisible(status) &&
+        !dismissed &&
+        !onSetup && <UpdateFloat />}
       {busy === 'restarting' && <RestartOverlay version={status?.stagedVersion ?? status?.latest ?? null} />}
     </Ctx.Provider>
   );
@@ -325,6 +350,22 @@ function RestartOverlay({ version }: { version: string | null }) {
       <ArrowCircleUp size={22} />
       <b>{version ? `Updating to Scenri ${version}` : 'Updating Scenri'}</b>
       <small>Restarting. This page reconnects by itself.</small>
+    </LifecycleOverlay>
+  );
+}
+
+/**
+ * After Shut down, when the tab is still open because the browser does not let
+ * a page close a tab it did not open (it has moved inside the studio, or a
+ * person opened it). Nothing here reconnects: nothing is coming back until the
+ * person starts Scenri again, and the two ways to do that are the message.
+ */
+function StoppedOverlay() {
+  return (
+    <LifecycleOverlay className="sc-upd-stopped">
+      <Power size={22} />
+      <b>Scenri is shut down</b>
+      <small>You can close this tab. Start it again from your desktop icon or with npx scenri.</small>
     </LifecycleOverlay>
   );
 }

@@ -136,6 +136,10 @@ test('a finish on the studio page itself is said on the stage, and nowhere else'
 });
 
 test('Stop is in reach while the name is asked, stops the draw, and Draw finishes it after', async ({ page }) => {
+  // A read, a draw stopped, a reload and a second draw: 19.6 s on a green run
+  // and 21.1 and 22.6 s on PR #285's, over the 20 s default, with no assertion
+  // failing. Same budget as the two scene-draw walks above.
+  test.setTimeout(45_000);
   const slug = await brandSlug(page);
   const at = await readyToDraw(
     page,

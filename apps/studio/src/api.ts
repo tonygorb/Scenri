@@ -68,6 +68,18 @@ import type {
 export interface ContentState {
   arriving: boolean;
   installs: number;
+  /** Pictures arrived and checked, of the pictures in the library (both known from its pin). */
+  landed?: number;
+  total?: number;
+  /** Bytes arrived, of the library's: the share the Activity ring fills to. */
+  bytes?: number;
+  totalBytes?: number;
+  /** Pictures that did not arrive in a run that ended. */
+  failed?: number;
+  /** How this start's run ended; null while it runs. */
+  outcome?: 'complete' | 'partial' | null;
+  /** When this start began the download. */
+  startedAt?: string | null;
 }
 
 export const api = {

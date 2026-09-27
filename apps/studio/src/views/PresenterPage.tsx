@@ -22,6 +22,8 @@ import { EmptyRefFrame, ShotThumb, Shown, Slider } from '../layout/ReferenceGall
 import { ScrollPane } from '../layout/ScrollPane.js';
 import { AssetDetailsDialog } from './AssetDetailsDialog.js';
 import { useStillHere } from '../useStillHere.js';
+import { useLibraryLanded } from '../app/useLibraryLanded.js';
+import { keepIfSame } from '../catalogRead.js';
 
 /** The word under a reference tile, by the angle the record gives it. */
 const ROLE_LABEL: Record<string, string> = {
@@ -100,6 +102,19 @@ export function PresenterPage() {
       alive = false;
     };
   }, [presenterId, isOwned]);
+  // frames still arriving with the first-run library join the rail as they land
+  const framesId = useRef(presenterId);
+  framesId.current = presenterId;
+  useLibraryLanded(() => {
+    if (isOwned) return;
+    const id = presenterId;
+    void api
+      .presenterFrames(id)
+      .then((r) => {
+        if (framesId.current === id) setRefs((cur) => keepIfSame(cur, r.frames));
+      })
+      .catch(() => {});
+  });
 
   /**
    * An edit session under way for this person is offered back, never shown as
