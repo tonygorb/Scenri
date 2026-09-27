@@ -87,8 +87,10 @@ export function createProductSizes(
               signal,
             );
           } catch {
-            // A read stopped on purpose (the shot was cancelled) says nothing about the photograph.
-            if (signal?.aborted) return null;
+            // A read that did not finish (the shot was cancelled, a timeout, a usage limit, a lost
+            // sign-in) says nothing about the photograph, so nothing is remembered and the next look
+            // reads again. Only the reader's own answer that it cannot size it is a miss.
+            return null;
           }
           const n = Number(got?.largestCm);
           const text = String(got?.text ?? '').trim();
@@ -100,8 +102,7 @@ export function createProductSizes(
           core.store.setSetting(key, JSON.stringify(size));
           return size;
         })()
-          // A read that failed is not a size. It is kept as a miss, and tried
-          // again a day later or as soon as the photograph changes.
+          // Anything else that throws is not a size either, and is not remembered.
           .catch(() => null)
           .finally(() => reading.delete(key));
         reading.set(key, read);

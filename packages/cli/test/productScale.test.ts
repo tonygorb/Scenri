@@ -413,7 +413,7 @@ describe('product sizes', () => {
     const analyzer = {
       measure: async () => {
         reads++;
-        if (fails) throw new Error('Codex could not size this product');
+        if (fails) return null;
         return { text: 'about 2 cm across', largestCm: 2 };
       },
     };
@@ -440,6 +440,25 @@ describe('product sizes', () => {
     fails = false;
     expect(await sizes.ensure('b1', replaced)).toEqual({ text: 'about 2 cm across', largestCm: 2, by: 'estimate' });
     expect(reads).toBe(3);
+  });
+
+  it('a read that failed for a moment is not a miss: the next look reads again', async () => {
+    // A timeout, a usage limit or a lost sign-in says nothing about the photograph. Kept as a miss,
+    // it would skip the scale step for small products for a day.
+    let reads = 0;
+    const failures = ['Codex timed out', 'You have reached your usage limit', '401 Unauthorized'];
+    const analyzer = {
+      measure: async () => {
+        const failure = failures[reads++];
+        if (failure) throw new Error(failure);
+        return { text: 'about 2 cm across', largestCm: 2 };
+      },
+    };
+    const sizes = createProductSizes(core, async () => analyzer as any);
+    for (let i = 0; i < failures.length; i++) expect(await sizes.ensure('b1', ring())).toBeNull();
+    expect(reads).toBe(3);
+    expect(await sizes.ensure('b1', ring())).toEqual({ text: 'about 2 cm across', largestCm: 2, by: 'estimate' });
+    expect(reads).toBe(4);
   });
 
   it('a stopped read, or nothing to read with, is not remembered as a miss', async () => {
