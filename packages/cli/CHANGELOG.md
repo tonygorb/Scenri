@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.1](https://github.com/tonygorb/Scenri/compare/v0.20.0...v0.20.1) (2026-09-27)
+
+
+### Bug Fixes
+
+* **composer:** keep a use case whole, give Use in a shot a new brief ([cd09581](https://github.com/tonygorb/Scenri/commit/cd0958145c13ab43959c412a2ca7e6befbed4e87))
+
 ## [0.20.0](https://github.com/tonygorb/Scenri/compare/v0.19.1...v0.20.0) (2026-09-27)
 
 
