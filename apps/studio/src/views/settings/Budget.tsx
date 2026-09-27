@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { api, type EngineInfo } from '../../api.js';
 import { engineTitle } from '../../engines/active.js';
+import { failureToast } from '../../failure.js';
+import { useToasts } from '../../toasts.js';
+import { readCap } from './budgetRules.js';
 import { Group } from './Group.js';
 
 export function Budget({
@@ -13,17 +16,35 @@ export function Budget({
   thisComputer: boolean;
 }) {
   const paid = engines.filter((e) => !e.free);
+  const { push } = useToasts();
   const [caps, setCaps] = useState<Record<string, string>>({});
   useEffect(() => {
     setCaps(Object.fromEntries(paid.map((e) => [e.id, e.cap === null ? '' : String(e.cap)])));
   }, [engines]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const commit = async (id: string) => {
-    const raw = (caps[id] ?? '').trim();
-    const parsed = raw === '' ? null : Number(raw);
-    if (parsed !== null && (Number.isNaN(parsed) || parsed < 0)) return;
-    await api.setCap(id, parsed);
-    onSaved();
+  // The field never keeps a cap on screen that is not the one set. "$20" or a
+  // save that failed used to stay in the box over a cap that stayed off, and a
+  // guard that reads as set is worse than one that reads as missing.
+  const commit = async (engine: EngineInfo) => {
+    const show = (cap: number | null) => setCaps((c) => ({ ...c, [engine.id]: cap === null ? '' : String(cap) }));
+    const cap = readCap(caps[engine.id] ?? '');
+    if (cap === undefined) {
+      show(engine.cap);
+      push({ kind: 'warning', title: 'That is not an amount', detail: 'Type the cap in dollars, like 20 or 12.50.' });
+      return;
+    }
+    if (cap === engine.cap) {
+      show(cap);
+      return;
+    }
+    try {
+      await api.setCap(engine.id, cap);
+      show(cap);
+      onSaved();
+    } catch (err) {
+      show(engine.cap);
+      push(failureToast(err, 'Could not save that cap'));
+    }
   };
 
   if (!paid.length) {
@@ -68,7 +89,7 @@ export function Budget({
                   placeholder="None"
                   value={caps[e.id] ?? ''}
                   onChange={(ev) => setCaps((c) => ({ ...c, [e.id]: ev.target.value }))}
-                  onBlur={() => void commit(e.id)}
+                  onBlur={() => void commit(e)}
                   disabled={!thisComputer}
                   aria-label={`${engineTitle(e.displayName)} monthly cap in dollars`}
                 />
