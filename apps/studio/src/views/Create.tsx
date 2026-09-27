@@ -871,7 +871,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       // a spend cap) or on the open shot sent a paid shot from a brief nobody
       // could see. A brief line, the open shot's included, runs its own Enter.
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-        if (inFrontOfDock(el)) return;
+        if (nodeId || inFrontOfDock(el)) return;
         composerRef.current?.submit();
         e.preventDefault();
         return;

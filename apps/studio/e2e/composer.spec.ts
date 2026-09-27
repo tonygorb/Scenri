@@ -162,10 +162,21 @@ test('Cmd+Enter in a dialog does not send the brief behind it', async ({ page })
   await page.keyboard.press('ControlOrMeta+Enter');
   await page.waitForTimeout(400);
   expect(sent).toHaveLength(0);
-
-  // and from the page itself, with nothing in front, it still runs the brief
   await page.keyboard.press('Escape');
   await expect(settings).toHaveCount(0);
+
+  // nor from the open shot, whose own line is not where the focus is
+  await expect(page.locator('.sc-cell').first()).toBeVisible();
+  await page.locator('.sc-cell').first().click();
+  await page.waitForURL(/\/shots\//);
+  await expect(page.locator('.sc-ovl')).toBeVisible();
+  await page.keyboard.press('ControlOrMeta+Enter');
+  await page.waitForTimeout(400);
+  expect(sent).toHaveLength(0);
+  await page.keyboard.press('Escape');
+  await page.waitForURL((u) => !u.pathname.includes('/shots/'));
+
+  // and from the page itself, with nothing in front, it still runs the brief
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await page.keyboard.press('ControlOrMeta+Enter');
   await expect.poll(() => sent.length).toBe(1);
