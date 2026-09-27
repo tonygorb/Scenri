@@ -293,9 +293,51 @@ describe('the transcript is a function of state', () => {
     ]);
   });
 
-  it('from scratch with no engine: the setup line, nothing drawn', () => {
+  it('from scratch with no engine: the setup line, nothing drawn, and no way round it', () => {
     const T = turns(state({ source: { door: 'scratch', via: 'taps' } }), null, false);
-    expect(open(T)?.id).toBe('noengine');
+    const q = open(T);
+    expect(q?.id).toBe('noengine');
+    expect(q?.prompt).toBe('Drawing a presenter needs image generation, which is not set up yet.');
+    // "Add photos instead" was the way round, and photographs with nothing to
+    // draw from them were saved as the face: a logo became a presenter
+    expect(q?.kind === 'confirm' && q.options.map((o) => o.label)).toEqual(['Set up']);
+    // and the line under it no longer offers photographs as the way round
+    expect(composerFor(q, state({ source: { door: 'scratch', via: 'taps' } }), null, 'portrait').off).toBe(
+      'Set up image generation above.',
+    );
+  });
+
+  it('from photos with no engine: the photographs go in freely, and Continue stops at the same line', () => {
+    const p: Answers = { source: { door: 'photos', via: 'taps' }, photos: { hashes: ['h1', 'h2'], attested: true } };
+    // preparing needs nothing: the block, its pictures and its Continue
+    const q = open(turns(state(p), null, false));
+    expect(q?.id).toBe('photos');
+    expect(q?.kind === 'photos' && q.hashes).toEqual(['h1', 'h2']);
+    // Continue pressed with nothing to draw: the photographs stand as given, and the line is Set up
+    const T = turns(state(p, { held: true }), null, false);
+    const gate = open(T);
+    expect(gate?.id).toBe('noengine');
+    expect(gate?.prompt).toBe('Drawing a presenter needs image generation, which is not set up yet.');
+    expect(gate?.kind === 'confirm' && gate.options.map((o) => o.id)).toEqual(['setup', 'change']);
+    const you = T.find((t) => t.kind === 'you' && t.id === 'photos');
+    expect(you?.kind === 'you' && you.photos).toEqual(['h1', 'h2']);
+    // once something can draw, the photographs are back with their Continue: a press, never a draw on its own
+    const back = open(turns(state(p, { held: true }), null, true));
+    expect(back?.id).toBe('photos');
+    expect(back?.kind === 'photos' && back.hashes).toEqual(['h1', 'h2']);
+  });
+
+  it('a description held at the setup line is drawn on a press once something can draw', () => {
+    const typed: Answers = {
+      source: { door: 'scratch', via: 'typed' },
+      describe: 'a woman in her 30s with shoulder-length black hair, olive skin, a solid build',
+      traits: [],
+    };
+    expect(open(turns(state(typed, { held: true }), null, false))?.id).toBe('noengine');
+    const q = open(turns(state(typed, { held: true }), null, true));
+    expect(q?.id).toBe('agree');
+    expect(q?.kind === 'confirm' && q.options.map((o) => o.label)).toEqual(['Draw the presenter']);
+    expect(q?.quote).toContain('shoulder-length black hair');
   });
 
   it('from photos: the photo block until a draft exists, then the photos as an answer, then what stays', () => {
@@ -333,15 +375,26 @@ describe('the transcript is a function of state', () => {
     expect(k3.at(-1)).toBe('q:name');
   });
 
-  it('photos with no engine end in the honest save, and are not asked what stays', () => {
+  it('a draft with a view left to draw and nothing to draw it stops at the setup line, never at a save', () => {
     const p: Answers = { source: { door: 'photos', via: 'taps' }, photos: { hashes: ['h1'], attested: true } };
-    const d = draft({
+    // made while something could draw, and it went away before the face
+    const d = draft({ source: 'photos', name: 'Noa', sources: ['h1'] });
+    const T = turns(state(p), d, false);
+    expect(open(T)?.id).toBe('noengine');
+    expect(
+      open(T)?.kind === 'confirm' && (open(T) as Extract<Question, { kind: 'confirm' }>).options.map((o) => o.id),
+    ).toEqual(['setup']);
+    // "Save with photos" is gone: no question anywhere offers the upload as the face
+    expect(keys(T)).not.toContain('q:blind');
+    // a set that was drawn before the engine went is still saved: saving draws nothing
+    const drawn = draft({
       source: 'photos',
       name: 'Noa',
       sources: ['h1'],
-      views: { ...draft().views, portrait: { ...approved('h1'), origin: 'photo' } },
+      views: { ...draft().views, portrait: approved('p'), front: approved('f'), 'three-quarter': approved('t') },
     });
-    expect(open(turns(state(p), d, false))?.id).toBe('blind');
+    expect(open(turns(state({ ...p, traits: [] }), drawn, false))?.id).toBe('extras');
+    expect(open(turns(state({ ...p, traits: [] }, { extrasDeclined: true }), drawn, false))?.id).toBe('save');
   });
 });
 
@@ -499,7 +552,7 @@ describe('every question answers a stray sentence in its own voice', () => {
 
   it('nothing speaks in the refine voice until there is something to refine', () => {
     // every id the flow knows, plus ones it does not
-    const ids = [...voices.map((v) => v[2]), 'blind', 'retry', 'photos', 'noengine', 'agree', 'unsure', null, 'x'];
+    const ids = [...voices.map((v) => v[2]), 'retry', 'photos', 'noengine', 'agree', 'unsure', null, 'x'];
     for (const id of ids) expect(asidePhaseFor(null, id, false), String(id)).not.toBe('refine');
     // and once a face stands, an id that belongs to no question is a refinement
     expect(asidePhaseFor(null, null, true)).toBe('refine');

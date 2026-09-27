@@ -41,8 +41,8 @@ describe('what the empty stage says under its sign', () => {
     expect(stageHint('retry')).toBe('Try again from the conversation');
   });
 
-  it('points at the setup when nothing here can draw a description', () => {
-    expect(stageHint('noengine')).toBe('Set up image generation, or add photos');
+  it('points at the setup when nothing here can draw, photographs or a description alike', () => {
+    expect(stageHint('noengine')).toBe('Set up image generation to draw them');
   });
 
   it('says one line whatever is being asked, so the sign never changes height', () => {

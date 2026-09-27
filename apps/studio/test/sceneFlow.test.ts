@@ -626,6 +626,50 @@ describe('the conversation', () => {
     expect(composerFor(args({ setup: setupOf(a), studio }), q).placeholder).toMatch(/keep or ignore/);
   });
 
+  it('pictures go in freely with nothing to read them, and Read them stops at the setup line, the pictures kept', () => {
+    const chosen: Answers = { source: { door: 'photos' }, photos: { hashes: [H('a'), H('b')], done: false } };
+    // preparing needs nothing: the block with its pictures and its Read them
+    const block = lastQ(turnsFor(args({ setup: setupOf(chosen), studio: EMPTY, canRead: false })));
+    expect(block?.id).toBe('photos');
+    // Read them pressed with nothing to read: said calmly, never as a failure, and no request was made
+    const T = turnsFor(args({ setup: setupOf(chosen), studio: EMPTY, canRead: false, noReader: 'photos' }));
+    const gate = lastQ(T);
+    expect(gate?.id).toBe('noreader');
+    expect(gate?.prompt).toBe('Reading pictures needs Codex, which is not set up yet.');
+    expect(gate && 'tone' in gate ? gate.tone : undefined).toBeUndefined();
+    expect(gate?.kind === 'confirm' && gate.options.map((o) => [o.id, o.label])).toEqual([
+      ['remedy:setup', 'Set up'],
+      ['unstop', 'Change pictures'],
+    ]);
+    const you = T.find((t) => t.kind === 'you' && t.id === 'photos');
+    expect(you?.kind === 'you' && you.photos).toEqual([H('a'), H('b')]);
+    // the line says where the way on is, rather than standing blank
+    expect(
+      composerFor(args({ setup: setupOf(chosen), studio: EMPTY, canRead: false, noReader: 'photos' }), gate).target,
+    ).toEqual({ kind: 'off', why: 'Set up Codex above to read them.' });
+    // once something can read, the pictures are back with their Read them: a press, never a read on its own
+    const back = lastQ(turnsFor(args({ setup: setupOf(chosen), studio: EMPTY, canRead: true, noReader: 'photos' })));
+    expect(back?.id).toBe('photos');
+    expect(back?.kind === 'photos' && back.hashes).toEqual([H('a'), H('b')]);
+  });
+
+  it('a shot with nothing to read it stops at the same line; another door never inherits it', () => {
+    const shotDoor: Answers = { source: { door: 'shot' } };
+    const gate = lastQ(turnsFor(args({ setup: setupOf(shotDoor), studio: EMPTY, canRead: false, noReader: 'shot' })));
+    expect(gate?.id).toBe('noreader');
+    expect(gate?.kind === 'confirm' && gate.options.map((o) => o.label)).toEqual(['Set up', 'Choose another shot']);
+    // the door changed after the refusal: the line went with the door it was said at
+    const words: Answers = { source: { door: 'guided' } };
+    expect(
+      lastQ(turnsFor(args({ setup: setupOf(words), studio: EMPTY, canRead: false, noReader: 'shot' })))?.id,
+    ).not.toBe('noreader');
+  });
+
+  it('words need nothing to be read: a place said in words is still saved as words where nothing can draw', () => {
+    const q = lastQ(turnsFor(args({ setup: setupOf(guided), studio: read(EMPTY), canDraw: false, canRead: false })));
+    expect(q?.kind === 'confirm' && q.options.map((o) => o.id)).toEqual(['use']);
+  });
+
   it('saves words straight away where nothing can draw', () => {
     const studio = read(EMPTY);
     const q = lastQ(turnsFor(args({ setup: setupOf(guided), studio, canDraw: false })));

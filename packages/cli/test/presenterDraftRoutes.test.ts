@@ -268,7 +268,7 @@ describe('presenter draft routes', () => {
     expect((await j('POST', `${base}/${body.id}/views/sideways/generate`, {})).status).toBe(400);
   });
 
-  it('from photos: the likeness is confirmed, a photo can be placed by hand, the originals are kept', async () => {
+  it('from photos: the likeness is confirmed, no photo is ever placed on a view, the originals are kept', async () => {
     const brand = await newBrand();
     const base = `/api/brands/${brand.id}/presenter-drafts`;
     const a = core.images.save(await png('#a08070', 800, 1000));
@@ -282,13 +282,11 @@ describe('presenter draft routes', () => {
     await j('POST', `${base}/${d.id}/views/portrait/generate`, {});
     d = await settled(brand.id, d.id);
     await j('POST', `${base}/${d.id}/views/portrait/approve`);
-    // and one of them can still be put on a view by hand
+    // and there is no way to put one of them on a view instead of drawing it:
+    // the route that did it made a logo somebody's face when nothing could draw
     const placed = await j('POST', `${base}/${d.id}/views/front/use-photo`, { hash: b });
-    expect(placed.status).toBe(200);
-    expect(placed.body.views.front).toMatchObject({ status: 'approved', hash: b, origin: 'photo' });
-    expect((await j('POST', `${base}/${d.id}/views/front/use-photo`, { hash: 'f'.repeat(32) })).status).toBe(400);
-    const redone = await j('POST', `${base}/${d.id}/views/front/redo`);
-    expect(redone.body.views.front.status).toBe('empty');
+    expect(placed.status).toBe(404);
+    expect((await j('GET', `${base}/${d.id}`)).body.views.front.status).toBe('empty');
     await j('POST', `${base}/${d.id}/views/front/generate`, {});
     d = await settled(brand.id, d.id);
     await j('POST', `${base}/${d.id}/views/front/approve`);

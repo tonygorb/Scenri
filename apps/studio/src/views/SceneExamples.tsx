@@ -138,8 +138,8 @@ export function SceneExamples({
   const shootLike = (hash: string | undefined, view: SceneView) =>
     hash ? () => applyScene(scene.id, undefined, hash, view) : undefined;
 
-  // The hash only when it is the scene's own picture: the place falls back to
-  // an upload, and an upload is never handed to a shot.
+  // The place is only the scene's own drawn picture; an upload is never shown
+  // as the place and never handed to a shot.
   const place: Open | null = scene.placeUrl
     ? {
         src: scene.placeUrl,

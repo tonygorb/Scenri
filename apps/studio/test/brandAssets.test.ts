@@ -185,9 +185,11 @@ describe('customScenesOf', () => {
     ]);
   });
 
-  it('shows the first reference until an example has been drawn', () => {
+  it('shows no picture until one has been drawn: a reference it was read from is never its card', () => {
     const [s] = customScenesOf(brandWith({ scenes: [{ ...PLACE, preview: undefined }] }));
-    expect(s.previewUrl).toBe(`/api/images/${HASH_C}`);
+    expect(s.previewUrl).toBeNull();
+    // the reference is still there, as what it was read from
+    expect(s.refs).toContain(`/api/images/${HASH_C}`);
   });
 
   it('has no thumbnail at all when there is nothing to show, rather than a broken one', () => {
@@ -304,6 +306,20 @@ describe('a scene’s cover', () => {
     preview: place,
     examples: [{ role: 'hero', file: hero, from: place, product: 'vial' }],
   };
+
+  it('a scene nothing drew has no picture: its uploads are what it was read from, never its card', () => {
+    const [s] = customScenesOf(
+      brandWith({
+        scenes: [
+          { id: 'us-words01', name: 'Loft', prompt: 'A loft.', lighting: 'Soft', refs: [{ file: `asset:${HASH_A}` }] },
+        ],
+      }),
+    );
+    expect(s.previewUrl).toBeNull();
+    expect(s.placeUrl).toBeNull();
+    expect(s.previewHash).toBeNull();
+    expect(s.refs).toEqual([`/api/images/${HASH_A}`]);
+  });
 
   it('shows the view it names on every card, and keeps the place as the place', () => {
     const [s] = customScenesOf(brandWith({ scenes: [{ ...SCENE, cover: 'hero' }] }));

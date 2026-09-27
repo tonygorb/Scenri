@@ -75,6 +75,7 @@ import {
   castSentence,
   drawing,
   identityLocked,
+  nextToDraw,
 } from './presenterStudioRules.js';
 import { TRAITS, type TraitId, traitOf, traitSentence } from './presenterTraits.js';
 import { COMPOSED_TEXT_MAX, TEXT_MAX } from '../../conversation/textMax.js';
@@ -1076,22 +1077,38 @@ function build(
    * controls down.
    */
   let open: Question | null = null;
-  if (a.source?.door === 'scratch' && !canGenerate && !draft) {
+  /**
+   * Where drawing is what stops, and nothing here can draw. A description stops
+   * at the door; photographs are added freely and stop at Continue, the press
+   * that would start drawing from them (`held`), and stand above the line as
+   * given; a draft stops at the next view it cannot draw. It is one sentence
+   * everywhere, and never a way round: photographs were offered as one, and
+   * with nothing to draw from them the first upload was saved as the face.
+   */
+  const photosHeld = a.source?.door === 'photos' && state.held && !draft;
+  const stopped =
+    !canGenerate &&
+    (draft ? !!nextToDraw(draft) : a.source?.door === 'scratch' || photosHeld) &&
+    !(draft && state.editing);
+  if (photosHeld && !canGenerate && a.photos?.hashes.length) {
+    lead.push({ kind: 'scenri', id: 'asked-photos', text: askedLine('photos', a), quiet: true });
+    lead.push({ kind: 'you', id: 'photos', ...answerLine('photos', a, null) });
+  }
+  if (stopped) {
     open = {
       id: 'noengine',
       kind: 'confirm',
       quiet: true,
-      prompt: 'Describing someone needs image generation, which is not set up yet.',
-      options: [
-        { id: 'setup', label: 'Set up' },
-        { id: 'photos', label: 'Add photos instead' },
-      ],
+      prompt: PROMPT.noEngine,
+      options: [{ id: 'setup', label: 'Set up' }, ...(photosHeld ? [{ id: 'change', label: 'Change photos' }] : [])],
     };
   } else {
     const next = nextQuestion(a, ctx);
     if (next) open = questionFor(next, state, ctx, false);
     else if (!draft && a.source?.door === 'scratch') {
-      if (a.source.via === 'taps') {
+      // A description said while nothing could draw is drawn on a press once
+      // something can, never the moment it can: taps end here anyway.
+      if (a.source.via === 'taps' || state.held) {
         // The last word before anything is drawn: the whole person in one
         // sentence, set apart because it is the brief the picture is drawn
         // from, and the line under the transcript stands open for anything the
@@ -1103,7 +1120,10 @@ function build(
           // The whole person, and everything that is always true of them: the
           // last word before anything is drawn says all of it, or a run of
           // questions reads as though nothing had been listening.
-          quote: `${lookLine(lookOf(a))}${keepLine(a) ? `, and always ${keepLine(a)}` : ''}.`,
+          quote:
+            a.source.via === 'taps'
+              ? `${lookLine(lookOf(a))}${keepLine(a) ? `, and always ${keepLine(a)}` : ''}.`
+              : compileDirection(a),
           options: [{ id: 'draw', label: 'Draw the presenter' }],
         };
       } else if (failed) {
@@ -1127,7 +1147,6 @@ function build(
   }
   const record = recordTurns({
     draft,
-    canGenerate,
     ui: { extrasDeclined: state.extrasDeclined, failed, failedView, editingName: state.editing === 'name' },
     afterCoverage: after,
     asides,
@@ -1312,9 +1331,8 @@ function composerBase(
       case 'photos':
         return { ...QUIET, off: 'Add their photos above.' };
       case 'noengine':
-        return { ...QUIET, off: 'Set up image generation, or add photos.' };
-      case 'blind':
-        return { ...QUIET, off: 'Decide above.' };
+        // photographs are no way round it any more, so the line does not offer them as one
+        return { ...QUIET, off: 'Set up image generation above.' };
       case 'retry':
         return { ...QUIET, off: 'Retry above.' };
     }
