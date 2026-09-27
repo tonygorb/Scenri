@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.20.3](https://github.com/tonygorb/Scenri/compare/v0.20.2...v0.20.3) (2026-09-27)
+
+
+### Bug Fixes
+
+* **cli:** a skipped install script says how to allow it and clear npx's copy ([7afece2](https://github.com/tonygorb/Scenri/commit/7afece286e58e61ead28cac5186559781a368096))
+* **cli:** the desktop offer names Settings &gt; Local access ([1ea3992](https://github.com/tonygorb/Scenri/commit/1ea399235c21eb87127605ba834afed607be946e))
+* **content:** the court sneakers tile, redrawn from words that agree with themselves ([1686d0d](https://github.com/tonygorb/Scenri/commit/1686d0df176b8745d0c4e76cfd6b91bc279d5eaf))
+* public pages, films and first-run text describe Scenri as it is ([563f35e](https://github.com/tonygorb/Scenri/commit/563f35eab31f725df25057e6022cb1cf01eecf8f))
+
 ## [0.20.2](https://github.com/tonygorb/Scenri/compare/v0.20.1...v0.20.2) (2026-09-27)
 
 
