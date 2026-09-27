@@ -64,8 +64,9 @@ export const barrierCream: Story = {
     { sigil: '/', query: 'bath', name: 'Bath Caddy', token: 't:teak-bath-caddy' },
     ', lid off, centred in the hard sun.',
   ],
-  // the light, then the camera: the same jar, told twice more
-  refinements: ['Golden hour, long warm shadows', 'Low side angle, close on the jar'],
+  // the light, then the camera itself: the same jar, told twice more. The second names where the
+  // camera goes, since "low side angle, close on the jar" came back as the same view, only closer
+  refinements: ['Golden hour, long warm shadows', 'Eye level with the jar, from the side'],
 };
 
 /** The moments the story reaches, in order. A film cuts and frames on them; the spec checks the order. */
