@@ -2325,8 +2325,20 @@ test('the newest work is always the top-left tile', async ({ page }) => {
   await line(page).click();
   await page.keyboard.type('the newest shot');
   await dock(page).locator('.sc-send').click();
-  // a default send is a two-shot batch now, so two running tiles are the norm
-  await expect(page.locator('.sc-cell[data-running]').first()).toBeVisible();
+  // The send's own tile, running or already landed. The demo engine runs with
+  // no delay here, so a one-take send can finish before a running tile is ever
+  // on screen, and waiting for one failed about one run in four (2026-09-27).
+  await expect
+    .poll(() =>
+      page.evaluate(
+        (was) =>
+          [...document.querySelectorAll('.sc-cell[data-fb-node]')].some(
+            (c) => !was.includes(c.getAttribute('data-fb-node')),
+          ),
+        before,
+      ),
+    )
+    .toBe(true);
   // While it lands, the top-left belongs to this send: its stand-in, a take
   // still running, or a take that already landed. The two takes land one at a
   // time and either can sort first, so a finished take can hold the spot while
