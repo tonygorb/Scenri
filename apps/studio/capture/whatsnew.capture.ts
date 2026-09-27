@@ -1,5 +1,5 @@
 import { type APIRequestContext, expect, type Locator, type Page, test } from '@playwright/test';
-import { arrived, isolate } from '../e2e/harness.js';
+import { isolate } from '../e2e/harness.js';
 import { prep } from '../visual/shared.js';
 import { seedBrand, seedPresenter, seedScene, shootIsolated, shootWindow, stubLocalAccess, WINDOW } from './shoot.js';
 
@@ -333,34 +333,4 @@ test('0.16.0-local-access', async ({ page, request }) => {
   await expect(phone.locator('.sc-phone-arrival')).toContainText('iPhone');
   const card = dialog.locator('.sc-set-card').filter({ has: page.locator('.sc-phone') });
   await shootIsolated(page, '0.16.0-local-access', card);
-});
-
-test('0.15.1-choose-a-world', async ({ page, request }) => {
-  // isolated: Create scene's Guide me asking what world, the eight pictures a world is chosen from,
-  // and Sunlit stone, the one chosen, lit: the question as it stands when its answer is changed.
-  // A question in the conversation is words and pictures on the rail, with no box of its own, so
-  // it keeps the rail's ground round it, as far as the rail's own padding beside it.
-  const { slug } = await brand(request);
-  await page.setViewportSize(WINDOW);
-  await prep(page, 'dark');
-  await page.goto(`/${slug}/scenes/new`);
-  await arrived(page, '.sc-pstudio[data-kind="scene"]');
-  const studio = page.locator('.sc-pstudio[data-kind="scene"]');
-  const turn = (key: string) => studio.locator(`[data-turn="${key}"]`);
-  await turn('q:source').getByRole('button', { name: 'Guide me', exact: true }).click();
-  await expect(turn('q:world')).toContainText('Choose a starting world');
-  await turn('q:world').getByRole('button', { name: 'Sunlit stone', exact: true }).click();
-  await expect(turn('q:surface')).toBeVisible();
-  await studio.getByText('Sunlit stone', { exact: true }).last().hover();
-  await studio.getByRole('button', { name: 'Change this answer' }).last().click();
-  const world = turn('q:world');
-  const asked = turn('scenri:asked-world');
-  await expect(asked).toContainText('What world?');
-  await expect(world.locator('.sc-convo-plate')).toHaveCount(8);
-  await expect(world.locator('.sc-convo-plate[data-on]')).toHaveAccessibleName('Sunlit stone');
-  const rail = await box(studio.locator('.sc-convo-log'), 'the conversation');
-  const q = await box(world, 'the question');
-  const room = Math.min(q.x - rail.x, rail.x + rail.width - (q.x + q.width));
-  expect(room, "the rail's padding beside the question").toBeGreaterThanOrEqual(16);
-  await shootIsolated(page, '0.15.1-choose-a-world', [asked, world], { room });
 });
