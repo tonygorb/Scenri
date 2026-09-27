@@ -452,7 +452,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   // `setup` rides with `scene`, so it leaves with it: a spent seed left in the
   // address is a seed that applies itself again on the next mount
   const spendSeeds = useCallback(
-    () => dropParams('scene', 'setup', 'presenter', 'product', 'ref', 'view'),
+    () => dropParams('scene', 'setup', 'presenter', 'product', 'ref', 'view', 'fresh'),
     [dropParams],
   );
 
@@ -1342,6 +1342,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           startProduct={params.get('product') ?? undefined}
           startRef={params.get('ref') ?? undefined}
           startView={params.get('view') ?? undefined}
+          startFresh={params.get('fresh') === '1'}
           onSeedsSpent={spendSeeds}
           openAttachTab={
             params.get('attach') === 'scenes' ? 'Scenes' : params.get('attach') === 'products' ? 'Products' : undefined

@@ -60,7 +60,16 @@ import { publishComposer, publishOverlay, type ComposerFacts } from '../guideFac
 import { PREF, useLocalPref, useRecipeSetting } from '../prefs.js';
 import { useMediaQuery } from '../useMediaQuery.js';
 import { useToasts } from '../toasts.js';
-import { clearDraft, isNonTrivial, loadDraft, saveDraft } from '../draft.js';
+import {
+  clearDraft,
+  DRAFT_RETURNED,
+  isNonTrivial,
+  keepDraftOnScreen,
+  type LentSettings,
+  loadDraft,
+  returnDraft,
+  saveDraft,
+} from '../draft.js';
 import { useIngredientCatalog } from '../composer/useIngredientCatalog.js';
 import { resolveSceneSwitch } from '../composer/applyScene.js';
 import { aspectOfFormat, formatOfShot } from '../composer/formats.js';
@@ -133,6 +142,12 @@ export const Composer = forwardRef<
      */
     startRef?: string;
     startView?: string;
+    /**
+     * The seeds above came from "Use in a shot" pressed on a page with no
+     * composer: they start a new brief of their own, and the brief in progress
+     * is put aside behind an Undo instead of taking the chip (draft.ts).
+     */
+    startFresh?: boolean;
     /**
      * One of the three seeds above has landed in the sentence, so whoever put
      * it in the URL should take it back out. A seed left in the address bar is
@@ -229,6 +244,7 @@ export const Composer = forwardRef<
     startProduct,
     startRef,
     startView,
+    startFresh,
     onSeedsSpent,
     openAttachTab,
     onQueued,
@@ -307,7 +323,7 @@ export const Composer = forwardRef<
 
   const [sentence, setSentence] = useState<SentenceToken[]>(emptySentence());
   const [seedTokens, setSeedTokens] = useState<SentenceToken[] | undefined>(undefined);
-  const [prefFormat, setPrefFormat, borrowFormat] = useRecipeSetting(PREF.format, DEFAULT_FORMAT_ID);
+  const [prefFormat, setPrefFormat, borrowFormat, lentFormat] = useRecipeSetting(PREF.format, DEFAULT_FORMAT_ID);
   /**
    * A refinement's shape belongs to the picture being refined, never to the
    * machine.
@@ -336,7 +352,7 @@ export const Composer = forwardRef<
     else setPrefFormat(id);
   };
   const [tplFields, setTplFields] = useState<Record<string, string>>({});
-  const [count, setCount, borrowCount] = useRecipeSetting(PREF.count, DEFAULT_VARIANT_COUNT);
+  const [count, setCount, borrowCount, lentCount] = useRecipeSetting(PREF.count, DEFAULT_VARIANT_COUNT);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [preview, setPreview] = useState<(BriefPreview & { forBrief: unknown }) | null>(null);
@@ -345,7 +361,7 @@ export const Composer = forwardRef<
   const [attachTabNonce, setAttachTabNonce] = useState(0);
   /** First use: the one kind the tutor is asking for, so the picker offers nothing else. */
   const [attachOnly, setAttachOnly] = useState<AttachGroup | null>(null);
-  const [quality, setQuality, borrowQuality] = useRecipeSetting<QualityId>(PREF.quality, DEFAULT_QUALITY);
+  const [quality, setQuality, borrowQuality, lentQuality] = useRecipeSetting<QualityId>(PREF.quality, DEFAULT_QUALITY);
   const [uploading, setUploading] = useState(false);
   const [moreOpen, setMoreOpenState] = useState(false);
   const setMoreOpen = (next: boolean) => setMoreOpenState(next);
@@ -358,8 +374,21 @@ export const Composer = forwardRef<
 
   // per-brand draft persistence: an unsent brief must survive a navigation, a
   // brand switch, or a closed tab, none of which reliably unmount this component
-  const contentRef = useRef({ tokens: sentence, tplFields, branchId: target?.id ?? null });
-  contentRef.current = { tokens: sentence, tplFields, branchId: target?.id ?? null };
+  // what a recipe lent this brief rides with its draft, so a return finds it at the same settings
+  const lent: LentSettings = {
+    ...(lentFormat ? { format: lentFormat } : {}),
+    ...(lentCount ? { count: lentCount } : {}),
+    ...(lentQuality ? { quality: lentQuality } : {}),
+  };
+  const contentRef = useRef({ tokens: sentence, tplFields, branchId: target?.id ?? null, lent });
+  contentRef.current = { tokens: sentence, tplFields, branchId: target?.id ?? null, lent };
+  /**
+   * A brief on its way to the line that names a scene view, waiting for that
+   * frame to reach the store. Until it lands it is the brief all the same: a
+   * draft save keeps it in place of the line, so an example left a moment after
+   * it was opened comes back instead of coming back as nothing.
+   */
+  const pendingSeed = useRef<SentenceToken[] | null>(null);
   const draftBrandIdRef = useRef<string | null>(null);
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Which `?scene=` value has already been applied, so a re-render with the
@@ -395,8 +424,9 @@ export const Composer = forwardRef<
       // notice offered is reachable without it: emptying the brief clears the
       // stored draft on this very line, and a scene's fields belong to the
       // scene chip you can remove.
-      if (isNonTrivial(c.tokens, c.tplFields))
-        saveDraft(brandId, { tokens: c.tokens, tplFields: c.tplFields, setSlug });
+      const tokens = pendingSeed.current ?? c.tokens;
+      if (isNonTrivial(tokens, c.tplFields))
+        saveDraft(brandId, { tokens, tplFields: c.tplFields, setSlug, lent: c.lent });
       else clearDraft(brandId);
     },
     [setSlug, persistDraft],
@@ -410,6 +440,32 @@ export const Composer = forwardRef<
       setAttachOpen(true);
     }
   }, [openAttachTab]);
+
+  /**
+   * Puts a brief on the line, fetching first any scene view it names. Until
+   * that frame lands the brief waits in `pendingSeed`, and a later brief takes
+   * its place there, so the one that lands is always the latest asked for.
+   */
+  const seedLine = useCallback((tokens: SentenceToken[]) => {
+    if (!tokens.some(namesAView)) {
+      pendingSeed.current = null;
+      setSeedTokens(tokens);
+      return;
+    }
+    pendingSeed.current = tokens;
+    void withPickedViews(tokens).then((picked) => {
+      if (pendingSeed.current !== tokens) return;
+      pendingSeed.current = null;
+      setSeedTokens(picked);
+    });
+  }, []);
+
+  /** A stored loan, borrowed back wherever each value is still one this composer offers. */
+  const borrowLent = (l: LentSettings) => {
+    borrowFormat(l.format && FORMATS.some((f) => f.id === l.format) ? l.format : null);
+    borrowCount(l.count ?? null);
+    borrowQuality(l.quality && RESOLUTIONS.some((r) => r.id === l.quality) ? (l.quality as QualityId) : null);
+  };
 
   useEffect(() => {
     if (!initialBrief) return;
@@ -429,19 +485,7 @@ export const Composer = forwardRef<
     borrowCount(initialBrief.variants ?? null);
     if (initialBrief.quality) borrowQuality(initialBrief.quality);
     setTplFields(initialBrief.templateFields ?? {});
-    const tokens = briefTokens(initialBrief);
-    if (!tokens.some(namesAView)) {
-      setSeedTokens(tokens);
-      return;
-    }
-    // a Home example that follows one of its scene's views lands once that frame is in the store
-    let live = true;
-    void withPickedViews(tokens).then((picked) => {
-      if (live) setSeedTokens(picked);
-    });
-    return () => {
-      live = false;
-    };
+    seedLine(briefTokens(initialBrief));
   }, [initialBrief]);
 
   /**
@@ -477,6 +521,7 @@ export const Composer = forwardRef<
     const firstRunForBrand = prior !== brand.id;
     let tokens: SentenceToken[] | null = null;
     let tplFieldsToApply: Record<string, string> | null = null;
+    let lentToApply: LentSettings | null = null;
 
     if (!hasExplicitSeed && firstRunForBrand) {
       const draft = loadDraft(brand.id);
@@ -486,6 +531,7 @@ export const Composer = forwardRef<
         // its pictures for the shots made with it, never for a new one.
         tokens = withHeadPresenters(brand, draft.tokens);
         tplFieldsToApply = draft.tplFields;
+        lentToApply = draft.lent ?? null;
       } else if (switched) {
         // Nothing parked for the incoming brand: it starts from an empty
         // sentence, never from the outgoing brand's, which stayed on screen
@@ -503,6 +549,36 @@ export const Composer = forwardRef<
       setRefineFormats({});
     }
 
+    // "Use in a shot" pressed on a page with no composer starts a new brief of
+    // its own, and the brief in progress (restored just above, or on the line
+    // of a composer already up) is put aside behind an Undo. It used to take
+    // the chip: a product picked from its page landed in a half-written brief
+    // about something else.
+    const seeding =
+      (!!startScene && startScene !== lastAppliedStartScene.current) ||
+      (!!startPresenter && startPresenter !== lastAppliedStartPresenter.current) ||
+      (!!startProduct && startProduct !== lastAppliedStartProduct.current) ||
+      (!!startRef && !startScene && startRef !== lastAppliedStartRef.current);
+    let putAside: { tokens: SentenceToken[]; tplFields: Record<string, string>; lent: LentSettings | null } | null =
+      null;
+    if (startFresh && seeding) {
+      const up = firstRunForBrand ? null : contentRef.current;
+      const prevTokens = tokens ?? (up ? (pendingSeed.current ?? up.tokens) : null);
+      const prevFields = tplFieldsToApply ?? up?.tplFields ?? {};
+      if (prevTokens && isNonTrivial(prevTokens, prevFields))
+        putAside = { tokens: prevTokens, tplFields: prevFields, lent: lentToApply ?? up?.lent ?? null };
+      tokens = emptySentence();
+      tplFieldsToApply = {};
+      lentToApply = null;
+      borrowFormat(null);
+      borrowCount(null);
+      borrowQuality(null);
+    }
+    // Where a seed lands when nothing above decided the brief. A composer
+    // already up keeps its own line: a toast's "Use in a shot" pressed on
+    // Create used to empty the brief in progress and leave only the chip.
+    const onLine = (): SentenceToken[] => (firstRunForBrand ? emptySentence() : contentRef.current.tokens);
+
     // Set by any of the three seed blocks below, so the owner of the URL can
     // take the spent param back out of it.
     let seedApplied = false;
@@ -510,7 +586,7 @@ export const Composer = forwardRef<
     if (startScene && startScene !== lastAppliedStartScene.current) {
       lastAppliedStartScene.current = startScene;
       seedApplied = true;
-      const base = tokens ?? emptySentence();
+      const base = tokens ?? onLine();
       const existingTok = base.find((t) => t.t === 'template') as Extract<SentenceToken, { t: 'template' }> | undefined;
       const existingSceneId = existingTok?.id ?? null;
       const sceneName = templates.find((t) => t.id === startScene)?.name ?? 'this scene';
@@ -559,14 +635,14 @@ export const Composer = forwardRef<
     if (startPresenter && startPresenter !== lastAppliedStartPresenter.current) {
       lastAppliedStartPresenter.current = startPresenter;
       seedApplied = true;
-      const base = tokens ?? emptySentence();
+      const base = tokens ?? onLine();
       const already = base.some((t) => t.t === 'character' && t.id === startPresenter);
       if (!already) tokens = [...base, { t: 'character', id: startPresenter }];
     }
     if (startProduct && startProduct !== lastAppliedStartProduct.current) {
       lastAppliedStartProduct.current = startProduct;
       seedApplied = true;
-      const base = tokens ?? emptySentence();
+      const base = tokens ?? onLine();
       const already = base.some((t) => t.t === 'product' && t.id === startProduct);
       if (!already) tokens = [...base, { t: 'product', id: startProduct }];
     }
@@ -574,14 +650,34 @@ export const Composer = forwardRef<
     if (startRef && !startScene && /^[a-f0-9]{32}$/.test(startRef) && startRef !== lastAppliedStartRef.current) {
       lastAppliedStartRef.current = startRef;
       seedApplied = true;
-      const base = tokens ?? emptySentence();
+      const base = tokens ?? onLine();
       const already = base.some((t) => t.t === 'ref' && t.imageHash === startRef);
       if (!already) tokens = [...base, { t: 'ref', imageHash: startRef, label: 'Scene view' }];
     }
 
     if (tokens) {
-      setSeedTokens(tokens);
-      setTplFields(tplFieldsToApply ?? {});
+      seedLine(tokens);
+      if (tplFieldsToApply) setTplFields(tplFieldsToApply);
+    }
+    if (lentToApply) borrowLent(lentToApply);
+    if (putAside) {
+      const aside = putAside;
+      const asideBrand = brand.id;
+      push({
+        kind: 'info',
+        title: 'Started a new shot',
+        action: {
+          label: 'Undo',
+          // to its own brand, wherever the person is by now (draft.ts)
+          onClick: () =>
+            returnDraft(asideBrand, {
+              tokens: aside.tokens,
+              tplFields: aside.tplFields,
+              setSlug,
+              lent: aside.lent ?? undefined,
+            }),
+        },
+      });
     }
     if (seedApplied) onSeedsSpent?.();
     draftBrandIdRef.current = brand.id;
@@ -724,7 +820,26 @@ export const Composer = forwardRef<
     return () => {
       if (draftTimer.current) clearTimeout(draftTimer.current);
     };
-  }, [sentence, tplFields, target?.id, brand.id, flushDraft]);
+  }, [sentence, tplFields, lentFormat, lentCount, lentQuality, target?.id, brand.id, flushDraft]);
+
+  // only a composer that keeps the draft decides what "Use in a shot" means (draft.ts)
+  useEffect(() => (persistDraft ? keepDraftOnScreen() : undefined), [persistDraft]);
+
+  // a brief handed back to the brand on this line (returnDraft) lands here at once
+  useEffect(() => {
+    if (!persistDraft) return;
+    const onReturned = (e: Event) => {
+      const brandId = (e as CustomEvent<string>).detail;
+      if (brandId !== (draftBrandIdRef.current ?? brand.id)) return;
+      const d = loadDraft(brandId);
+      if (!d) return;
+      seedLine(withHeadPresenters(brand, d.tokens));
+      setTplFields(d.tplFields);
+      borrowLent(d.lent ?? {});
+    };
+    window.addEventListener(DRAFT_RETURNED, onReturned);
+    return () => window.removeEventListener(DRAFT_RETURNED, onReturned);
+  }, [persistDraft, brand, seedLine]);
 
   useEffect(() => {
     // brand.id intentionally omitted from deps: an unmount must flush whatever
@@ -1328,6 +1443,7 @@ export const Composer = forwardRef<
           detail: warned.join(' '),
         });
 
+      pendingSeed.current = null;
       briefRef.current?.setTokens(emptySentence());
       setTplFields({});
       // the borrowed settings belonged to the brief that just left the screen

@@ -324,6 +324,33 @@ test('switching brand leaves the brief with the brand it was written for', async
   await expect(line).not.toContainText('a brief for the first brand');
 });
 
+test('Undo on "Started a new shot" after a brand switch gives the brief back to its own brand', async ({ page }) => {
+  // The toast is the app's, so it outlives the page and the brand it was
+  // raised on. Pressed after a switch, its Undo used to restore into a
+  // composer that had already gone, and the brief put aside was lost.
+  const own = await home(page);
+  const slugs = await addBrands(page, ['Tallow']);
+  const ownName = [...slugs].find(([, slug]) => slug === own)?.[0] ?? own;
+  const line = page.locator('.sc-brief-line').first();
+  await page.goto(`/${own}/create`);
+  await line.click();
+  await page.keyboard.type('a brief the first brand put aside');
+  await page.goto(`/${own}/scenes/clay-court`);
+  await page.locator('.sc-lookpage-acts .sc-btn-primary').click();
+  const toast = page.locator('.sc-toast', { hasText: 'Started a new shot' });
+  await expect(toast).toBeVisible();
+
+  await switchTo(page, 'Tallow', slugs.get('Tallow')!);
+  await toast.getByRole('button', { name: 'Undo' }).click();
+  await expect(line).not.toContainText('a brief the first brand put aside');
+  // past the draft debounce: nothing of the first brand's is saved as this one's
+  await page.waitForTimeout(700);
+  await switchTo(page, ownName, own);
+  await expect(line).toContainText('a brief the first brand put aside');
+  await switchTo(page, 'Tallow', slugs.get('Tallow')!);
+  await expect(line).not.toContainText('a brief the first brand put aside');
+});
+
 test("an example staged on one brand's Home stays there, and the next brand's own brief comes back", async ({
   page,
 }) => {

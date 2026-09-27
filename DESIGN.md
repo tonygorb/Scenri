@@ -319,6 +319,19 @@ A caret (or phone-docked) shortlist, not a command palette. The box sits on the 
 ### Composer chips in the sentence
 A chip is an inline atom in real text flow that owns its gap as a symmetric 2px margin: two chips that touch in the document sit 4px apart, and the same holds in a right-to-left line. The line keeps no space on a chip's behalf, ever: the spaces beside a chip are the user's, typed or not, the way a mention behaves in any text field. Where the user has typed nothing beside a chip the line keeps a guard there, one zero-width character (`\uFEFF`) that gives the caret text to sit in, because a phone shows no caret anywhere else; the guard is never part of the sentence (readers strip it, the unit maths does not count it, typing into it leaves only what was typed), and between two touching chips the browser draws the caret at the guard, which is where the two margins meet. A chip is one unit to the keyboard: one press crosses it, the key that faces it removes it (keydown for a hardware key, `beforeinput` for a phone's keyboard, since no engine deletes an atom consistently on its own), and a press at a line edge with nothing on its side is swallowed. Tab reaches a chip from the line, never from the page's own order: Tab goes to the next chip after the caret and Shift+Tab to the one before, each step by way of the line, and with no chip left that way it leaves the brief for the next control. On touch the platform's caret and word-snap stand, and a tap is corrected only in the line's padding. `composer/line/invariants.ts` keeps the guards and the browser's untidiness straight; `composer/line/keys.ts` holds the key rules; `render.ts` drops the seams older briefs stored.
 
+### The brief in progress
+One draft per brand, kept by whichever composer is on screen (Home's dock, Create's).
+- **It survives leaving.** Tabs, Back, a reload and a brand switch bring the brief back as it was: its words,
+  its chips, and the settings it was lent (a use case's shape and quality, a Remix's count too), which never
+  become the machine's prefs. A use case still fetching its scene's view is the brief all the same, and
+  finishes arriving on return.
+- **"Use in a shot" reads the page it is pressed on.** Where a composer is on screen, the chip joins the brief
+  there. On a page without one (a library, an asset's own page, Home on a phone) it starts a new brief holding
+  only that chip, and the brief in progress is put aside behind the toast's Undo, never merged into a sentence
+  about something else. The Undo hands the brief back to its own brand from wherever the person is by then,
+  and it lives as long as the toast, like the create dialogs' Undo: once the toast is gone, so is the brief
+  put aside.
+
 ### Composer attach picker (the "+")
 One panel, one grid, one insertion path. The "+" answers "what do you want to add to this shot": a head
 that stays put over the one scrolling grid, in a frame that keeps its size whatever the tab. It is anchored

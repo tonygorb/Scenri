@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useBrand } from './BrandLayout.js';
 import { hubPath } from '../routes.js';
+import { freshSeed } from '../draft.js';
 import type { SceneView } from '../api.js';
 
 /**
@@ -15,7 +16,8 @@ import type { SceneView } from '../api.js';
  *
  * `picture` is one of the scene's own pictures picked to shoot like (its
  * picture or an example), and `view` which one it is: the scene's chip carries
- * it, and the shot follows its frame.
+ * it, and the shot follows its frame. Pressed on a page with no composer, it
+ * starts a new brief rather than joining the one in progress (draft.ts `freshSeed`).
  */
 export function useApplyScene(): (sceneId: string, setup?: string, picture?: string, view?: SceneView) => void {
   const { brand } = useBrand();
@@ -30,7 +32,7 @@ export function useApplyScene(): (sceneId: string, setup?: string, picture?: str
       // chosen, and the chip carries it from there.
       const way = setup ? `&setup=${encodeURIComponent(setup)}` : '';
       const pic = picture ? `&ref=${encodeURIComponent(picture)}${view ? `&view=${view}` : ''}` : '';
-      navigate(`${hub}?scene=${encodeURIComponent(sceneId)}${way}${pic}&compose=1`);
+      navigate(`${hub}?scene=${encodeURIComponent(sceneId)}${way}${pic}&compose=1${freshSeed()}`);
     },
     [hub, navigate],
   );

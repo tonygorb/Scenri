@@ -158,7 +158,9 @@ export function useSessionPref<T>(key: string, fallback: T) {
  * straight into the machine's prefs, so looking at one four-variant example
  * quietly changed what every later shot would cost. The recipe's value now
  * rides on top for as long as that brief is on screen; picking a value by hand
- * is what writes the pref, and clearing the override hands the pref back.
+ * is what writes the pref, and clearing the override hands the pref back. The
+ * fourth value is the loan alone, which the brief's draft keeps so a return
+ * finds the brief at the settings it was lent.
  */
 export function useRecipeSetting<T>(key: string, fallback: T) {
   const [pref, setPref] = useLocalPref<T>(key, fallback);
@@ -167,7 +169,7 @@ export function useRecipeSetting<T>(key: string, fallback: T) {
     setBorrowed(null);
     setPref(v);
   };
-  return [borrowed ?? pref, choose, setBorrowed] as const;
+  return [borrowed ?? pref, choose, setBorrowed, borrowed] as const;
 }
 
 /** Read outside React: the redirect at / needs this before anything renders. */

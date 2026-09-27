@@ -2325,8 +2325,20 @@ test('the newest work is always the top-left tile', async ({ page }) => {
   await line(page).click();
   await page.keyboard.type('the newest shot');
   await dock(page).locator('.sc-send').click();
-  // a default send is a two-shot batch now, so two running tiles are the norm
-  await expect(page.locator('.sc-cell[data-running]').first()).toBeVisible();
+  // The send's own tile, running or already landed. The demo engine runs with
+  // no delay here, so a one-take send can finish before a running tile is ever
+  // on screen, and waiting for one failed about one run in four (2026-09-27).
+  await expect
+    .poll(() =>
+      page.evaluate(
+        (was) =>
+          [...document.querySelectorAll('.sc-cell[data-fb-node]')].some(
+            (c) => !was.includes(c.getAttribute('data-fb-node')),
+          ),
+        before,
+      ),
+    )
+    .toBe(true);
   // While it lands, the top-left belongs to this send: its stand-in, a take
   // still running, or a take that already landed. The two takes land one at a
   // time and either can sort first, so a finished take can hold the spot while
@@ -3730,4 +3742,77 @@ test('the brief has a name a screen reader can say, beside the hint it shows', a
   const brief = page.getByRole('textbox', { name: 'Shot brief' });
   await expect(brief).toBeVisible();
   await expect(brief).toHaveAttribute('aria-placeholder', 'What should we shoot? (use $ / @ #)');
+});
+
+/**
+ * A use case left and come back to (2026-09-27). The words and chips always
+ * came back; the settings the example lent did not, and an example that follows
+ * one of its scene's views was lost whole when the page was left before that
+ * frame reached the store.
+ */
+const brandHome = (p: Page) => `/${new URL(p.url()).pathname.split('/')[1]}`;
+const settingsOf = (p: Page) =>
+  dock(p)
+    .locator('.sc-prompt-pills .sc-var')
+    .evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+
+test("an example's settings come back with it after the page is left", async ({ page }) => {
+  await page.goto(brandHome(page));
+  await line(page).waitFor();
+  const own = await settingsOf(page);
+  const card = page.locator('[data-wall] .sc-lookcard').first();
+  await card.hover();
+  await card.locator('.sc-lookcard-use').click();
+  await expect(page.locator('.sc-toast', { hasText: 'Starting from' })).toBeVisible();
+  await expect.poll(() => settingsOf(page)).not.toEqual(own);
+  const lent = await settingsOf(page);
+  const words = await sentence(page);
+
+  await page.getByRole('link', { name: 'Products', exact: true }).first().click();
+  await page.waitForURL(/\/products$/);
+  await page.getByRole('link', { name: 'Home', exact: true }).first().click();
+  await line(page).waitFor();
+
+  await expect.poll(() => sentence(page)).toBe(words);
+  await expect.poll(() => settingsOf(page)).toEqual(lent);
+});
+
+test('an example left before its scene view lands comes back whole', async ({ page }) => {
+  await page.goto(brandHome(page));
+  await line(page).waitFor();
+  // Opening an example that follows a view copies that frame into the store
+  // first, which on a real library can take seconds. Held here, so leaving
+  // lands inside that wait every time.
+  await page.route(/\/api\/scenes\/[^/]+\/views\/[^/]+\/pick$/, async (route) => {
+    await new Promise((r) => setTimeout(r, 2000));
+    await route.continue();
+  });
+  const card = page.locator('[data-wall] .sc-lookcard', { hasText: 'Aperitivo among the vine tomatoes' });
+  // the card sits far down the wall, under the sticky filter bar once scrolled to
+  await card.locator('.sc-lookcard-use').dispatchEvent('click');
+  await expect(page.locator('.sc-toast', { hasText: 'Starting from' })).toBeVisible();
+
+  await page.getByRole('link', { name: 'Products', exact: true }).first().click();
+  await page.waitForURL(/\/products$/);
+  await page.getByRole('link', { name: 'Home', exact: true }).first().click();
+  await line(page).waitFor();
+
+  await expect.poll(() => sentence(page), { timeout: 10_000 }).toContain('among the vine tomatoes');
+  await expect(chips(page)).toHaveCount(2);
+});
+
+test('"Use in a shot" where the composer is on screen adds the chip to the brief there', async ({ page }) => {
+  // Home's dock is the composer on screen, so a scene picked from Home's own
+  // shelf joins the brief in it. A page without a composer starts a new brief
+  // instead (product.spec).
+  await page.goto(brandHome(page));
+  await line(page).click();
+  await page.keyboard.type('a brief that stays');
+  const shelf = page.locator('section', { has: page.locator('.sc-sec-title', { hasText: 'Scenes' }) });
+  await shelf.locator('.sc-lookcard-open').first().click();
+  await page.waitForURL(/\/create$/);
+
+  await expect.poll(() => sentence(page)).toContain('a brief that stays');
+  await expect(chips(page)).toHaveCount(1);
+  await expect(page.locator('.sc-toast', { hasText: 'Started a new shot' })).toHaveCount(0);
 });
