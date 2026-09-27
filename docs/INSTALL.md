@@ -61,9 +61,9 @@ npx scenri
 What happens next, in order:
 
 1. **npm asks permission once.** It names the `scenri` package and asks `Ok to proceed? (y)`.
-   Type `y` and press Enter. It may also ask once to approve build scripts for two components
-   named `better-sqlite3` and `sharp`; approve those too. Both questions are normal and appear
-   only on the first run.
+   Type `y` and press Enter. The question is normal and appears only on the first run. npm may
+   also print a few `npm warn deprecated` lines about packages Scenri depends on; they are
+   harmless.
 2. **It downloads.** The first run fetches Scenri and takes a minute or two. Later starts are
    fast.
 3. **The terminal shows Scenri is running**, with its address and where your data lives:
@@ -287,8 +287,11 @@ first:
 **The browser did not open.** Copy the address the terminal printed, `http://127.0.0.1:4747`, into
 any browser on the same computer.
 
-**`Scenri could not start: a native component failed to load.`** Node changed since Scenri was
-installed, usually after a Node update. Install the current LTS from
+**`Scenri could not start: a native component failed to load.`** Two causes. If you have
+upgraded npm to version 12, it blocks the install script of Scenri's database component
+(`better-sqlite3`) by default; start Scenri with `npx --allow-scripts=better-sqlite3 scenri`
+instead (the npm that ships with current Node releases, npm 11, does not need this). Otherwise Node
+changed since Scenri was installed, usually after a Node update: install the current LTS from
 [nodejs.org](https://nodejs.org), then run `npx scenri@latest`.
 
 **Codex is not installed, or not signed in.** Open the composer notice or Settings, then

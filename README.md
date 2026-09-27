@@ -71,7 +71,7 @@ On macOS and Windows, Scenri then asks once whether to put a **Scenri icon on yo
 
 Generation runs on **Codex CLI**, an official helper from OpenAI that draws on your own paid ChatGPT plan (Codex image generation is not part of the Free plan). No API key to paste, and Scenri never charges you. Each image spends some of your plan's Codex usage. You do not have to set it up by hand: if it is missing, Scenri offers to install it and to sign you in, both from the app. No ChatGPT plan? Add your own key from an image provider in Settings instead, see [Engines](#engines).
 
-Two dependencies (`better-sqlite3` and `sharp`) ship native binaries, so on recent npm you may be asked to approve their install scripts once. Something not starting? See [troubleshooting](https://github.com/tonygorb/scenri/blob/main/docs/INSTALL.md#troubleshooting).
+One dependency, `better-sqlite3`, runs an install script that fetches its native binary. The npm that ships with current Node releases (npm 11) runs it without asking. npm 12 blocks dependency install scripts by default, so if you have upgraded to it, start Scenri with `npx --allow-scripts=better-sqlite3 scenri`. Something not starting? See [troubleshooting](https://github.com/tonygorb/scenri/blob/main/docs/INSTALL.md#troubleshooting).
 
 <details>
 <summary>Run from source</summary>
