@@ -60,7 +60,16 @@ import { publishComposer, publishOverlay, type ComposerFacts } from '../guideFac
 import { PREF, useLocalPref, useRecipeSetting } from '../prefs.js';
 import { useMediaQuery } from '../useMediaQuery.js';
 import { useToasts } from '../toasts.js';
-import { clearDraft, isNonTrivial, keepDraftOnScreen, type LentSettings, loadDraft, saveDraft } from '../draft.js';
+import {
+  clearDraft,
+  DRAFT_RETURNED,
+  isNonTrivial,
+  keepDraftOnScreen,
+  type LentSettings,
+  loadDraft,
+  returnDraft,
+  saveDraft,
+} from '../draft.js';
 import { useIngredientCatalog } from '../composer/useIngredientCatalog.js';
 import { resolveSceneSwitch } from '../composer/applyScene.js';
 import { aspectOfFormat, formatOfShot } from '../composer/formats.js';
@@ -652,16 +661,20 @@ export const Composer = forwardRef<
     if (lentToApply) borrowLent(lentToApply);
     if (putAside) {
       const aside = putAside;
+      const asideBrand = brand.id;
       push({
         kind: 'info',
         title: 'Started a new shot',
         action: {
           label: 'Undo',
-          onClick: () => {
-            briefRef.current?.setTokens(aside.tokens);
-            setTplFields(aside.tplFields);
-            borrowLent(aside.lent ?? {});
-          },
+          // to its own brand, wherever the person is by now (draft.ts)
+          onClick: () =>
+            returnDraft(asideBrand, {
+              tokens: aside.tokens,
+              tplFields: aside.tplFields,
+              setSlug,
+              lent: aside.lent ?? undefined,
+            }),
         },
       });
     }
@@ -810,6 +823,22 @@ export const Composer = forwardRef<
 
   // only a composer that keeps the draft decides what "Use in a shot" means (draft.ts)
   useEffect(() => (persistDraft ? keepDraftOnScreen() : undefined), [persistDraft]);
+
+  // a brief handed back to the brand on this line (returnDraft) lands here at once
+  useEffect(() => {
+    if (!persistDraft) return;
+    const onReturned = (e: Event) => {
+      const brandId = (e as CustomEvent<string>).detail;
+      if (brandId !== (draftBrandIdRef.current ?? brand.id)) return;
+      const d = loadDraft(brandId);
+      if (!d) return;
+      seedLine(withHeadPresenters(brand, d.tokens));
+      setTplFields(d.tplFields);
+      borrowLent(d.lent ?? {});
+    };
+    window.addEventListener(DRAFT_RETURNED, onReturned);
+    return () => window.removeEventListener(DRAFT_RETURNED, onReturned);
+  }, [persistDraft, brand, seedLine]);
 
   useEffect(() => {
     // brand.id intentionally omitted from deps: an unmount must flush whatever

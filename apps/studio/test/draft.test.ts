@@ -2,11 +2,13 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import type { SentenceToken } from '../src/composer/line.js';
 import {
   clearDraft,
+  DRAFT_RETURNED,
   draftKey,
   freshSeed,
   isNonTrivial,
   keepDraftOnScreen,
   loadDraft,
+  returnDraft,
   saveDraft,
   type PersistedDraft,
 } from '../src/draft.js';
@@ -278,5 +280,21 @@ describe('what "Use in a shot" means', () => {
     expect(freshSeed()).toBe('');
     create();
     expect(freshSeed()).toBe('&fresh=1');
+  });
+});
+
+describe('a brief handed back to its brand', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('is stored as that brand draft and announced for the composer showing it', () => {
+    const heard: string[] = [];
+    const listen = (e: Event) => heard.push((e as CustomEvent<string>).detail);
+    window.addEventListener(DRAFT_RETURNED, listen);
+    returnDraft('b1', { tokens: tokens([{ t: 'text', v: 'put aside' }]), tplFields: {}, lent: { count: 2 } });
+    window.removeEventListener(DRAFT_RETURNED, listen);
+    expect(heard).toEqual(['b1']);
+    expect(loadDraft('b1')?.tokens).toEqual([{ t: 'text', v: 'put aside' }]);
+    expect(loadDraft('b1')?.lent).toEqual({ count: 2 });
+    expect(loadDraft('b2')).toBeNull();
   });
 });

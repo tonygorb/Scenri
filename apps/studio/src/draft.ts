@@ -176,3 +176,21 @@ export function saveDraft(
 export function clearDraft(brandId: string): void {
   remove(draftKey(brandId));
 }
+
+/** Announced when a brief is handed back to its brand from outside a composer (`returnDraft`). */
+export const DRAFT_RETURNED = 'scenri:draft-returned';
+
+/**
+ * Hands a brief back to its own brand from outside any one composer.
+ *
+ * The Undo on "Started a new shot" is the app's toast, so it outlives the page
+ * it was raised on and the brand it was raised for. It used to restore into
+ * whatever composer object it had closed over, which after a brand switch had
+ * already unmounted, so the brief put aside was gone. Stored as that brand's
+ * draft and announced, it lands on the line of a composer showing that brand
+ * at once, or on the next one to open there, and never on another brand's.
+ */
+export function returnDraft(brandId: string, data: Parameters<typeof saveDraft>[1]): void {
+  saveDraft(brandId, data);
+  window.dispatchEvent(new CustomEvent<string>(DRAFT_RETURNED, { detail: brandId }));
+}
