@@ -64,9 +64,11 @@ export const barrierCream: Story = {
     { sigil: '/', query: 'bath', name: 'Bath Caddy', token: 't:teak-bath-caddy' },
     ', lid off, centred in the hard sun.',
   ],
-  // the light, then the camera itself: the same jar, told twice more. The second names where the
-  // camera goes, since "low side angle, close on the jar" came back as the same view, only closer
-  refinements: ['Golden hour, long warm shadows', 'Eye level with the jar, from the side'],
+  // the light, then the camera: the same jar, told twice more. A refinement keeps the photograph
+  // (briefDirectives.ts), so it will not move the camera to a new viewpoint: "Low side angle, close
+  // on the jar", "Eye level with the jar, from the side" and "New angle: ..." all came back as the
+  // same view. It will widen the frame, which is the move that shows the whole scene
+  refinements: ['Golden hour, long warm shadows', 'Pull back to show the whole bath'],
 };
 
 /** The moments the story reaches, in order. A film cuts and frames on them; the spec checks the order. */
@@ -262,7 +264,8 @@ export async function refineOnStage(
   await page.waitForURL(new RegExp(`/shots/${id}(?:[?#]|$)`));
   await d.beat(`refining-${step}`, page.locator('.sc-ovl-stage'));
   await onStage(page, await finished(page, id, landMs));
-  await page.locator('.sc-ovl-head b', { hasText: `Refinement ${step}` }).waitFor();
+  // the head names the step; a step drawn again beside an earlier one may carry another number
+  await page.locator('.sc-ovl-head b', { hasText: /^Refinement \d+$/ }).waitFor();
   await d.beat(`refined-${step}`, page.locator('.sc-ovl-stage .sc-stage-img'));
   return id;
 }
