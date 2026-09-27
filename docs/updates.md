@@ -66,16 +66,29 @@ are read from `package.json` at runtime, never hardcoded.
 
 ## The library download
 
-The npm package carries the complete catalog and every thumbnail, so the whole
-library is browsable offline from first launch. The heavy imagery (scene
-reference galleries, showcase heroes, product shots, presenter identity sets)
-is downloaded once from a versioned archive on the project's GitHub releases,
-cached under `~/.scenri/content`, and never fetched again. One GET for one
-file, nothing sent, silent when offline (the next launch simply retries).
+The npm package carries the complete catalog, the scene and presenter cards
+and a starter wall of fifteen examples, so the whole library is browsable
+offline from first launch. The heavy imagery (scene reference galleries, the
+rest of the showcase heroes, product shots, presenter identity sets) is
+downloaded once from a versioned archive on the project's GitHub releases and
+cached under `~/.scenri/content`.
 
-- `SCENRI_NO_CONTENT_FETCH=1` skips the download entirely; Scenri stays on
-  thumbnails.
-- `SCENRI_CONTENT_URL` points a fork or an airgap mirror at its own archive.
+The archive is read by byte range, a file at a time and the pictures Home shows
+first, and each file is kept only once its own sha256 matches the value pinned
+in that Scenri version (`packages/cli/src/content/archive-v3.json`), so
+pictures appear as they arrive. A download that is stopped resumes where it
+stopped on the next start; a file that does not arrive is tried again a minute
+later, and after that on the next start. Nothing is sent, and it is silent when
+offline. A host that does not answer byte ranges gets one GET for the whole
+archive, checked against its pinned sha256 before anything is unpacked.
+
+- `SCENRI_NO_CONTENT_FETCH=1` skips the download entirely; Scenri stays on the
+  starter wall and the cards.
+- `SCENRI_CONTENT_URL` points a fork or an airgap mirror at its own archive. A
+  mirror of the published archive is checked file by file all the same. A
+  different archive can be pinned the same way with `SCENRI_CONTENT_PIN`, a file
+  written by `pnpm exec tsx packages/cli/scripts/pin-content.mts <zip> --out
+  <pin.json>`; without one it is taken whole, as its owner's choice.
 
 `~/.scenri/content` is a cache, not user data: deleting it is always safe and
 the next launch restores it.
