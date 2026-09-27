@@ -230,7 +230,14 @@ function TaskRow({
         <b dir="auto">{task.title}</b>
         <small dir="auto">{task.subtitle}</small>
         {running && task.percent !== null ? (
-          <span className="sc-notif-meter">
+          <span
+            className="sc-notif-meter"
+            role="progressbar"
+            aria-label={task.title}
+            aria-valuenow={task.percent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
             <div style={{ width: `${task.percent}%` }} />
           </span>
         ) : null}
