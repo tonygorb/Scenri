@@ -1,4 +1,4 @@
-import { createCore, SchemaTooNewError } from '@scenri/core';
+import { createCore, defaultHome, SchemaTooNewError } from '@scenri/core';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
@@ -41,6 +41,22 @@ export async function serve(): Promise<void> {
 }
 
 async function run(): Promise<void> {
+  const supervised = process.env.SCENRI_SUPERVISED === '1';
+  const installKind = detectInstallKind(fileURLToPath(import.meta.url), defaultHome());
+  // A second start while Scenri already runs hands the person that studio,
+  // and it must do so before this process opens the library. Opening it runs
+  // the sweep a real restart needs: every running shot, import and presenter
+  // step is marked interrupted, and a newer build migrates the database under
+  // the older server still using it. Found out only once the port was
+  // refused, a second `npx scenri` made the live server's work read as failed
+  // until it landed, and a Try again in between paid for the same shot twice.
+  // Supervised starts ask too: `npx scenri` and the desktop icon both arrive
+  // through the launcher, which respawns only after the old child has exited,
+  // so a restart finds its port closed here and the wait after listen stays.
+  const theirs = await runningScenri();
+  if (theirs && shouldAdoptRunning({ installKind, ourHome: defaultHome(), theirHome: theirs.home })) {
+    await adoptRunning();
+  }
   const core = createCore();
   // The e2e suite needs a generation that finishes without keys, money or a
   // network. The demo engine is deliberately absent from the default registry
@@ -72,9 +88,6 @@ async function run(): Promise<void> {
   // dev: monorepo path; published: bundled dist
   const candidates = [join(here, '..', '..', '..', 'apps', 'studio', 'dist'), join(here, '..', 'studio-dist')];
   const studioDist = candidates.find((p) => existsSync(p));
-
-  const supervised = process.env.SCENRI_SUPERVISED === '1';
-  const installKind = detectInstallKind(fileURLToPath(import.meta.url), core.home);
 
   // a SCENRI_HOST given as a name is a Host header we must accept; addresses always pass
   const named = isLoopbackName(HOST) || isWildcardHost(HOST) || isIPv4Literal(HOST) ? [] : [HOST];
@@ -109,39 +122,22 @@ async function run(): Promise<void> {
           continue;
         }
         // Someone already answers on this port. If it is Scenri, a second
-        // start is not a failure — hand the person their running studio. The
-        // timeout matters: a non-HTTP occupant accepts the socket and never
-        // replies, and an unbounded fetch would hang this process silently.
-        try {
-          const res = await fetch(`http://127.0.0.1:${PORT}/api/version`, {
-            signal: AbortSignal.timeout(2000),
-          });
-          const info = (await res.json()) as { name?: string; home?: string };
-          if (info.name === readMeta().name) {
-            // Another Scenri, another library: a source checkout must not
-            // "start" by handing over someone else's studio (bootError.ts).
-            if (!shouldAdoptRunning({ installKind, ourHome: core.home, theirHome: info.home })) {
-              console.error('');
-              for (const line of anotherScenriLines(PORT, info.home ?? 'another library', core.home)) {
-                console.error(`  ${line}`);
-              }
-              console.error('');
-              process.exit(1);
+        // start is not a failure: hand the person their running studio. Asked
+        // once already before the library was opened; this is the race where
+        // it started in between.
+        const theirs = await runningScenri();
+        if (theirs) {
+          // Another Scenri, another library: a source checkout must not
+          // "start" by handing over someone else's studio (bootError.ts).
+          if (!shouldAdoptRunning({ installKind, ourHome: core.home, theirHome: theirs.home })) {
+            console.error('');
+            for (const line of anotherScenriLines(PORT, theirs.home ?? 'another library', core.home)) {
+              console.error(`  ${line}`);
             }
-            const url = `http://127.0.0.1:${PORT}`;
-            console.log(`\n  Scenri is already running → ${url}\n`);
-            if (process.env.SCENRI_NO_OPEN !== '1') {
-              try {
-                const { default: open } = await import('open');
-                await open(url);
-              } catch {
-                /* headless env */
-              }
-            }
-            process.exit(0);
+            console.error('');
+            process.exit(1);
           }
-        } catch {
-          /* not Scenri, or not answering — a foreign app owns the port */
+          await adoptRunning();
         }
         console.error('');
         for (const line of portBusyLines(PORT)) console.error(`  ${line}`);
@@ -277,4 +273,34 @@ export async function verify(): Promise<void> {
     console.log(JSON.stringify({ ok: false, error: String((err as Error)?.message ?? err) }));
     process.exit(1);
   }
+}
+
+/**
+ * The Scenri answering on this port, or null when nothing does or it is some
+ * other app. Bounded: a non-HTTP occupant accepts the socket and never
+ * replies, and an unbounded fetch would hang this process silently.
+ */
+async function runningScenri(): Promise<{ home?: string } | null> {
+  try {
+    const res = await fetch(`http://127.0.0.1:${PORT}/api/version`, { signal: AbortSignal.timeout(2000) });
+    const info = (await res.json()) as { name?: string; home?: string };
+    return info.name === readMeta().name ? info : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Hand the person the studio that is already running, and leave. */
+async function adoptRunning(): Promise<never> {
+  const url = `http://127.0.0.1:${PORT}`;
+  console.log(`\n  Scenri is already running → ${url}\n`);
+  if (process.env.SCENRI_NO_OPEN !== '1') {
+    try {
+      const { default: open } = await import('open');
+      await open(url);
+    } catch {
+      /* headless env */
+    }
+  }
+  process.exit(0);
 }

@@ -3,7 +3,7 @@ import { EventEmitter } from 'node:events';
 import { mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, delimiter, dirname } from 'node:path';
-import { openScenri, type OpenDeps, type StartingServer } from '../src/desktop/open.js';
+import { openScenri, serverPath, type OpenDeps, type StartingServer } from '../src/desktop/open.js';
 
 /**
  * `scenri open` is what the desktop icon runs: reuse a running Scenri, or
@@ -415,5 +415,47 @@ describe('scenri open', () => {
     expect(state.t).toBeGreaterThanOrEqual(180_000);
     expect(state.t).toBeLessThan(181_000);
     expect(state.dialogs[0]).toMatch(/taking too long/);
+  });
+});
+
+describe('the PATH the icon starts Scenri with', () => {
+  const finder = ['/usr/bin', '/bin', '/usr/sbin', '/sbin'].join(delimiter);
+  const only = (dirs: string[]) => (dir: string) => dirs.includes(dir);
+
+  // Node reports its own path resolved: under Homebrew that is the Cellar
+  // folder, which holds node, npm and npx and nothing npm installed.
+  const cellar = '/opt/homebrew/Cellar/node/23.11.0/bin/node';
+
+  it('on a Mac, reaches Codex where a terminal would have found it, after everything it was given', () => {
+    const home = join('/Users', 'person');
+    const path = serverPath(
+      cellar,
+      { PATH: finder, HOME: home },
+      'darwin',
+      only(['/opt/homebrew/bin', join(home, '.local', 'bin')]),
+    );
+    expect(path.split(delimiter)).toEqual([
+      dirname(cellar),
+      '/usr/bin',
+      '/bin',
+      '/usr/sbin',
+      '/sbin',
+      '/opt/homebrew/bin',
+      join(home, '.local', 'bin'),
+    ]);
+  });
+
+  it('names a folder once, and only folders that exist', () => {
+    const path = serverPath('/usr/local/bin/node', { PATH: finder, HOME: '/h' }, 'darwin', only(['/usr/local/bin']));
+    expect(path.split(delimiter)).toEqual(['/usr/local/bin', '/usr/bin', '/bin', '/usr/sbin', '/sbin']);
+  });
+
+  it("adds nothing on Windows or Linux: node's folder, then the PATH as given", () => {
+    const all = () => true;
+    for (const platform of ['win32', 'linux'] as const) {
+      expect(serverPath(cellar, { PATH: finder, HOME: '/h' }, platform, all)).toBe(
+        [dirname(cellar), finder].join(delimiter),
+      );
+    }
   });
 });

@@ -1,4 +1,6 @@
 import { api } from '../../api.js';
+import { failureToast } from '../../failure.js';
+import { useToasts } from '../../toasts.js';
 import { Group } from './Group.js';
 import { bytes } from './usageRules.js';
 
@@ -10,6 +12,7 @@ export type LibraryInfo = Awaited<ReturnType<typeof api.home>>;
  * pushed the rows under it down as General was chosen.
  */
 export function Library({ info, thisComputer }: { info: LibraryInfo | null; thisComputer: boolean }) {
+  const { push } = useToasts();
   return (
     <Group>
       <div className="sc-set-row">
@@ -21,7 +24,11 @@ export function Library({ info, thisComputer }: { info: LibraryInfo | null; this
         </span>
         {/* it opens the folder on the computer running Scenri, so only there */}
         {thisComputer && (
-          <button type="button" className="sc-btn sc-btn-ghost" onClick={() => void api.reveal()}>
+          <button
+            type="button"
+            className="sc-btn sc-btn-ghost"
+            onClick={() => void api.reveal().catch((e) => push(failureToast(e, 'Could not open the library folder')))}
+          >
             Reveal
           </button>
         )}

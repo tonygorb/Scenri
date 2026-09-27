@@ -459,10 +459,15 @@ export const Composer = forwardRef<
    */
   useEffect(() => {
     const prior = draftBrandIdRef.current;
-    if (prior && prior !== brand.id) flushDraft(prior);
+    const switched = !!prior && prior !== brand.id;
+    if (switched) flushDraft(prior);
 
-    // a composer that does not own the draft does not restore one either
-    const hasExplicitSeed = !!initialBrief || !!suppressDraftRestore || !persistDraft;
+    // A composer that does not own the draft does not restore one either. A
+    // seed (a Remix, an example staged on Home) claims the first mount only:
+    // after a switch the brief it seeded belongs to the brand that was left,
+    // and it kept the incoming brand's own draft from ever coming back, then
+    // the debounce saved the old brief over it.
+    const hasExplicitSeed = !persistDraft || (!switched && (!!initialBrief || !!suppressDraftRestore));
     // A restore is a once-per-brand event, which is what the dependency comment
     // at the bottom of this effect has always claimed. The effect itself re-runs
     // whenever a seed prop takes a new value, and re-reading the draft on those
@@ -481,7 +486,21 @@ export const Composer = forwardRef<
         // its pictures for the shots made with it, never for a new one.
         tokens = withHeadPresenters(brand, draft.tokens);
         tplFieldsToApply = draft.tplFields;
+      } else if (switched) {
+        // Nothing parked for the incoming brand: it starts from an empty
+        // sentence, never from the outgoing brand's, which stayed on screen
+        // with that brand's products in it and was saved as this brand's.
+        tokens = emptySentence();
+        tplFieldsToApply = {};
       }
+    }
+    if (switched) {
+      // and what the old brief borrowed (an example's shape, a remix's count)
+      // leaves with it, or the next brief runs at a count nobody chose
+      borrowFormat(null);
+      borrowCount(null);
+      borrowQuality(null);
+      setRefineFormats({});
     }
 
     // Set by any of the three seed blocks below, so the owner of the URL can

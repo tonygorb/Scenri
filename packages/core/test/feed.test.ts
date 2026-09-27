@@ -439,6 +439,22 @@ describe('what stays bounded on a big brand', () => {
     expect(late).toContain(kids[65]);
   });
 
+  it("counts each run on this computer's own calendar day, not on UTC's", () => {
+    const a = shot();
+    // 22:30 UTC yesterday: already today east of UTC+1:30 (Tel Aviv at 01:30)
+    const at = new Date();
+    at.setUTCDate(at.getUTCDate() - 1);
+    at.setUTCHours(22, 30, 0, 0);
+    const raw = openDb(home);
+    raw
+      .prepare('UPDATE nodes SET created_at = ? WHERE id = ?')
+      .run(at.toISOString().slice(0, 19).replace('T', ' '), a.id);
+    raw.close();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const localDay = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
+    expect(core.store.usageByDay(brandId).map((d) => d.day)).toEqual([localDay]);
+  });
+
   it('activity is the running shots plus the recent ones, from two indexed reads', () => {
     const fresh = shot({ prompt: 'landed today' });
     const [running] = core.store.addNodes({
