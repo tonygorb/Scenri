@@ -315,8 +315,7 @@ test.describe('a person from scratch', () => {
     await expect(log(page).getByRole('button', { name: 'Copy' })).toBeAttached();
     await log(page).getByRole('button', { name: 'Draw the presenter' }).click();
     await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
-    const tapped = await draftsOf(page, brand.id);
-    const first = await draftOf(page, brand.id, tapped.drafts[0].id);
+    const first = await draftOf(page, brand.id, here(page));
     expect(first.direction).toBe(
       'a Mediterranean woman in their 30s with shoulder-length black hair, green eyes, olive skin, average height with a solid build',
     );
