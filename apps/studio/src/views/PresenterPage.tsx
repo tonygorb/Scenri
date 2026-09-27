@@ -1,5 +1,5 @@
-import { ImageSquare, PencilSimple } from '@phosphor-icons/react';
-import { type CSSProperties, useEffect, useRef, useState } from 'react';
+import { PencilSimple } from '@phosphor-icons/react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useMatch, useNavigate, useParams } from 'react-router';
 import { api, type PresenterPatch, thumbOf } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
@@ -18,7 +18,7 @@ import { RecordCrumb } from '../layout/RecordCrumb.js';
 import { RecordKeep } from '../layout/RecordKeep.js';
 import { deleteLeaves } from '../layout/catalogPick.js';
 import { Tip } from '../layout/Tip.js';
-import { EmptyRefFrame, ShotThumb, Slider } from '../layout/ReferenceGallery.js';
+import { EmptyRefFrame, ShotThumb, Shown, Slider } from '../layout/ReferenceGallery.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
 import { AssetDetailsDialog } from './AssetDetailsDialog.js';
 import { useStillHere } from '../useStillHere.js';
@@ -46,6 +46,9 @@ const ROLE_LABEL: Record<string, string> = {
  * photographs keeps the originals in a small row of their own. Anything that
  * changes a picture or who they are lives in the editor, never here.
  */
+/** Places a reference set's rail holds while it is asked for. */
+const FRAMES_HELD = 3;
+
 export function PresenterPage() {
   const { presenterId = '' } = useParams();
   const {
@@ -75,6 +78,8 @@ export function PresenterPage() {
   // The boolean, never `owned` itself: the adapter builds a fresh object every
   // render, and an effect keyed on that identity re-runs on every commit.
   const isOwned = !!owned;
+  /** Which presenter's reference set has been answered for: until then the rail's place is held. */
+  const [framesFor, setFramesFor] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
     setRefs([]);
@@ -82,10 +87,14 @@ export function PresenterPage() {
     void api
       .presenterFrames(presenterId)
       .then((r) => {
-        if (alive) setRefs(r.frames);
+        if (!alive) return;
+        setRefs(r.frames);
+        setFramesFor(presenterId);
       })
       .catch(() => {
-        if (alive) setRefs([]);
+        if (!alive) return;
+        setRefs([]);
+        setFramesFor(presenterId);
       });
     return () => {
       alive = false;
@@ -336,7 +345,22 @@ export function PresenterPage() {
             way a turnaround is drawn. Face fills its card; a full-length
             frame that is taller than 4:5 letterboxes rather than losing its
             feet. The angle on the tile is the hook for that, not the label. */}
-        {frames.length > 0 ? (
+        {!owned && framesFor !== presenterId ? (
+          // The set is still being asked for: its rail's place, held with still
+          // placeholders, rather than the card's one preview laid out and then
+          // replaced by the rail when the set came.
+          <Rail count={FRAMES_HELD} label="Reference set" className="sc-refset-rail" trackClassName="sc-refset">
+            {Array.from({ length: FRAMES_HELD }, (_, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: held places have no identity beyond their slot
+              <li key={i} aria-hidden>
+                <span className="sc-refset-tile" data-state="loading">
+                  <span className="sc-placeholder" />
+                </span>
+                <span className="sc-refset-lb" />
+              </li>
+            ))}
+          </Rail>
+        ) : frames.length > 0 ? (
           <Rail count={frames.length} label="Reference set" className="sc-refset-rail" trackClassName="sc-refset">
             {frames.map((f) => (
               // by role, not by picture: two roles can resolve to the same one
@@ -437,33 +461,5 @@ export function PresenterPage() {
         )}
       </main>
     </ScrollPane>
-  );
-}
-
-/**
- * A picture the record points at that may not be there any more.
- *
- * A hash outlives its file: a library restored without its images, a record
- * older than a sweep. Every picture on this page drew the browser's own broken
- * glyph instead of saying so. The same fallback `RefFrame` uses, in this
- * page's markup.
- */
-function Shown({ src, crop }: { src: string; crop?: string }) {
-  const [broken, setBroken] = useState(false);
-  if (broken)
-    return (
-      <span className="sc-lookpage-ref-blank" aria-hidden>
-        <ImageSquare size={20} />
-      </span>
-    );
-  return (
-    <img
-      src={src}
-      alt=""
-      loading="lazy"
-      decoding="async"
-      {...(crop ? { 'data-crop': crop } : {})}
-      onError={() => setBroken(true)}
-    />
   );
 }

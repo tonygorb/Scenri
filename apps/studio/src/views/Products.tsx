@@ -340,7 +340,12 @@ export function ProductsView() {
       <ScrollPane>
         {/* biome-ignore lint/a11y/useKeyWithClickEvents: the keyboard path is Escape, bound on the document, so a key handler here would be a second route to the same clear */}
         <main className="sc-looks sc-products" id="main" data-hero={heroMode || undefined} onClick={pick.onBlank}>
-          {!heroMode && toolbar}
+          {/* Nothing is placed until the brand's own library has answered: whether
+            this page opens on the offer (no products yet) or on a toolbar over
+            your products decides where everything else goes. Laid out before
+            that, the demo wall and the toolbar jumped down under the offer the
+            moment the answer came. Until then the page is the skeleton alone. */}
+          {productsLoaded && !heroMode && toolbar}
 
           {!productsLoaded && (
             <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle} aria-hidden>
@@ -467,7 +472,7 @@ export function ProductsView() {
             </>
           )}
 
-          {theirsFiltered.length > 0 && (
+          {productsLoaded && theirsFiltered.length > 0 && (
             <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
               {theirsFiltered.map((p) => (
                 <DemoProductCard

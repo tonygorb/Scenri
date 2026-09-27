@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, registerSceneNameAliases, type Scene } from './api.js';
 
 export interface ScenesData {
@@ -12,7 +12,13 @@ export interface ScenesData {
 }
 
 export interface UseScenesResult extends ScenesData {
-  refetch: () => void;
+  /**
+   * Read the catalog again. Quiet keeps what is on screen, and `loaded`, until
+   * the new answer replaces it, and keeps it if the read fails: for a catalog
+   * that has only gained pictures (the library download landing), where
+   * falling back to skeletons would be the flash this exists to avoid.
+   */
+  refetch: (opts?: { quiet?: boolean }) => void;
 }
 
 const EMPTY: ScenesData = { scenes: [], collections: [], verticals: [], loaded: false, error: false };
@@ -25,6 +31,7 @@ const EMPTY: ScenesData = { scenes: [], collections: [], verticals: [], loaded: 
 export function useScenes(): UseScenesResult {
   const [data, setData] = useState<ScenesData>(EMPTY);
   const [tick, setTick] = useState(0);
+  const quiet = useRef(false);
 
   useEffect(() => {
     let alive = true;
@@ -47,15 +54,16 @@ export function useScenes(): UseScenesResult {
       .catch(() => {
         // a failed fetch is not the same as a still-loading one, and must not
         // silently look like an empty catalog forever
-        if (alive) setData((d) => ({ ...d, loaded: true, error: true }));
+        if (alive && !quiet.current) setData((d) => ({ ...d, loaded: true, error: true }));
       });
     return () => {
       alive = false;
     };
   }, [tick]);
 
-  const refetch = useCallback(() => {
-    setData((d) => ({ ...d, loaded: false, error: false }));
+  const refetch = useCallback((opts?: { quiet?: boolean }) => {
+    quiet.current = !!opts?.quiet;
+    if (!quiet.current) setData((d) => ({ ...d, loaded: false, error: false }));
     setTick((t) => t + 1);
   }, []);
 

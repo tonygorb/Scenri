@@ -10,6 +10,7 @@ import {
   queryKey,
   refreshFirst,
   replaceById,
+  sameRecord,
   withoutIds,
 } from '../src/views/create/feedQueryRules.js';
 import { feedSearchParams } from '../src/feedRules.js';
@@ -111,6 +112,15 @@ describe('pages', () => {
     expect(next[1].kept).toBe(true);
     const items = [a, b];
     expect(replaceById(items, node({ id: 'zzz' }))).toBe(items);
+  });
+
+  // The activity poll sends a fresh object for every recent shot on every
+  // tick; replacing by reference re-rendered every screen on every poll.
+  it('keeps the pages when a record comes back unchanged', () => {
+    const items = [a, b, c];
+    expect(replaceById(items, { ...b })).toBe(items);
+    expect(sameRecord(b, { ...b })).toBe(true);
+    expect(sameRecord(b, { ...b, status: 'running' })).toBe(false);
   });
 
   it('drops by id, untouched when nothing matched', () => {

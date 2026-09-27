@@ -4,6 +4,7 @@ import { hasNoShots, type FeedNode, type ShotSet } from '../api.js';
 import { feedColumnCount, masonryLayout, PHONE, useElementWidth, useViewportWidth } from './masonry.js';
 import { aspectOfImage, Tile, type TileHandlers } from './canvas/Tile.js';
 import { RunningTile } from './canvas/RunningTile.js';
+import { Rendering } from './Rendering.js';
 import { FailedTile } from './canvas/FailedTile.js';
 import {
   columnStarts,
@@ -88,7 +89,7 @@ export function Canvas({
    * sibling — so the press of the button is answered immediately, rather than
    * after a round trip that can take a second on a cold engine.
    */
-  sending?: { said: string; count: number } | null;
+  sending?: { said: string; count: number; format?: string } | null;
   /** Point the brief at this shot. Absent where branching makes no sense. */
   onBranch?: (id: string) => void;
   /** The shot the brief is currently pointed at, so its tile can say so. */
@@ -280,12 +281,13 @@ export function Canvas({
    * is the ordinal `dealColumns` deals on: the newest tile is ordinal 0 and
    * always the top-left cell, the feed reads left to right and then down.
    */
-  type Item = { key: string; node: FeedNode | null; said?: string };
+  // a stand-in's slot is its place in the batch, as a running tile's batchIndex is
+  type Item = { key: string; node: FeedNode | null; said?: string; slot?: number };
   const items: Item[] = [
     ...(sending
       ? Array.from(
           { length: Math.max(1, sending.count) },
-          (_, i): Item => ({ key: `sending-${i}`, node: null, said: sending.said }),
+          (_, i): Item => ({ key: `sending-${i}`, node: null, said: sending.said, slot: i }),
         )
       : []),
     ...shots.map((n): Item => ({ key: n.id, node: n })),
@@ -295,8 +297,14 @@ export function Canvas({
     const n = it.node;
     if (!n) {
       return (
-        <div key={it.key} className="sc-cell" data-running="true" data-sending="true">
-          <span className="sc-shimmer" />
+        <div
+          key={it.key}
+          className="sc-cell"
+          data-running="true"
+          data-sending="true"
+          style={sending?.format ? ({ '--sc-cell-ar': aspectOfFormat(sending.format) } as CSSProperties) : undefined}
+        >
+          <Rendering index={it.slot} appear />
           <span className="sc-cell-tag">sending</span>
           <span className="sc-cell-said" dir="auto">
             {it.said}
@@ -349,7 +357,8 @@ export function Canvas({
     const n = it.node;
     if (!n) return estimateHeight('sending', undefined, colWidth);
     if (n.status === 'running') return estimateHeight('running', aspectOfFormat(n.brief?.format), colWidth);
-    if (isFailed(n)) return estimateHeight('failed', undefined, colWidth);
+    if (isFailed(n))
+      return estimateHeight('failed', n.brief?.format ? aspectOfFormat(n.brief.format) : 3 / 2, colWidth);
     return estimateHeight('done', aspectOfImage(n, 0).aspect, colWidth);
   };
 
@@ -420,14 +429,17 @@ export function Canvas({
     };
   }, [feedEl, win.hold]);
 
-  // Nothing loaded yet: the grid keeps its shape with stand-ins in the brief's
-  // default shape, the same tile a send holds its place with, so the feed
-  // never flashes an empty state on the way to its first page.
+  // Nothing loaded yet: the grid keeps its shape with placeholders in the
+  // brief's default shape, so the feed never flashes an empty state on the
+  // way to its first page. They are a load, not a generation: no swirl, no
+  // `data-running`, and they come up only if the page has not
+  // landed within a quarter second, so a quick answer shows no stand-ins.
   if (pending && hasNoShots(shots) && !sending) {
     const cols = Math.max(1, Math.min(fitting, 8));
     return (
       <div
         className="sc-feed"
+        aria-busy="true"
         ref={setFeedEl}
         style={{ '--sc-tile': `${colWidth}px`, '--sc-cols': cols } as CSSProperties}
       >
@@ -436,8 +448,8 @@ export function Canvas({
           <div className="sc-feed-col" key={`col-${cols}-${c}`}>
             {Array.from({ length: 2 }, (_, i) => (
               // biome-ignore lint/suspicious/noArrayIndexKey: stand-ins have no identity beyond their slot
-              <div key={`pending-${c}-${i}`} className="sc-cell" data-running="true" data-sending="true">
-                <span className="sc-shimmer" />
+              <div key={`pending-${c}-${i}`} className="sc-cell sc-wait-late" data-placeholder="true">
+                <span className="sc-placeholder" />
               </div>
             ))}
           </div>

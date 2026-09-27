@@ -346,12 +346,6 @@
   font-size: 12px;
   color: var(--sc-fg3);
 }
-/* The card's own media slot is the frame; the shimmer fills it. */
-.sc-wizpick-grid .sc-lookcard .sc-shimmer {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-}
 @media (max-width: 767px) {
   .sc-wizpick-grid {
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));

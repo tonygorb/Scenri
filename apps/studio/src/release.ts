@@ -30,3 +30,18 @@ export function readableDate(iso: string): string {
   if (!month) return iso;
   return `${Number(m[3])} ${month} ${m[1]}`;
 }
+
+/**
+ * The same date where it is meta rather than prose (What's New's version and
+ * date): the month cut to its first three letters with no full stop, "26 Sep
+ * 2026". A fixed cut rather than the browser's short month, which gives
+ * September four letters ("Sept") in British English and breaks the column's
+ * rhythm. Say `readableDate` to a screen reader beside it: a cut month is not
+ * always read as one.
+ */
+export function shortDate(iso: string): string {
+  const full = readableDate(iso);
+  if (full === iso) return iso;
+  const [day, month, year] = full.split(' ');
+  return `${day} ${month.slice(0, 3)} ${year}`;
+}

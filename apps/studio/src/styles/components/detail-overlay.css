@@ -140,8 +140,8 @@
 :where(:root:not([data-input="pointer"])) .sc-thumb-btn:not([aria-pressed="true"]):focus-visible .sc-thumb {
   opacity: 1;
 }
-/* A tile with no picture yet, or none at all: the feed's own shimmer while
-   it renders, the warning glyph after it failed. Both rows wear these. */
+/* A tile with no picture yet, or none at all: the feed's own moving band
+   while it renders, the warning glyph after it failed. Both rows wear these. */
 .sc-thumb-wait,
 .sc-thumb-failed {
   position: relative;
@@ -150,9 +150,10 @@
   overflow: hidden;
   color: var(--sc-fg3);
 }
-.sc-thumb-wait .sc-shimmer {
-  position: absolute;
-  inset: 0;
+/* A step still being made is news, not a choice to stand back from: it keeps
+   full strength while the step on the stage stays ringed. */
+.sc-thumb-btn:not([aria-pressed="true"]) .sc-thumb-wait {
+  opacity: 1;
 }
 
 /* ---- the trail: the history read as a sequence ----
@@ -319,6 +320,29 @@
     );
   }
 }
+/* The picture's place while it is being made: the box it will occupy, in the
+   finished picture's own frame (square, with the frame's shadow), on the same
+   raised ground as a tile, with the swirl inside it and what is happening
+   said over it. The frame is the picture's so that a refinement starting from
+   the picture on the stage, and a shot landing there, change what is inside
+   and nothing else. Without this box the swirl, which is absolutely placed,
+   spread over the whole stage and its trail (lost with the rail's swell
+   rewrite, 4ab3beee; restored). */
+.sc-stage-wait {
+  position: relative;
+  /* Sized from the cap, not from the parent: the frame around this is an
+     inline-block that shrink-wraps its child, so a percentage width resolved
+     against an auto width and collapsed the box to nothing. Fit a box of
+     this ratio inside the room there is: the smaller of the column's width
+     and what the cap allows, and the ratio gives the height. */
+  width: min(100%, calc(var(--sc-stage-cap) * var(--sc-wait-ar, 1)));
+  aspect-ratio: var(--sc-wait-ar, 1);
+  height: auto;
+  margin-inline: auto;
+  background: var(--sc-raised);
+  box-shadow: var(--sc-shadow-3);
+  overflow: hidden;
+}
 .sc-stage-wait-say {
   position: absolute;
   inset: auto 0 0 0;
@@ -437,6 +461,12 @@
   display: block;
   width: auto;
   max-width: 100%;
+}
+/* A shot landing in the frame it was waited for in wears the waiting box's
+   ground until the landing is over, so the swirl carries straight on. */
+.sc-ovl-stage .sc-stage-pic[data-arriving] {
+  background: var(--sc-raised);
+  overflow: hidden;
 }
 .sc-stage-pic .sc-stage-under {
   position: absolute;

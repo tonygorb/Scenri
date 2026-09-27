@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { FeedNode } from '../src/api.js';
-import { stepLabel, trailOf } from '../src/layout/detail/historyRules.js';
+import { pendingChildOf, stepLabel, trailOf, whereIs } from '../src/layout/detail/historyRules.js';
 
 let seq = 0;
 function node(overrides: Partial<FeedNode> = {}): FeedNode {
@@ -131,5 +131,63 @@ describe('trailOf', () => {
     expect(steps[8].node).toBe(many[7]);
     expect(steps[8].label).toBe('Refinement 8');
     expect(new Set(ids(steps)).size).toBe(21);
+  });
+
+  // A refinement renders beside the shot it came from, which stays on the
+  // stage; it used to be listed only when it was itself on the stage, which
+  // is why refining moved the stage onto an empty, rendering step.
+  it('keeps a step still being made in the row wherever the stage is', () => {
+    const root = node({ kind: 'generation' });
+    const r1 = node({ parentId: root.id });
+    const wait = node({ parentId: r1.id, status: 'running', images: [] });
+    const onParent = trailOf([root, r1, wait], r1, []);
+    expect(ids(onParent)).toEqual([root.id, r1.id, wait.id]);
+    expect(onParent[2].state).toBe('pending');
+    expect(labels(onParent)).toEqual(['Original', 'Refinement 1', 'Refinement 2']);
+    expect(pendingChildOf(onParent, r1.id)).toBe(wait);
+    expect(pendingChildOf(onParent, root.id)).toBeNull();
+  });
+
+  it('keeps a failed refinement beside the shot it was asked of, with a status for a name', () => {
+    const root = node({ kind: 'generation' });
+    const dead = node({ parentId: root.id, status: 'error', images: [] });
+    const stopped = node({ parentId: root.id, status: 'cancelled', images: [] });
+    const r = node({ parentId: root.id });
+    const steps = trailOf([root, dead, stopped, r], root, []);
+    expect(ids(steps)).toEqual([root.id, dead.id, stopped.id, r.id]);
+    expect(labels(steps)).toEqual(['Original', 'Did not finish', 'Stopped', 'Refinement 1']);
+    expect(whereIs(steps, dead.id)).toBe('Did not finish');
+    expect(whereIs(steps, r.id)).toBe('Refinement 1 of 1');
+  });
+
+  it('numbers pictures the same whichever step is on the stage', () => {
+    const root = node({ kind: 'generation' });
+    const dead = node({ parentId: root.id, status: 'error', images: [] });
+    const r2 = node({ parentId: root.id });
+    const history = [root, dead, r2];
+    const named = (on: FeedNode) => {
+      const t = trailOf(history, on, []);
+      return t.find((s) => s.node.id === r2.id)?.label;
+    };
+    expect(named(root)).toBe('Refinement 1');
+    expect(named(r2)).toBe('Refinement 1');
+  });
+
+  it('reads a step from the freshest copy, never the history read before it landed', () => {
+    const root = node({ kind: 'generation' });
+    const r1 = node({ parentId: root.id });
+    const stale = node({ parentId: r1.id, status: 'running', images: [] });
+    const landed = { ...stale, status: 'done' as const, images: ['fresh'] };
+    const steps = trailOf([root, r1, stale], r1, [landed]);
+    expect(steps[2].state).toBe('ready');
+    expect(steps[2].node.images).toEqual(['fresh']);
+    expect(pendingChildOf(steps, r1.id)).toBeNull();
+  });
+
+  it('lists a refinement once when the feed and the open shot both hold it', () => {
+    const root = node({ kind: 'generation' });
+    const wait = node({ parentId: root.id, status: 'running', images: [] });
+    const steps = trailOf([root], root, [wait, { ...wait }]);
+    expect(ids(steps)).toEqual([root.id, wait.id]);
   });
 });

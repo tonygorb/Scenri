@@ -46,7 +46,7 @@ published version: one GET of the dist-tags document, nothing else sent, 5
 seconds max, silent when offline. A laptop that slept through a check catches
 up within minutes of waking. It and the one-time library download below are
 Scenri's only self-initiated network requests, and each is disclosed once in
-the console (the update check also in Settings → About).
+the console (the update check also in Settings → Updates).
 
 When the check finds a newer version on a supervised install, Scenri also
 downloads that release from npm in the background and stages it next to the
@@ -56,7 +56,7 @@ staged version is always yours to click, and never happens over running work.
 
 Turning it off (either works):
 
-- Settings → About → "Check for updates automatically" → Turn off
+- Settings → Updates → "Check for updates automatically" → Turn off
 - `SCENRI_NO_UPDATE_CHECK=1`
 
 `SCENRI_REGISTRY` points the check *and* the download at a different registry
@@ -83,7 +83,7 @@ the next launch restores it.
 ## Applying an update
 
 - **In the app**: a found update downloads and verifies itself in the
-  background; the floating notice (and Settings → About) then offers one
+  background; the floating notice (and Settings → Updates) then offers one
   click, "Update", which restarts into the new version, and the browser
   reconnects by itself. Where the
   background download could not run, the same button does the whole job on
@@ -112,31 +112,74 @@ over running work.
 Two different sentences, deliberately kept apart:
 
 - **Update available**: "there is a newer Scenri." Comes from the check above,
-  asks you to act, and lives in the floating notice and Settings → About.
-- **What's new**: "here is what changed in the version you now have." Asks for
-  nothing. Comes from release notes authored by hand and shipped *inside* the
-  build (`packages/cli/src/release/notes.data.ts`), so it answers offline and
-  always describes the version actually running.
+  asks you to act, and lives in the floating notice and Settings → Updates.
+- **What's new**: "here is what changed in the version you now have, and in
+  the few before it." Asks for nothing. Comes from release notes authored by
+  hand and shipped *inside* the build (`packages/cli/src/release/notes.data.ts`),
+  pictures included, so it answers offline and always describes the version
+  actually running.
 
-The dialog is the running version: a headline where there is one, then two to
-four product areas. History is the **releases page**, linked once as "All
-releases". The generated `CHANGELOG.md` stays what it has always been: the
+It has two surfaces, one for each reason to look:
+
+- **The dialog** introduces one update after an update, as an excerpt: the
+  newest update's picture, its version tag and date and its headline, which
+  together are one link to that release on the page, then "See N more updates"
+  and "Got it". It is the same update the page leads with, so the two never
+  name different versions. It opens by itself only while an unread headline
+  update is waiting; what it shows is still the newest update, headline or
+  small. Its areas and release notes are on the page. When the update has no
+  picture of its own, the dialog shows Scenri's mark on its dark ground with
+  the version tag on it instead; that artwork is the dialog's alone, never the
+  page's, and never stored as the release's picture.
+- **The What's new page** (`/<brand>/whats-new`) is the history: every public
+  release with something to say, newest first, every update set in the same
+  sizes (a headline stands out by its picture, never by bigger type), ten at a
+  time with the next ten loading as you scroll (or from the Show older updates
+  button). Every release is open and set the same way, the recent ones and the
+  ones before them alike, as a changelog is. It ends with **Full
+  release notes**, the GitHub releases page, which is the archive for every fix
+  a record left out. Help → What's new and Settings → Updates open it. It is not
+  a place in the top bar. An update has at most one picture, and on the page it
+  opens larger, with nothing else around it; an update without one is words
+  alone. Every version is a pill tag with the number only, over a short date
+  (26 Sep 2026), and the version this computer runs is the same tag lit. Each
+  release's notes on GitHub come last, after its words.
+
+Every record is one of three kinds, and the kind is written into the record:
+
+- **Headline update**: `announce: true`. The only kind that may open the dialog
+  by itself.
+- **Small update**: no `announce`. It marks Help as unread and is a row on the
+  page. It never opens anything. When unsure, an update is small.
+- **Maintenance**: `sections: []`. It says nothing anywhere.
+
+Every update the app shows, headline or small, has a `title`; the validator
+refuses one without. Any update in the in-app window may carry one picture, and
+none outside it does. That window, which is what can be unread and what the
+validator holds to every copy rule, reaches back to the fifth headline update;
+older records keep the words they shipped with, under a title held to today's
+rules. The generated `CHANGELOG.md` stays what it has always been: the
 commit-level history for developers.
 
 The lifecycle is one rule and one stored value (`whatsnew.seen`, in the
 settings table):
 
-1. The app reads its own notes once at startup, the running version's record,
-   and the releases page to point at.
-2. If `whatsnew.seen` is not the running version, the brand menu shows an
-   unread dot immediately, and What's New opens itself **once**, but only at a
-   safe moment: nothing generating, nothing building, no other dialog open, the
-   brand loaded, the tab in front, and a couple of seconds after all of that
-   settles. If a safe moment never comes, nothing pops; the dot carries it.
-3. Any way out, whether Escape, the ×, the backdrop or "Got it", is the
-   acknowledgement. It never returns for that version.
-4. **What's new** in the brand menu, and the row in Settings → About, reopen it
-   at any time. Neither is gated on anything.
+1. The app reads its own notes once at startup: the running version's record,
+   the recent history, which of it is unread, and the releases page to point at.
+   Nothing reaches the network.
+2. `whatsnew.seen` is a version and is compared as one. Anything newer than it,
+   up to the running version, is unread. A rolled-back build shows nothing, and
+   `seen` never goes backwards, whoever asks.
+3. Anything unread puts the dot on the Help button and marks its "What's new"
+   row. An unread **headline** update also opens the dialog by itself **once**,
+   but only at a safe moment: nothing generating, nothing building, no other
+   dialog in the address, nothing of first use on screen, not on the page
+   itself, the brand loaded, the tab in front, and a couple of seconds after all
+   of that settles. If a safe moment never comes, nothing pops; the dot carries
+   it.
+4. Any way out of the dialog, whether Escape, the ×, the backdrop, Back, "Got
+   it" or either link to the page, reads everything up to the running version.
+   Opening the page does the same.
 
 ### New, where a feature lives
 
@@ -159,7 +202,7 @@ stored value beside `whatsnew.seen`:
 
 `DESIGN.md` ("New") holds the rules for what earns it and where it goes.
 
-### Where the words come from
+### Where the words and pictures come from
 
 Nobody writes release prose twice, and nothing generates it behind your back.
 
@@ -169,29 +212,44 @@ developers. The *written* record is separate and lives in
 `packages/cli/src/release/notes.data.ts`, one entry per published version.
 
 That record is authored with the `release-notes` skill, which reads the real
-commits since the last tag, drops everything a user would not notice, groups
-what is left into two to four product lines, and writes the entry. Every line
+commits since the last tag, drops everything a user would not notice, gives the
+update its title and decides its kind (headline, small or maintenance), groups
+what is left into one to three product lines, and writes the entry. Every line
 has to trace to a commit in the range; counts like "8 new Scenes" are counted
 from added files, never estimated. `releaseNotes.test.ts` validates the result
 and fails the release PR until the record matches the version being released,
 which is what keeps a version and its notes atomic.
 
+Any update in the in-app window may carry one picture of the real app, and only
+when it shows the headline's own story; no picture is a valid decision, and the
+dialog covers it with the fallback artwork. It is shot with
+`pnpm build && pnpm capture:whatsnew -g <version>` (`apps/studio/capture/`) from
+a throwaway library: an empty home holding only a public demo brand and content
+from `templates/`, in the dark theme, with the machine and the network stubbed.
+Every picture is 16:9 at 1920 by 1080, of one of two kinds. An **isolated**
+picture, the one to prefer, is the real component or a small group of them,
+exactly as the app draws it, lifted out of the page with nothing else left and
+centred on a transparent canvas; What's New paints the sky and the shadow behind
+it. A **window** picture is the whole app at a 1920 by 1080 window in the state
+that shows the change, for when the whole screen is the point. The capture fails
+rather than write a wrong picture: a window of the wrong size, anything cut but
+by the window's own edge, a subject hidden, clipped, faded or at an edge,
+anything left beside the subjects, a picture too small to read or over its size
+ceiling, anything private or from a test. A person looks at every picture before
+it is committed with its record. `releasePictures.test.ts` holds the folder to
+the pictures the in-app history still shows, and to their size and shape.
+
 The same record feeds the GitHub release page: `packages/cli/scripts/release-body.ts`
-renders it as markdown and `publish.yml`, on `release: published`, after the
-package goes out, puts it above release-please's generated notes. If the record
-is missing the script prints nothing and the step leaves the generated notes
-alone, so a release-note problem can never fail a release.
-
-That step rewrites the release body in place, so running it twice for one tag
-stacks a second copy of the record above the first.
-
-A version with nothing user-facing still gets a record, with `sections: []`.
-That is a maintenance release saying so on purpose, and the app reads it that
-way: no dialog, no dot.
+renders it as markdown, pictures linked at the tag, and `publish.yml`, on
+`release: published`, after the package goes out, puts it above
+release-please's generated notes. If the record is missing the script prints
+nothing and the step leaves the generated notes alone, so a release-note
+problem can never fail a release. Running the step twice for one tag is
+harmless: it recognises the record already on the page and leaves it.
 
 The first boot of a new home stamps `install.firstVersion` and marks the
-running version as already seen, so a brand-new install is never met with a
-modal explaining changes it has no memory of.
+running version as already read, so a brand-new install is never met with a
+dialog explaining changes it has no memory of.
 
 Updates never restart on their own, see above. What's New is only ever a
 description of what already happened.

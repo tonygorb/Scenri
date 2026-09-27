@@ -1584,7 +1584,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       void runNode([node.id], null, 0, work, { width: plan.width, height: plan.height }).catch((err) =>
         app.log.error({ err }, 'crop run failed'),
       );
-      return reply.status(202).send(args.note ? { ...node, warnings: [args.note] } : node);
+      // read back with its brief, which was written after the row was read
+      const sent = core.store.getNode(node.id) ?? node;
+      return reply.status(202).send(args.note ? { ...sent, warnings: [args.note] } : sent);
     };
 
     /*
@@ -2690,9 +2692,13 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     // The first node is spread so every `.id` reader keeps working; the full
     // batch rides beside it for callers that care about the siblings.
     const allWarnings = [...(compiled?.warnings ?? []), ...extraWarnings];
+    // Read back after the brief was written: `nodes` were read at insert, while
+    // the brief was still empty, and a studio that seats the answer drew every
+    // sibling square until the next poll put its shape back.
+    const sent = nodes.map((n) => core.store.getNode(n.id) ?? n);
     return reply
       .status(202)
-      .send({ ...node, siblings: nodes, ...(allWarnings.length ? { warnings: allWarnings } : {}) });
+      .send({ ...sent[0], siblings: sent, ...(allWarnings.length ? { warnings: allWarnings } : {}) });
   };
 
   app.post('/api/nodes', async (req, reply) => startNodeRun(req, reply));

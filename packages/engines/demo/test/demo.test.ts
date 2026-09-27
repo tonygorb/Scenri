@@ -1,3 +1,7 @@
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import sharp from 'sharp';
 import { beforeAll, describe, it, expect } from 'vitest';
 import { createDemoEngine, demoOptionsFromEnv } from '../src/index.js';
 import { BUDGET_EXHAUSTED, type BrandContext } from '@scenri/core';
@@ -156,6 +160,30 @@ describe('progressive delivery', () => {
     ).toEqual({ staggerMs: 1500, order: 'reverse', failSlot: 1 });
     expect(demoOptionsFromEnv({ SCENRI_DEMO_DELAY_MS: '400' })).toEqual({ delayMs: 400 });
     expect(demoOptionsFromEnv({ SCENRI_DEMO_DELAY_MS: 'slow' })).toEqual({});
+    expect(demoOptionsFromEnv({ SCENRI_DEMO_PHOTOS: '/photos' })).toEqual({ photosDir: '/photos' });
+  });
+
+  it('answers with a real photograph, cut to the size asked, when given a folder of them', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'scenri-demo-photos-'));
+    writeFileSync(
+      join(dir, 'one.png'),
+      await sharp({ create: { width: 40, height: 30, channels: 3, background: '#336699' } })
+        .png()
+        .toBuffer(),
+    );
+    const saved: Buffer[] = [];
+    const e = createDemoEngine(
+      (buf) => {
+        saved.push(buf);
+        return `h${saved.length}`;
+      },
+      { photosDir: dir },
+    );
+    await e.generate({ prompt: 'a photo', brand, width: 64, height: 48, count: 1 });
+    const meta = await sharp(saved[0]).metadata();
+    expect([meta.width, meta.height]).toEqual([64, 48]);
+    const { dominant } = await sharp(saved[0]).stats();
+    expect([dominant.r, dominant.g, dominant.b].every((v, i) => Math.abs(v - [0x33, 0x66, 0x99][i]) < 24)).toBe(true);
   });
 
   /**

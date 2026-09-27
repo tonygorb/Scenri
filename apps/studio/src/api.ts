@@ -64,6 +64,12 @@ import type {
   GuideView,
 } from './apiTypes.js';
 
+/** What the server says about the one-time library download (packages/cli content/fetch.ts). */
+export interface ContentState {
+  arriving: boolean;
+  installs: number;
+}
+
 export const api = {
   brands: () => req<Brand[]>('GET', '/api/brands'),
   /** Every brand as the switcher and the route resolver need it, never the document. */
@@ -109,10 +115,14 @@ export const api = {
   tree: (projectId: string) => req<{ project: Project; nodes: TreeNode[] }>('GET', `/api/projects/${projectId}/tree`),
   /** Everything running or lately finished in a brand, generations and imports together. */
   activity: (brandId: string) =>
-    req<{ nodes: ActivityNode[]; jobs: CatalogImportJob[]; studio?: StudioWork[]; boot?: string }>(
-      'GET',
-      `/api/brands/${brandId}/activity`,
-    ),
+    req<{
+      nodes: ActivityNode[];
+      jobs: CatalogImportJob[];
+      studio?: StudioWork[];
+      boot?: string;
+      /** The library download on this machine: pictures still arriving, and installs made since it started. */
+      content?: ContentState;
+    }>('GET', `/api/brands/${brandId}/activity`),
   /** The brand's frame: project, root, sets, memberships and the newest shots. Never every shot. */
   workspace: (brandId: string) => req<Workspace>('GET', `/api/brands/${brandId}/workspace`),
   /** One page of the brand's shots for a place, lens, search and sort. */
