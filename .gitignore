@@ -73,6 +73,8 @@ docs/product/
 # a linked worktree's own Scenri library, made by `pnpm worktree add`; the
 # primary checkout uses ~/.scenri and never has one
 .scenri-home/
+# pnpm cold-start: a throwaway first-run home, the packed install and its results
+.scenri-cold/
 
 # shape-probe output (manual-shape-probe.mts writes beside its cwd)
 packages/cli/shape-probe-out/

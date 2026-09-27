@@ -123,6 +123,8 @@
   pointer-events: auto;
   display: grid;
   place-items: center;
+  /* the page's gutter, so on a phone the card never meets the screen's edge */
+  padding: 16px;
   background: color-mix(in srgb, var(--sc-bg) 82%, transparent);
   backdrop-filter: blur(6px);
 }
@@ -130,6 +132,8 @@
   display: grid;
   justify-items: center;
   gap: 6px;
+  /* a sentence that wraps stays centred under its centred title */
+  text-align: center;
   padding: 28px 36px;
   border: 1px solid var(--sc-line-strong);
   border-radius: var(--sc-radius-xl);
@@ -147,6 +151,10 @@
   .sc-upd-overlay-card svg {
     animation: none;
   }
+}
+/* Shut down is not a wait: nothing is coming, so nothing breathes. */
+.sc-upd-stopped .sc-upd-overlay-card svg {
+  animation: none;
 }
 .sc-upd-overlay-card b {
   font: 600 13.5px / 1.4 var(--sc-font);

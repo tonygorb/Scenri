@@ -18,7 +18,8 @@
       "!**/pnpm-lock.yaml",
       "!docs/design",
       "!templates/previews",
-      "!packages/brand-spec/test/fixtures"
+      "!packages/brand-spec/test/fixtures",
+      "!packages/cli/src/content/pin.json"
     ]
   },
   "formatter": {

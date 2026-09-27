@@ -40,8 +40,10 @@ export function BrandButton() {
   // select, and a dialog mounted in it would go with it.
   const [quitAsk, setQuitAsk] = useState(false);
   const quit = async () => {
-    const refused = await updates.quit();
-    if (refused) push({ kind: 'warning', title: 'Scenri is still working', detail: refused });
+    const out = await updates.quit();
+    if (out.kind === 'refused') push({ kind: 'warning', title: 'Scenri is still working', detail: out.reason });
+    if (out.kind === 'still-running')
+      push({ kind: 'error', title: 'Scenri did not shut down', detail: 'It is still running. Try again in a moment.' });
   };
 
   return (

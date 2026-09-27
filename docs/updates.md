@@ -66,18 +66,38 @@ are read from `package.json` at runtime, never hardcoded.
 
 ## The library download
 
-The npm package carries the complete catalog, every scene and presenter card
-and the pictures of fifteen Home examples, so the library can be browsed from
-the first launch. The rest of the imagery (the other Home pictures, scene
-galleries, product shots, presenter identity sets) comes from a versioned
-archive on the project's GitHub releases, checked against the sha256 that
-Scenri version pins, and cached under `~/.scenri/content`. It is downloaded
-again only when a later version pins a newer archive. One GET for one file,
-nothing sent, silent when offline (the next launch simply retries).
+The npm package carries the complete catalog, the scene and presenter cards
+and a starter wall of fifteen examples, so the catalog is browsable offline
+from first launch. The heavy imagery (scene reference galleries, the rest of
+the showcase heroes, product shots, presenter identity sets) is downloaded
+from a versioned archive on the project's GitHub releases and cached under
+`~/.scenri/content`, once for each archive a Scenri version pins: a later
+version that pins a newer archive downloads that one.
 
-- `SCENRI_NO_CONTENT_FETCH=1` skips the download entirely; Scenri stays on
-  the pictures the package carries.
-- `SCENRI_CONTENT_URL` points a fork or an airgap mirror at its own archive.
+The archive is read by byte range, a file at a time and the pictures Home shows
+first, and each file is kept, the moment its bytes are in, only once its own
+sha256 matches the value pinned in that Scenri version
+(`packages/cli/src/content/pin.json`), so pictures appear as they arrive. Files
+the npm package already carries byte for byte are copied from it instead of
+downloaded. A download that is stopped resumes where it stopped on the next
+start; after a dropped connection it tries once more as soon as the host
+answers again, and after that on the next start. Nothing is sent, and it is
+silent when offline. A host that does not answer byte ranges is read whole and
+installed from memory the same way, file by file against the pin; so is the
+archive CI hydrates with `pull-content`.
+
+- `SCENRI_NO_CONTENT_FETCH=1` skips the download entirely; Scenri stays on the
+  starter wall and the cards.
+- `SCENRI_CONTENT_URL` points an airgap mirror or a fork at an archive. A mirror
+  of the published archive is checked file by file all the same. An archive of
+  one's own needs its pin in `SCENRI_CONTENT_PIN`, a file written by
+  `pnpm exec tsx packages/cli/scripts/pin-content.mts <zip> --out <pin.json>`;
+  without one, an archive that is not the published one is refused.
+
+A content release is one command: `pin-content.mts <zip>` rewrites `pin.json`,
+which is the one place the archive's version, tag and sha256 live; the tag in
+the CI and publish workflows follows it (`contentVersion.test.ts` names each
+place).
 
 `~/.scenri/content` is a cache, not user data: deleting it is always safe and
 the next launch restores it.

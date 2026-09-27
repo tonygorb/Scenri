@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.20.2](https://github.com/tonygorb/Scenri/compare/v0.20.1...v0.20.2) (2026-09-27)
+
+
+### Bug Fixes
+
+* a shot that fails out of the poll's sight stops spinning ([4d784c3](https://github.com/tonygorb/Scenri/commit/4d784c30c0d8aeb4f13cabccd90b1c4949c1e285))
+* **cli:** Add to Desktop honours SCENRI_NO_DESKTOP ([b43078f](https://github.com/tonygorb/Scenri/commit/b43078fbe53888321958ad9956ce72fa351f4cf2))
+* **content:** fetch the library by range, Home's pictures first, resumable ([a309a83](https://github.com/tonygorb/Scenri/commit/a309a83bd5fc2ad42f7139f0338b7288ef5e5f33))
+* **content:** one file-by-file install, each file kept the moment its bytes arrive ([4c47a32](https://github.com/tonygorb/Scenri/commit/4c47a320e3cb08276ce79d2bf6d8f0711be02438))
+* **core:** keep every running shot in the activity answer ([fe4b40e](https://github.com/tonygorb/Scenri/commit/fe4b40efb9c749ae99a89c8a21ae56e41cdfe219))
+* **studio:** a wall tile's credits wait with its picture, and the Activity meter is a progressbar ([6bb212f](https://github.com/tonygorb/Scenri/commit/6bb212fae6591cefa20614fc4b47c2c3611c61f5))
+* **studio:** library pictures appear as they land, and the bell counts them ([c14d5db](https://github.com/tonygorb/Scenri/commit/c14d5db05c99507b06d1239980633eb9bedc0a91))
+* **studio:** Shut down closes its tab once Scenri has stopped, or says so ([66a42d9](https://github.com/tonygorb/Scenri/commit/66a42d9ac55d33c27f10acc9b778aa1c4dc38f5c))
+* **studio:** stop the swirl on a shot that ended out of the poll's sight ([48a984a](https://github.com/tonygorb/Scenri/commit/48a984a6937ffa90de6a512d8467ada4501538ed))
+* **studio:** the lifecycle card keeps the page's gutter on a phone, its sentence centred ([5749c3d](https://github.com/tonygorb/Scenri/commit/5749c3de487684b4e8b19cd1c66b2239b1744c29))
+* the first-run library arrives Home first, and Shut down closes its tab ([7e6c0f7](https://github.com/tonygorb/Scenri/commit/7e6c0f7cf96a56a481460bd44d2406a49683ee43))
+
 ## [0.20.1](https://github.com/tonygorb/Scenri/compare/v0.20.0...v0.20.1) (2026-09-27)
 
 

@@ -134,6 +134,7 @@ Your Codex session is yours: Scenri runs the official `codex` commands on your m
 | `SCENRI_REGISTRY` | npmjs | registry for the update check and downloads (mirrors, forks, airgaps) |
 | `SCENRI_NO_CONTENT_FETCH` | unset | set to `1` to never download the library imagery archive |
 | `SCENRI_CONTENT_URL` | GitHub releases | where the library archive comes from (mirrors, forks, airgaps) |
+| `SCENRI_CONTENT_PIN` | unset | a pin for a different archive at `SCENRI_CONTENT_URL`, checked file by file ([how](https://github.com/tonygorb/scenri/blob/main/docs/updates.md)) |
 
 `OPENROUTER_API_KEY`, `REPLICATE_API_TOKEN` and `FAL_KEY` are read from the environment as an alternative to entering them in Settings.
 

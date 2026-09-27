@@ -136,7 +136,12 @@ for (const [src, dest] of LEGAL) {
   cpSync(from, join(pkg, dest));
 }
 
-const mb = (p) => (execFileSync('du', ['-sk', p]).toString().trim().split(/\s+/)[0] / 1024).toFixed(1);
+// Summed in Node rather than by `du`, which a Windows machine without Git's
+// Unix tools does not have: packing is how the cold-start helper and the
+// live update tests get a published-shape build there too.
+const bytesIn = (p) =>
+  statSync(p).isDirectory() ? readdirSync(p).reduce((sum, name) => sum + bytesIn(join(p, name)), 0) : statSync(p).size;
+const mb = (p) => (bytesIn(p) / 1048576).toFixed(1);
 console.log(
   `prepack: ready. dist ${statSync(entry).size} bytes, studio-dist ${mb(studioDest)} MB, templates ${mb(scenesDest)} MB`,
 );

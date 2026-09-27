@@ -13,16 +13,16 @@ import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import JSZip from 'jszip';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   CONTENT_TAG,
   CONTENT_VERSION,
   contentCacheStale,
   createContentFetcher,
-  installContentArchive,
+  installArchive,
 } from '../src/content/fetch.js';
-import { contentCacheVersion } from '../src/content/overlay.js';
+import { contentCacheVersion, installedContentRoot } from '../src/content/overlay.js';
+import { pinFor, storedZip } from './archive-server.mjs';
 
 /**
  * The library archive is versioned, and every place that downloads it names
@@ -96,30 +96,32 @@ describe('the cache', () => {
   });
 });
 
-describe('installing an archive', () => {
+describe('installing an archive in hand (pull-content, CI)', () => {
   const dirs: string[] = [];
   const scratch = () => {
     const dir = mkdtempSync(join(tmpdir(), 'scenri-install-'));
     dirs.push(dir);
     return dir;
   };
+  /** A stored archive and the pin scripts/pin-content.mts would write for it. */
   const archive = async (files: Record<string, string>) => {
-    const zip = new JSZip();
-    for (const [name, body] of Object.entries(files)) zip.file(name, body);
-    return zip.generateAsync({ type: 'nodebuffer' });
+    const bytes = storedZip(Object.entries(files).map(([name, body]) => [name, Buffer.from(body)]));
+    return { bytes, pin: await pinFor(bytes, 2) };
   };
   afterEach(() => {
     for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
   });
 
-  it('replaces a real cache', async () => {
-    const root = join(scratch(), 'content');
+  it('replaces a real cache, file by file against the pin', async () => {
+    const home = scratch();
+    const root = join(home, 'content');
     mkdirSync(root);
+    writeFileSync(join(root, 'meta.json'), '{"version":1}');
     writeFileSync(join(root, 'old.jpg'), 'old');
-    const refused = await installContentArchive(await archive({ 'meta.json': '{"version":2}', 'a.jpg': 'a' }), root);
-    expect(refused).toBeNull();
+    const { bytes, pin } = await archive({ 'meta.json': '{"version":2}', 'a.jpg': 'a' });
+    expect(await installArchive(bytes, { SCENRI_HOME: home }, pin)).toBeNull();
     expect(readdirSync(root).sort()).toEqual(['a.jpg', 'meta.json']);
-    expect(existsSync(`${root}.staging`)).toBe(false);
+    expect(existsSync(join(home, 'content.partial'))).toBe(false);
   });
 
   it('unlinks a linked cache and leaves the library it pointed at alone', async () => {
@@ -128,25 +130,45 @@ describe('installing an archive', () => {
     mkdirSync(shared);
     writeFileSync(join(shared, 'meta.json'), '{"version":1}');
     writeFileSync(join(shared, 'keep.jpg'), 'keep');
-    const root = join(dir, 'lane-home', 'content');
-    mkdirSync(join(dir, 'lane-home'));
+    const home = join(dir, 'lane-home');
+    const root = join(home, 'content');
+    mkdirSync(home);
     symlinkSync(shared, root);
 
-    const refused = await installContentArchive(await archive({ 'meta.json': '{"version":2}', 'a.jpg': 'a' }), root);
-    expect(refused).toBeNull();
+    const { bytes, pin } = await archive({ 'meta.json': '{"version":2}', 'a.jpg': 'a' });
+    expect(await installArchive(bytes, { SCENRI_HOME: home }, pin)).toBeNull();
     expect(readdirSync(shared).sort()).toEqual(['keep.jpg', 'meta.json']);
     expect(readFileSync(join(shared, 'meta.json'), 'utf8')).toBe('{"version":1}');
     expect(readdirSync(root).sort()).toEqual(['a.jpg', 'meta.json']);
   });
 
   it('refuses an archive with no marker and keeps the old cache', async () => {
-    const root = join(scratch(), 'content');
+    const home = scratch();
+    const root = join(home, 'content');
     mkdirSync(root);
     writeFileSync(join(root, 'meta.json'), '{"version":1}');
-    const refused = await installContentArchive(await archive({ 'a.jpg': 'a' }), root);
-    expect(refused).toBe('archive carries no meta.json');
+    const { bytes, pin } = await archive({ 'a.jpg': 'a' });
+    expect(await installArchive(bytes, { SCENRI_HOME: home }, pin)).toBe('archive carries no meta.json');
     expect(readdirSync(root)).toEqual(['meta.json']);
-    expect(existsSync(`${root}.staging`)).toBe(false);
+    expect(existsSync(join(home, 'content.partial'))).toBe(false);
+  });
+
+  it('refuses an archive whose files are not the ones pinned, and keeps the old cache serving', async () => {
+    const home = scratch();
+    const root = join(home, 'content');
+    mkdirSync(root);
+    writeFileSync(join(root, 'meta.json'), '{"version":1}');
+    const { bytes, pin } = await archive({ 'meta.json': '{"version":2}', 'a.jpg': 'aaaa' });
+    const tampered = Buffer.from(bytes);
+    const a = pin.files.find((f) => f[0] === 'a.jpg') as (typeof pin.files)[number];
+    tampered[a[1]] ^= 0xff;
+    expect(await installArchive(tampered, { SCENRI_HOME: home }, pin)).toMatch(/do not match its pin/);
+    expect(readdirSync(root)).toEqual(['meta.json']);
+    expect(installedContentRoot({ SCENRI_HOME: home })).toBe(root);
+    // and a different archive altogether is refused before a file is read
+    expect(await installArchive(Buffer.concat([bytes, Buffer.from('x')]), { SCENRI_HOME: home }, pin)).toMatch(
+      /not the/,
+    );
   });
 });
 

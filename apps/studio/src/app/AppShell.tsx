@@ -20,6 +20,7 @@ import { FailureRow } from '../layout/Failure.js';
 import { UpdateCenterProvider } from './UpdateCenter.js';
 import { applyBrandRow, mergeBrandList } from './brandRows.js';
 import { WhatsNewProvider } from './WhatsNew.js';
+import { catalogsStale, picturesArriving, sameContent } from './contentRules.js';
 
 /** The least time between two re-reads of the brands on coming back to the tab. */
 const BACK_MS = 5000;
@@ -71,6 +72,11 @@ interface AppData extends UseScenesResult {
    */
   contentArriving: boolean;
   /**
+   * Moves whenever library pictures have landed since the catalogs were last
+   * read: a record page that listed its frames once lists them again.
+   */
+  libraryTick: number;
+  /**
    * What the activity poll last said about the download. When it has
    * installed, the four catalogs are read again, quietly, so the pictures
    * appear on the cards already on screen without a reload.
@@ -104,26 +110,38 @@ export function AppShell() {
   const [content, setContent] = useState<ContentState | null>(null);
   const noteContent = useCallback((next: ContentState | undefined) => {
     if (!next) return;
-    setContent((cur) => (cur && cur.arriving === next.arriving && cur.installs === next.installs ? cur : next));
+    setContent((cur) => (sameContent(cur, next) ? cur : next));
   }, []);
-  // The catalogs were read once, at startup, and the library download lands
-  // later: without this its pictures stayed missing until a reload. The first
-  // answer that shows an install made by this server reads them again (the
-  // install may have landed while the person was still in setup), and so does
-  // every install after it. Quietly: the cards stay, and gain their pictures.
-  const handledInstalls = useRef<number | null>(null);
+  // The catalogs were read once, at startup, and library pictures land a few at
+  // a time after it: each poll that says more have landed (or that the run has
+  // ended) reads them again, quietly, so the cards on screen gain their
+  // pictures as they arrive. A run that has ended keeps its cards waiting
+  // until that last read is in: the gap between the two used to show every
+  // card still missing its picture as the empty glyph.
+  const lastContent = useRef<ContentState | null>(null);
+  const [reReading, setReReading] = useState(false);
+  const [libraryTick, setLibraryTick] = useState(0);
   const { refetch: refetchScenes } = scenes;
   const { refetch: refetchPresenters } = presenters;
   const { refetch: refetchDemoProducts } = demoProducts;
   const { refetch: refetchShowcase } = showcase;
   useEffect(() => {
     if (!content) return;
-    const was = handledInstalls.current;
-    handledInstalls.current = content.installs;
-    if (content.installs === 0 || was === content.installs) return;
-    for (const refetch of [refetchScenes, refetchPresenters, refetchDemoProducts, refetchShowcase])
-      refetch({ quiet: true });
+    const prev = lastContent.current;
+    lastContent.current = content;
+    if (!catalogsStale(prev, content)) return;
+    const ended = !content.arriving;
+    if (ended) setReReading(true);
+    setLibraryTick((t) => t + 1);
+    void Promise.all(
+      [refetchScenes, refetchPresenters, refetchDemoProducts, refetchShowcase].map((refetch) =>
+        refetch({ quiet: true }),
+      ),
+    ).finally(() => {
+      if (ended) setReReading(false);
+    });
   }, [content, refetchScenes, refetchPresenters, refetchDemoProducts, refetchShowcase]);
+  const contentArriving = picturesArriving(content, reReading);
 
   /**
    * One counter orders every write to the list: a mutation answer applied, a
@@ -236,7 +254,8 @@ export function AppShell() {
             refresh,
             refreshBrands,
             applyBrand,
-            contentArriving: !!content?.arriving,
+            contentArriving,
+            libraryTick,
             noteContent,
           },
     [
@@ -266,7 +285,8 @@ export function AppShell() {
       refresh,
       refreshBrands,
       applyBrand,
-      content?.arriving,
+      contentArriving,
+      libraryTick,
       noteContent,
     ],
   );

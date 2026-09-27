@@ -4,6 +4,7 @@ import { useOutletContext, useParams } from 'react-router';
 import { api, type FeedNode } from '../api.js';
 import { DetailOverlay } from '../layout/DetailOverlay.js';
 import { useToasts } from '../toasts.js';
+import { runningOutOfSight } from './create/feedQueryRules.js';
 import type { ShotContext } from './create/shotContext.js';
 
 /**
@@ -37,13 +38,27 @@ export function ShotDetailRoute() {
   }, [shotId, held]);
 
   // a fetched shot still rendering is not in any page, so the poll is the only
-  // thing that can tell this overlay it landed
+  // thing that can tell this overlay it landed; one the answer leaves out while
+  // it shows as running stopped out of the poll's sight, and is read by id
+  const fetchedRef = useRef(fetched);
+  fetchedRef.current = fetched;
   useEffect(() => {
     if (!shotId || held) return;
-    return ctx.subscribeActivity((nodes) => {
+    let alive = true;
+    const unsubscribe = ctx.subscribeActivity((nodes) => {
       const hit = nodes.find((n) => n.id === shotId);
-      if (hit) setFetched({ id: shotId, node: hit });
+      if (hit) return setFetched({ id: shotId, node: hit });
+      const shown = fetchedRef.current;
+      if (shown?.id !== shotId || !shown.node || !runningOutOfSight([shown.node], nodes).length) return;
+      api
+        .node(shotId)
+        .then((n) => alive && setFetched({ id: shotId, node: n.kind === 'root' ? null : n }))
+        .catch(() => {});
     });
+    return () => {
+      alive = false;
+      unsubscribe();
+    };
   }, [shotId, held, ctx.subscribeActivity]);
 
   const node = held ?? (fetched !== null && fetched.id === shotId ? fetched.node : null);

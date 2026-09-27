@@ -38,10 +38,11 @@ const status = (over: Partial<DesktopStatus> = {}): DesktopStatus => ({
 });
 
 function build(opts: {
-  installKind?: 'npx' | 'managed' | 'dev';
+  installKind?: 'npx' | 'managed' | 'global' | 'dev';
   statusImpl?: () => Promise<DesktopStatus>;
   installImpl?: () => Promise<InstallResult>;
   busy?: number;
+  env?: Record<string, string | undefined>;
 }) {
   const a = Fastify();
   const exits: number[] = [];
@@ -56,6 +57,7 @@ function build(opts: {
     busyCount: () => opts.busy ?? 0,
     exitImpl: (code) => exits.push(code),
     statusImpl: opts.statusImpl ?? (async () => status()),
+    env: opts.env ?? {},
     installImpl:
       opts.installImpl ??
       (async () => {
@@ -121,6 +123,14 @@ describe('POST /api/desktop/install', () => {
       error: 'Something else named Scenri is already on your desktop. Move or rename it, then try again.',
       reason: 'collision',
     });
+  });
+
+  it('refuses under SCENRI_NO_DESKTOP without touching anything', async () => {
+    const { a, installs } = build({ installKind: 'global', env: { SCENRI_NO_DESKTOP: '1' } });
+    const res = await a.inject({ method: 'POST', url: '/api/desktop/install' });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().reason).toBe('disabled');
+    expect(installs.count).toBe(0);
   });
 
   it('refuses from a source checkout without touching anything', async () => {

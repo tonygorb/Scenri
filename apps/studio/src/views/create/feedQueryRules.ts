@@ -161,3 +161,25 @@ export function refreshFirst(items: FeedNode[], first: FeedNode[]): FeedNode[] {
   const fresh = new Set(first.map((n) => n.id));
   return [...first, ...items.filter((n) => !fresh.has(n.id))];
 }
+
+/**
+ * Tiles held as running that a poll's answer leaves out. Every running shot is
+ * in that answer, so one missing from it has stopped where the poll cannot
+ * see: Try again runs the same card and keeps its old place in time, and the
+ * answer's window (two days, sixty finished shots) can pass it by. Its tile
+ * used to keep the swirl and the clock until a reload; each is read once by id.
+ */
+export function runningOutOfSight(held: Iterable<FeedNode>, answer: readonly { id: string }[]): string[] {
+  const listed = new Set(answer.map((n) => n.id));
+  const out: string[] = [];
+  for (const n of held) if (n.status === 'running' && !listed.has(n.id)) out.push(n.id);
+  return out;
+}
+
+/** A record read by id, in the shape the pages hold it: the held fields, each as the read says now. */
+export function asHeld(held: FeedNode, read: FeedNode): FeedNode {
+  const now = read as unknown as Record<string, unknown>;
+  const out: Record<string, unknown> = { ...held };
+  for (const key of Object.keys(held)) if (key in now) out[key] = now[key];
+  return out as unknown as FeedNode;
+}
