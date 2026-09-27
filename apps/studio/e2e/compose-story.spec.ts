@@ -1,0 +1,77 @@
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { expect, type Locator, test } from '@playwright/test';
+import {
+  type Beat,
+  barrierCream,
+  composeStory,
+  type Director,
+  direct,
+  seedStoryBrand,
+  storyPrefs,
+} from './composeStory.js';
+import { isolate } from './harness.js';
+
+// A fresh install that has the library, so the catalog's products are on offer, and a demo engine
+// that reads references the way a real one does (at zero it dims both chips).
+isolate({ brand: false, library: true, env: { SCENRI_DEMO_REFS: '5', SCENRI_DEMO_DELAY_MS: '600' } });
+
+const BEATS: Beat[] = [
+  'home',
+  'attach',
+  'product',
+  'scene',
+  'chips',
+  'direction',
+  'generate',
+  'rendering',
+  'open',
+  'landed',
+  'refine',
+  'refining',
+  'refined',
+];
+
+test('the compose story walks from Home to a refined shot, on its own library', async ({ page, request }) => {
+  test.setTimeout(90_000);
+
+  // the story runs on this file's own home, never the machine's library
+  const { home } = (await (await request.get('/api/version')).json()) as { home: string };
+  expect(home).not.toBe(join(homedir(), '.scenri'));
+  expect(home).toContain('sc-e2e-');
+
+  // one public, fictional brand, and nothing else in the home
+  const brand = await seedStoryBrand(request, barrierCream);
+  const brands = (await (await request.get('/api/brands')).json()) as { json?: { meta?: { name?: string } } }[];
+  expect(brands.map((b) => b.json?.meta?.name)).toEqual([barrierCream.brand]);
+
+  // what Generate sends: the two ingredients and the line on the screen
+  const sent = page.waitForRequest((r) => r.url().endsWith('/api/nodes') && r.method() === 'POST');
+  const reached: Beat[] = [];
+  const checked: Director = {
+    ...direct,
+    beat: async (name) => void reached.push(name),
+    // every control the story presses is live when it is pressed
+    click: async (target: Locator) => {
+      await expect(target).not.toHaveAttribute('aria-disabled', 'true');
+      await target.click();
+    },
+  };
+  await storyPrefs(page);
+  const { shotId, refinedId } = await composeStory(page, barrierCream, brand.slug, checked);
+
+  expect(reached).toEqual(BEATS);
+  const body = JSON.stringify((await sent).postDataJSON());
+  expect(body).toContain(barrierCream.productId);
+  expect(body).toContain(barrierCream.sceneId);
+  expect(body).toContain(barrierCream.direction.trim());
+
+  // the refinement is made from the shot, and the stage says which step it shows
+  const child = (await (await request.get(`/api/nodes/${refinedId}`)).json()) as { parentId: string };
+  expect(child.parentId).toBe(shotId);
+  await expect(page.locator('.sc-ovl-head b')).toHaveText('Refinement 1');
+  await expect(page.locator('.sc-thumbs .sc-trail-tile').nth(1)).toHaveAttribute(
+    'aria-label',
+    `Refinement 1: ${barrierCream.refinement}`,
+  );
+});
