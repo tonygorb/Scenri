@@ -211,6 +211,19 @@ async function runJob(
       discovered = found.estimatedTotal;
       warnings = found.progress.warnings;
 
+      if (found.empty?.code === 'unreachable') {
+        // An address that never answered is not a site without a shop. Nothing
+        // was read, and filing it as "no shop found" told the person their
+        // store was empty when it was the address, or the network, that failed.
+        patch({
+          stage: 'failed',
+          errors: [found.empty],
+          warnings: found.progress.warnings,
+          message: found.empty.message,
+          finished: true,
+        });
+        return;
+      }
       if (found.empty || !found.estimatedTotal) {
         const source = core.catalog.upsertSource(brandId, found.baseUrl, platform);
         patch({ sourceId: source.id, platform });

@@ -861,7 +861,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     parentId: string,
     brief: Brief,
     engineCaps: EngineCapabilities,
-    opts?: { reshape?: 'crop' | 'extend' },
+    opts?: { reshape?: 'crop' | 'extend'; source?: string },
   ) {
     const inherited = inheritedIdentityTokens(parentId, (id) => core.store.getNode(id));
     const borrowed = inherited.tokens;
@@ -960,6 +960,12 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     // (five consecutive re-renders) was the one place the floor never fired.
     // The inherited person is a person in frame; the floor rides with them.
     if (inheritedPerson) inheritedDirectives.push(personSkinDirective());
+    // The frame being refined: the request's own sourceImage, else the
+    // parent's image when it has exactly one. The preview sends no source, and
+    // guessing the first of several would hide a distinct picture that the
+    // send then carries; one image per node makes the guess almost always sure.
+    const parentImages = core.store.getNode(parentId)?.images ?? [];
+    const source = opts?.source ?? (parentImages.length === 1 ? parentImages[0] : undefined);
     const compileCtx = {
       brand: brandJson,
       images: core.images,
@@ -968,6 +974,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       template: brief.templateId ? sceneById(String(brief.templateId)) : undefined,
       templateById: sceneById,
       mode: 'edit' as const,
+      // The frame rides on its own, so a picture this refine attaches that is
+      // the same bytes is never sent a second time beside it.
+      ...(source ? { sourceHash: String(source) } : {}),
       editScope: verdict.scope,
       editRemoval: verdict.removal ?? false,
       // Kinds, not a count: the identity claim speaks only about the kinds
@@ -1072,6 +1081,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       const previewReshape = (req.body as any).reshape;
       const edit = await compileEditBrief(brand.id, String(parentId), brief as Brief, engine.capabilities(), {
         reshape: previewReshape === 'extend' ? 'extend' : previewReshape === 'crop' ? 'crop' : undefined,
+        source: (req.body as any).sourceImage,
       });
       const { referenceImages, ...rest } = edit.compiled;
       return {
@@ -1329,7 +1339,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
    * failed generation, not a successful one with a caveat: a 4:5 portrait
    * silently answered with a square has lost the composition the user asked
    * for. Some providers quantize to a fixed ratio menu and never say so
-   * (replicate's `aspect_ratio` has no portrait option at all), so the only
+   * (replicate's `aspect_ratio` is a menu of eleven ratios, and the delivered
+   * pixels only approximate each one), so the only
    * reliable detector is measuring what actually came back.
    *
    * Shares ASPECT_TOLERANCE with the engines' own request-time refusal, so an
@@ -1556,6 +1567,12 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     let { width = 1024, height = 1024 } = req.body as any;
     const project = core.store.getProject(String(projectId));
     if (!project) return reply.status(404).send({ error: 'project not found' });
+    // A shot deleted elsewhere (another tab, a phone) is nothing to build on,
+    // and that is said before anything is compiled or written: the store's own
+    // check came only after the source picture and the working canvases had
+    // been saved, and answered 500 "parent node not found in project".
+    if (parentId && core.store.getNode(String(parentId))?.projectId !== project.id)
+      return reply.status(404).send({ error: 'That shot is no longer there.' });
 
     /**
      * Which reshape op an edit with a new shape means. Absent keeps the
@@ -1708,6 +1725,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         // the same helper the preview route uses — one path, one truth.
         const edit = await compileEditBrief(project.brandId, resolvedParentId, brief as Brief, engine.capabilities(), {
           reshape,
+          source: (req.body as any).sourceImage,
         });
         compiled = edit.compiled;
         inheritedTokens = edit.inheritedTokens;

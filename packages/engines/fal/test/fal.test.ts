@@ -143,6 +143,8 @@ describe('generate', () => {
       prompt: 'a teal fox logo',
       image_size: { width: 1024, height: 768 },
       num_images: 1,
+      // fal defaults to jpeg; png is free and keeps the shot lossless
+      output_format: 'png',
     });
   });
 
@@ -202,7 +204,7 @@ describe('generate', () => {
     const { engine, fetchImpl } = makeEngine();
     fetchImpl.mockResolvedValueOnce(jsonResponse(200, { detail: 'weird shape' }));
 
-    await expect(engine.generate(genReq())).rejects.toThrow(/missing "images"/);
+    await expect(engine.generate(genReq())).rejects.toThrow(/missing "images" array or "image" object/);
   });
 
   it('throws a clear error when an image entry has no url', async () => {
@@ -210,6 +212,42 @@ describe('generate', () => {
     fetchImpl.mockResolvedValueOnce(jsonResponse(200, { images: [{ nope: true }] }));
 
     await expect(engine.generate(genReq())).rejects.toThrow(/images\[0\] missing "url"/);
+  });
+
+  it('drops an image the safety checker flagged, since fal returns it as a black frame', async () => {
+    const { engine, fetchImpl, saved } = makeEngine();
+    fetchImpl.mockResolvedValueOnce(
+      jsonResponse(200, {
+        images: [{ url: dataUri('black') }, { url: dataUri('kept') }],
+        has_nsfw_concepts: [true, false],
+      }),
+    );
+
+    const result = await engine.generate(genReq({ count: 2 }));
+
+    expect(saved.map((b) => b.toString('utf8'))).toEqual(['kept']);
+    expect(result.images).toEqual(['hash-1']);
+    // the dropped slot fails as the refusal it was, and fal still bills it
+    const raw = result.raw as { requested: number; variantIndexes: number[]; partialFailures: string[] };
+    expect(raw.requested).toBe(2);
+    expect(raw.variantIndexes).toEqual([1]);
+    expect(raw.partialFailures).toHaveLength(1);
+    expect(raw.partialFailures[0]).toMatch(/flagged/);
+    expect(result.costUsd).toBeCloseTo(0.006);
+  });
+
+  it('refuses in the words the studio reads as a content policy failure when every image was flagged', async () => {
+    const { engine, fetchImpl, saveImage } = makeEngine();
+    fetchImpl.mockResolvedValueOnce(
+      jsonResponse(200, {
+        images: [{ url: dataUri('black') }, { url: dataUri('black') }],
+        has_nsfw_concepts: [true, true],
+      }),
+    );
+
+    // apps/studio/src/failure.ts files any message with "flagged" under policy
+    await expect(engine.generate(genReq({ count: 2 }))).rejects.toThrow(/flagged/);
+    expect(saveImage).not.toHaveBeenCalled();
   });
 
   it('throws when no key is configured', async () => {
@@ -234,6 +272,7 @@ describe('edit', () => {
     expect(JSON.parse(init.body)).toEqual({
       prompt: 'make the sky purple',
       image_url: source,
+      output_format: 'png',
     });
   });
 
@@ -273,6 +312,16 @@ describe('edit', () => {
     expect(result.costUsd).toBe(0.025);
   });
 
+  it('refuses rather than keep a black frame when the edit was flagged', async () => {
+    const { engine, fetchImpl, saveImage } = makeEngine();
+    fetchImpl.mockResolvedValueOnce(
+      jsonResponse(200, { images: [{ url: dataUri('black') }], has_nsfw_concepts: [true] }),
+    );
+
+    await expect(engine.edit(editReq())).rejects.toThrow(/flagged/);
+    expect(saveImage).not.toHaveBeenCalled();
+  });
+
   it('throws with status and body snippet on HTTP failure', async () => {
     const { engine, fetchImpl } = makeEngine();
     fetchImpl.mockResolvedValueOnce(textResponse(401, '{"detail":"invalid key"}'));
@@ -291,17 +340,19 @@ describe('edit', () => {
 describe('expanding a frame', () => {
   it('sends an expansion to the outpainting endpoint, with the picture and its place in the canvas', async () => {
     const calls: { url: string; body: any }[] = [];
-    const { engine } = makeEngine({
+    const { engine, saved } = makeEngine({
       fetchImpl: (async (url: any, init: any) => {
         calls.push({ url: String(url), body: JSON.parse(String(init.body)) });
-        return new Response(JSON.stringify({ images: [{ url: 'data:image/png;base64,iVBORw0KGgo=' }] }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        });
+        // bria/expand answers with one image object and the seed it used,
+        // not the images array the flux endpoints return
+        return new Response(
+          JSON.stringify({ image: { url: dataUri('extended'), width: 1824, height: 1024 }, seed: 7 }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
       }) as unknown as typeof fetch,
     });
 
-    await engine.edit(
+    const result = await engine.edit(
       editReq({
         instruction: 'keep going',
         width: 1824,
@@ -316,6 +367,20 @@ describe('expanding a frame', () => {
     expect(calls[0].body.canvas_size).toEqual([1824, 1024]);
     expect(calls[0].body.original_image_size).toEqual([1024, 1024]);
     expect(calls[0].body.original_image_location).toEqual([400, 0]);
+    // bria/expand has no output_format field, so none is sent
+    expect(calls[0].body).not.toHaveProperty('output_format');
+    expect(saved.map((b) => b.toString('utf8'))).toEqual(['extended']);
+    expect(result.images).toEqual(['hash-1']);
+  });
+
+  it('names the missing field when a reply has neither an image nor an images array', async () => {
+    const { engine, fetchImpl, saveImage } = makeEngine();
+    fetchImpl.mockResolvedValueOnce(jsonResponse(200, { seed: 7 }));
+
+    await expect(
+      engine.edit(editReq({ width: 1824, height: 1024, expand: { left: 400, top: 0, width: 1024, height: 1024 } })),
+    ).rejects.toThrow(/missing "images" array or "image" object/);
+    expect(saveImage).not.toHaveBeenCalled();
   });
 
   it('still uses the general editor for an ordinary refinement', async () => {

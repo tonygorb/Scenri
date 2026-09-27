@@ -1,3 +1,4 @@
+import { basename } from 'node:path';
 import type { Core } from '@scenri/core';
 import type { Analyzer } from './customAssets.js';
 import { type KnownSize, readSize, resolveSize, sizeFromWords, sizeKey } from './productScale.js';
@@ -32,11 +33,34 @@ export interface ProductSizes {
   apply<T>(brandId: string, json: T): T;
 }
 
-export function createProductSizes(core: Core, reader: () => Promise<Analyzer | null>): ProductSizes {
+/**
+ * How long a read that found no size stands before the same photograph is read
+ * again. A read is a high-effort Codex exec, two when the first answer is
+ * rejected, and without this every later look at the product's page and every
+ * Generate that could draw it at scale spent it again on the same photograph.
+ */
+const MISS_MS = 24 * 60 * 60 * 1000;
+const missKey = (brandId: string, productId: string) => `product-size-miss:${brandId}:${productId}`;
+
+export function createProductSizes(
+  core: Core,
+  reader: () => Promise<Analyzer | null>,
+  clock: () => number = Date.now,
+): ProductSizes {
   /** One read per product at a time: a page and a shot asking at once share it. */
   const reading = new Map<string, Promise<KnownSize | null>>();
   const stored = (brandId: string, id: string) => readSize(core.store.getSetting(sizeKey(brandId, id)));
   const known: ProductSizes['known'] = (brandId, p) => resolveSize(p.dimensions, stored(brandId, p.id));
+  /** A miss stands for this photograph only; anything malformed is no miss at all. */
+  const missed = (brandId: string, id: string, photo: string) => {
+    try {
+      const miss = JSON.parse(core.store.getSetting(missKey(brandId, id)) || 'null');
+      const age = clock() - Number(miss?.at);
+      return miss?.photo === photo && age >= 0 && age < MISS_MS;
+    } catch {
+      return false;
+    }
+  };
 
   return {
     known,
@@ -44,25 +68,41 @@ export function createProductSizes(core: Core, reader: () => Promise<Analyzer | 
     async ensure(brandId, p, signal) {
       const now = known(brandId, p);
       if (now || !p.photo) return now;
+      // The store names a picture by its content hash, so a replaced
+      // photograph is a new name and is read at once, whatever missed before.
+      const name = basename(p.photo);
+      if (missed(brandId, p.id, name)) return null;
       const key = sizeKey(brandId, p.id);
       let read = reading.get(key);
       if (!read) {
         const photo = p.photo;
         read = (async () => {
           const analyzer = await reader();
+          // Nothing could read it, so nothing was spent: a reader set up later reads it at once.
           if (!analyzer?.measure) return null;
-          const got = await analyzer.measure(
-            { imagePath: photo, name: p.name, ...(p.description ? { description: p.description } : {}) },
-            signal,
-          );
+          let got: { text: string; largestCm: number } | null = null;
+          try {
+            got = await analyzer.measure(
+              { imagePath: photo, name: p.name, ...(p.description ? { description: p.description } : {}) },
+              signal,
+            );
+          } catch {
+            // A read that did not finish (the shot was cancelled, a timeout, a usage limit, a lost
+            // sign-in) says nothing about the photograph, so nothing is remembered and the next look
+            // reads again. Only the reader's own answer that it cannot size it is a miss.
+            return null;
+          }
           const n = Number(got?.largestCm);
           const text = String(got?.text ?? '').trim();
-          if (!text || !Number.isFinite(n) || n <= 0) return null;
+          if (!text || !Number.isFinite(n) || n <= 0) {
+            core.store.setSetting(missKey(brandId, p.id), JSON.stringify({ photo: name, at: clock() }));
+            return null;
+          }
           const size: KnownSize = { text, largestCm: n, by: 'estimate' };
           core.store.setSetting(key, JSON.stringify(size));
           return size;
         })()
-          // A read that failed is not a size, and is tried again next time.
+          // Anything else that throws is not a size either, and is not remembered.
           .catch(() => null)
           .finally(() => reading.delete(key));
         reading.set(key, read);

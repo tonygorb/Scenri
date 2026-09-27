@@ -431,6 +431,9 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
   async function run(args: string[], signal?: AbortSignal, io?: RunIo): Promise<void> {
     const exe = await resolution();
     const timeoutMs = io?.timeoutMs ?? defaultTimeoutMs;
+    // The world this exec was launched into, as the connection check names it.
+    // A proof from its exit counts only if that world still stands when it ends.
+    const launchedAs = args[0] === 'exec' ? fingerprintFor(exe, knownVersion) : null;
     return new Promise<void>((resolve, reject) => {
       let child: ReturnType<typeof nodeSpawn>;
       try {
@@ -536,7 +539,18 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
       });
       child.on('exit', (code: number | null) => {
         if (code === 0) {
-          finish('ok', resolve);
+          // An exec that exits 0 has answered the connection check's question
+          // through the same spawn, environment and model, so it counts as the
+          // check, but only for the environment it was launched into: a repair
+          // made while it ran is the check's to judge, and a shot started
+          // before it must not overwrite that verdict. Only the exit that
+          // settles the run may say so: one that lands after a timeout or an
+          // abort proved nothing we waited for.
+          finish('ok', () => {
+            if (launchedAs && resolved && launchedAs === fingerprintFor(resolved, knownVersion))
+              noteConnection('proven');
+            resolve();
+          });
           return;
         }
         // A usage limit is the one failure worth its own sentence: the tail
@@ -846,8 +860,11 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
     if (outcome === 'unproven') return;
     const exe = resolved;
     if (!exe) return;
+    // Only a refusal, given or taken back, changes what the probe says; a
+    // proof over a proof would just respawn the ladder for nothing.
+    const wasRefused = connCache?.outcome === 'refused';
     connCache = { outcome, failure, at: Date.now(), fingerprint: fingerprintFor(exe, knownVersion) };
-    cached = null;
+    if (outcome === 'refused' || wasRefused) cached = null;
   }
 
   function invalidateProbe(): void {

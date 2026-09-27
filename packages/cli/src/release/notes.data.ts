@@ -105,6 +105,30 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.20.0',
+    date: '2026-09-27',
+    title: "Pictures develop in place, and What's new has its own page",
+    announce: true,
+    sections: [
+      {
+        heading: 'Create',
+        body: 'While a picture is being made, a quiet swirl holds its place, and the picture develops out of it when it is ready. Refine a shot and the new refinement opens at once, swirling until it lands.',
+        image: {
+          file: '0.20.0-made-in-place.webp',
+          alt: 'Two shots from one prompt in Create: the first has landed, and the second is still being made, a swirl with its clock.',
+        },
+      },
+      {
+        heading: "What's new",
+        body: "Every update is on one page now, newest first: open What's new from Help, or from Settings > Updates. After a big update, a short window introduces it once.",
+      },
+      {
+        heading: 'Fixes',
+        body: 'Try again starts one new picture, never two, and presenter and scene chats take long descriptions. Beside a reference picture, your presenter keeps their own clothes and no strangers join the shot.',
+      },
+    ],
+  },
+  {
     version: '0.19.1',
     date: '2026-09-26',
     title: 'Codex keeps no copy of your pictures',
@@ -289,10 +313,6 @@ export const RELEASES: ReleaseEntry[] = [
       {
         heading: 'Scenes',
         body: 'Describe a place, start from your own pictures or a shot you already made, or press Guide me and choose a world, its surface and its light from pictures. Your pictures set the mood and are never copied.',
-        image: {
-          file: '0.15.1-choose-a-world.webp',
-          alt: 'Create scene asking What world?, with eight pictures of worlds to choose from and Sunlit stone chosen.',
-        },
       },
       {
         heading: 'Activity',

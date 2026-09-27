@@ -67,8 +67,24 @@ export interface CustomPresenter {
 }
 
 export type PresenterSource = 'synthetic' | 'photos';
+/**
+ * What a person can type in one go in a creation conversation: the studio
+ * chat composer's maxLength (its TEXT_MAX mirrors this) and the cap on every
+ * field that keeps their own words whole. It was 400 at the composer and less
+ * behind it (a kept detail 200, an identity edit 120, a revision 240), so
+ * testers were stopped mid-description, and what got past the box was cut in
+ * silence further in (2026-09-27). Nothing that fits the box is cut after it.
+ */
+export const TYPED_TEXT_MAX = 4000;
+/**
+ * A field composed from taps and typed words together: a guided scene
+ * direction (about 560 characters of taps and guard clauses, then the
+ * person's words) and a presenter's direction (the description with the
+ * follow-up folded in). Room for one full answer and everything around it.
+ */
+export const COMPOSED_TEXT_MAX = 8000;
 export const IDENTITY_EDITS_MAX = 8;
-export const IDENTITY_EDIT_CHARS = 120;
+export const IDENTITY_EDIT_CHARS = TYPED_TEXT_MAX;
 export const PRESENTER_SOURCES: readonly PresenterSource[] = ['synthetic', 'photos'];
 /** Which wording of the likeness confirmation was shown, so a later rewording is a new version. */
 export const LIKENESS_VERSION = 'v1';
@@ -344,10 +360,11 @@ export interface SceneInput {
  * on the idea and "invent a specific original arrangement"), so it runs to
  * about 560 characters before any words of the person's own. At 400 the
  * server cut those clauses off in silence, which is exactly the line that
- * keeps two people who tap the same cards from getting the same place. The
- * studio's PLACE_MAX is the same number.
+ * keeps two people who tap the same cards from getting the same place. At
+ * 800 a person's own long words were cut the same way (2026-09-27), so it is
+ * the composed cap now. The studio's PLACE_MAX is the same number.
  */
-export const SCENE_INSTRUCTION_MAX = 800;
+export const SCENE_INSTRUCTION_MAX = COMPOSED_TEXT_MAX;
 
 export function sceneRecordFrom(
   input: SceneInput,

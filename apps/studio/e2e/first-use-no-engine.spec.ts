@@ -91,6 +91,10 @@ test("the first shot begins at the setup, and What's New waits and then counts a
   await expect(page).toHaveURL(/setup=/);
   await expect(coachCard(page)).toHaveCount(0);
   await expect(dialog(page)).toHaveCount(0);
+  // the setup dialog listening before Escape: its address moves before it mounts
+  const setup = page.locator('[role="dialog"]:has(.sc-setup)');
+  await expect(setup).toBeVisible();
+  await expect.poll(() => setup.evaluate((el) => el.contains(document.activeElement))).toBe(true);
   await page.keyboard.press('Escape');
   await expect(coachTitle(page)).toHaveText('Connect image generation');
 

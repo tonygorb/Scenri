@@ -3,6 +3,7 @@ import { type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from
 import { ColorPicker } from '../layout/ColorPicker.js';
 import { Tip } from '../layout/Tip.js';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
+import { TEXT_MAX } from './textMax.js';
 
 /** What the card shows around the sentence: which picture the pill will touch, and what that means. */
 export interface ComposerScope {
@@ -238,7 +239,7 @@ export function ConversationComposer({
             ref={field}
             className="sc-in"
             rows={1}
-            maxLength={400}
+            maxLength={TEXT_MAX}
             aria-label={label}
             // the chip already says what the answer is; the invitation to type
             // would only crowd it

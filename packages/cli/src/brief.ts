@@ -279,6 +279,14 @@ interface CompileContext {
    * never by object: the second compile mints fresh attachment objects.
    */
   presentAttachments?: Pick<Attachment, 'role' | 'hash'>[];
+  /**
+   * On a refinement, the hash of the frame being refined. It always rides on
+   * its own, as the source, so a reference or any other non-identity picture
+   * that is the same bytes would spend a seat on pixels the engine already
+   * has: the copy pass before the budget treats it as already sent. An
+   * identity's own photos are exempt.
+   */
+  sourceHash?: string;
 }
 
 const assetHash = (ref: unknown): string | null => {
@@ -964,6 +972,33 @@ export function compileBrief(input: Brief, ctx: CompileContext): CompiledBrief {
       );
     }
   }
+  // One picture, one seat. The passes above settle a reference against the
+  // mark or the identity it copies, and what they leave could still ride
+  // twice: a scene's picked view with the same picture attached by hand
+  // beside it, a product asked for twice, or on a refinement the frame being
+  // refined attached again as a reference. An exact copy tells the model
+  // nothing the first one did not, and on a four-seat engine it took the seat
+  // of a product angle. The first copy stays: every identity's own pictures
+  // first, then everything else in the brief's order. On a refinement the
+  // source frame counts as already sent for everything but an identity's own
+  // photos. Two identities never merge: a product or a presenter only loses a
+  // picture its own chip has already sent.
+  const sent = new Set<string>(ctx.sourceHash ? [ctx.sourceHash] : []);
+  const identitySent = new Set<string>();
+  const copies = new Set<Attachment>();
+  for (const a of attachments) {
+    if (a.role !== 'product' && a.role !== 'character') continue;
+    const own = `${a.role}:${a.id}:${a.hash}`;
+    if (identitySent.has(own)) copies.add(a);
+    identitySent.add(own);
+    sent.add(a.hash);
+  }
+  for (const a of attachments) {
+    if (a.role === 'product' || a.role === 'character') continue;
+    if (sent.has(a.hash)) copies.add(a);
+    sent.add(a.hash);
+  }
+  for (let i = attachments.length - 1; i >= 0; i--) if (copies.has(attachments[i])) attachments.splice(i, 1);
   const max = ctx.engineCaps.maxReferenceImages;
   // A generation seats identity first (attachmentBudget.ts identityFloor). A
   // refinement's compile runs uncapped here and is allocated by the edit
@@ -1149,7 +1184,9 @@ export function compileBrief(input: Brief, ctx: CompileContext): CompiledBrief {
   // actually rode (same honesty rule as the photo guard), and only on a
   // generation: an edit's identity rides the source frame.
   const refGuard =
-    ctx.mode !== 'edit' && hasPerson && kept.some((a) => a.role === 'reference') ? [referenceIdentityGuard()] : [];
+    ctx.mode !== 'edit' && hasPerson && kept.some((a) => a.role === 'reference')
+      ? [referenceIdentityGuard(people)]
+      : [];
   // A frame picked to follow, as it rode: it sets the camera (productInFrameDirective).
   const framed = ctx.mode !== 'edit' && kept.some((a) => a.role === 'reference' && frameRefs.has(a.hash));
   // The same for a product: a reference's own product never becomes this one.

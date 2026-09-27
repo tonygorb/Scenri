@@ -238,6 +238,61 @@ describe('the scene studio', () => {
     expect(again.anchor).toBe(true);
   });
 
+  // What this server read is kept past a restart, so Try again on clean
+  // pictures never pays for a clear edit the reader already ruled out.
+  it('still knows the pictures hold nothing after a restart', async () => {
+    holds = [];
+    const brand = await newBrand();
+    const a = await photo('#112233');
+    const made = await run(brand.id, { kind: 'make', imageHashes: [a] });
+    expect(edited).toHaveLength(0);
+    await restart({});
+    // a new process starts with nothing in memory
+    resetSceneStudio();
+    generated = [];
+    const again = await run(brand.id, { kind: 'again', reading: made.reading, imageHashes: [a] });
+    expect(again.status).toBe('done');
+    expect(edited).toHaveLength(0);
+    expect(again.reading.holds).toEqual([]);
+    expect(generated[0].referenceImages).toEqual([core.images.pathFor(a)]);
+  });
+
+  // A saved scene's reading comes back from its record, which never keeps
+  // holds, so its Try again carries none. What this server read the pictures
+  // as holding stands in; a picture it never read is still scrubbed.
+  it('lets its own verdict stand in when a saved scene comes back with no holds', async () => {
+    holds = [];
+    const brand = await newBrand();
+    const a = await photo('#112233');
+    const b = await photo('#445566');
+    await run(brand.id, { kind: 'make', imageHashes: [a] });
+    const { holds: _dropped, ...fromRecord } = READ as typeof READ & { holds?: unknown };
+    const again = await run(brand.id, { kind: 'again', reading: fromRecord, imageHashes: [a] });
+    expect(edited).toHaveLength(0);
+    expect(again.reading.holds).toEqual([]);
+    const unread = await run(brand.id, { kind: 'again', reading: fromRecord, imageHashes: [b] });
+    expect(unread.reading.holds).toBeUndefined();
+    expect(edited).toHaveLength(1);
+  });
+
+  // Only the reader's verdict is kept: words handed back cannot vouch for a
+  // picture this server never read, before a restart or after one.
+  it('still empties a picture this server never read, whatever the words say it holds', async () => {
+    holds = [];
+    const brand = await newBrand();
+    const a = await photo('#112233');
+    const b = await photo('#445566');
+    const made = await run(brand.id, { kind: 'make', imageHashes: [a] });
+    await restart({});
+    resetSceneStudio();
+    const mixed = await run(brand.id, { kind: 'again', reading: made.reading, imageHashes: [a, b] });
+    expect(mixed.reading.holds).toBeUndefined();
+    expect(edited).toHaveLength(1);
+    const claimed = await run(brand.id, { kind: 'again', reading: { ...READ, holds: [] }, imageHashes: [b] });
+    expect(claimed.reading.holds).toBeUndefined();
+    expect(edited).toHaveLength(2);
+  });
+
   it('draws the words alone, as an anchor, when there are no pictures', async () => {
     const brand = await newBrand();
     const job = await run(brand.id, { kind: 'again', reading: READ });

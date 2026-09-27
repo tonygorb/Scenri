@@ -262,6 +262,11 @@
 .sc-menu-item[data-highlighted] {
   background: var(--sc-hover);
   color: var(--sc-fg);
+}
+/* A row highlighted under the pointer needs no ring. This used to apply to
+   every highlighted row, and at the ring's own specificity, later: the row the
+   keyboard stood on showed only the hover fill, about 1.1:1 against the panel. */
+:where(:root[data-input="pointer"]) .sc-menu-item[data-highlighted] {
   outline: none;
 }
 .sc-menu-ic {

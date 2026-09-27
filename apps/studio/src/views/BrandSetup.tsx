@@ -97,7 +97,11 @@ export function BrandSetup() {
     navigate(`${brandPath(b)}${settings ? `?settings=${settings}` : ''}`, { replace: true });
   };
 
+  /** The screen went away: a kit that lands after that has nobody to keep it. */
+  const left = useRef(false);
+
   useEffect(() => {
+    left.current = false;
     // `keepalive` is what makes this survive a reload or a closing tab; a
     // plain fetch is cancelled with the document and the row would stay.
     const drop = () => {
@@ -108,6 +112,7 @@ export function BrandSetup() {
     };
     window.addEventListener('pagehide', drop);
     return () => {
+      left.current = true;
       window.removeEventListener('pagehide', drop);
       drop();
     };
@@ -129,6 +134,13 @@ export function BrandSetup() {
       // `https://  https://...` and the server's parser error reached the
       // screen as "Invalid URL". One normaliser now owns the rule, server-side.
       const b = await api.brandFromUrl(url);
+      // Back while the site was still being read: the drop above ran before
+      // this brand existed, so it stayed, a brand nobody chose ("lucid-2" in
+      // the list). It goes the way any unkept one does.
+      if (left.current) {
+        void fetch(`/api/brands/${b.id}`, { method: 'DELETE', keepalive: true }).catch(() => {});
+        return;
+      }
       // No catalog crawl here, on purpose. This screen was asked for a brand
       // kit, and it used to answer by crawling the whole site for products
       // too: oatly.com got 588 pages read and 201 invented products, and

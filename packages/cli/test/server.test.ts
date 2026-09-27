@@ -4302,3 +4302,63 @@ describe('image memory on a long session', () => {
     expect(sharp.concurrency()).toBe(1);
   });
 });
+
+describe('building on a shot deleted elsewhere', () => {
+  // Refine or crop a shot that another tab, or a phone, has already deleted.
+  // The store's own check came only after the source picture had been read and
+  // the canvases saved, and it answered 500 "parent node not found in project".
+  it('answers 404 in words, for a refine and for a crop', async () => {
+    const brand = await mkBrand();
+    const proj = (
+      await app.inject({ method: 'POST', url: '/api/projects', payload: { brandId: brand.id, name: 'p' } })
+    ).json();
+    const hash = core.images.save(
+      await sharp({ create: { width: 8, height: 8, channels: 3, background: '#888888' } })
+        .png()
+        .toBuffer(),
+    );
+    const [shot] = core.store.addNodes({
+      projectId: proj.project.id,
+      parentId: proj.root.id,
+      kind: 'generation',
+      prompt: 'x',
+      engineId: 'demo',
+      count: 1,
+    });
+    core.store.completeNode(shot.id, { images: [hash], costUsd: 0 });
+    core.store.setArchived(shot.id, true);
+    core.store.deleteNode(shot.id);
+
+    const refine = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: proj.project.id,
+        parentId: shot.id,
+        kind: 'edit',
+        engineId: 'demo',
+        prompt: 'warmer',
+        sourceImage: hash,
+        width: 8,
+        height: 8,
+      },
+    });
+    expect(refine.statusCode).toBe(404);
+    expect(refine.json().error).toBe('That shot is no longer there.');
+
+    const crop = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: proj.project.id,
+        parentId: shot.id,
+        kind: 'edit',
+        reshape: 'crop',
+        engineId: 'demo',
+        sourceImage: hash,
+        brief: { tokens: [{ t: 'format', id: 'square', w: 8, h: 8 }] },
+      },
+    });
+    expect(crop.statusCode).toBe(404);
+  });
+});

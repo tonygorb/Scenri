@@ -1,6 +1,7 @@
 import { detectPlatform, adapterFor } from './detect.js';
 import { dedupeProducts } from './normalize.js';
 import { normalizeStoreUrl, originOf } from './url.js';
+import { httpGet } from './http/fetch.js';
 import type {
   AdapterContext,
   CatalogAdapter,
@@ -128,13 +129,16 @@ export async function discoverCatalog(opts: RunCatalogOptions): Promise<CatalogD
   const estimatedTotal = discovered.estimatedTotal ?? discovered.productUrls.length;
   let empty: ImportError | null = null;
   if (!estimatedTotal) {
-    empty = {
-      code: 'empty_catalog',
-      message:
-        detection.platform === 'generic'
-          ? 'No public product catalog found. This store may be JavaScript-rendered or require authentication.'
-          : `No products discovered on this ${detection.platform} store.`,
-    };
+    const unreachable = await neverAnswered(baseUrl, fetchImpl, opts.signal);
+    empty = unreachable
+      ? { code: 'unreachable', message: unreachable, retryable: true }
+      : {
+          code: 'empty_catalog',
+          message:
+            detection.platform === 'generic'
+              ? 'No public product catalog found. This store may be JavaScript-rendered or require authentication.'
+              : `No products discovered on this ${detection.platform} store.`,
+        };
     emit({ stage: 'failed', errors: [...progress.errors, empty] });
   }
 
@@ -201,4 +205,25 @@ export async function runCatalogIngestion(opts: RunCatalogOptions): Promise<Cata
   }
 
   return { baseUrl: detection.baseUrl, detection, products, progress };
+}
+
+/**
+ * Why a site that gave nothing up never answered at all, or null when it did.
+ *
+ * Every probe and discovery step swallows its own failure, so an address that
+ * never answered (mistyped, down, or no network here) came back exactly like a
+ * site with no shop on it, a finished import, when nothing had been read. One
+ * request settles it, made only for an empty result and through the same
+ * guarded fetch: any answer at all, a 404 or a bot check included, means the
+ * site is there and simply has no shop.
+ */
+async function neverAnswered(baseUrl: string, fetchImpl: typeof fetch, signal?: AbortSignal): Promise<string | null> {
+  try {
+    const res = await httpGet(baseUrl, { fetchImpl, signal, retries: 1, timeoutMs: 15_000 });
+    await res.body?.cancel().catch(() => {});
+    return null;
+  } catch {
+    if (signal?.aborted) return null;
+    return `Could not reach ${new URL(baseUrl).hostname}.`;
+  }
 }

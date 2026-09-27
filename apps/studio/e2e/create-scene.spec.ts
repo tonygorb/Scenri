@@ -69,6 +69,8 @@ const line = (p: Page) => studio(p).locator('.sc-pstudio-foot textarea');
 
 async function say(p: Page, text: string) {
   await line(p).fill(text);
+  // what was typed is what is sent: the box once stopped at 400 characters
+  await expect(line(p)).toHaveValue(text);
   await line(p).press('Enter');
 }
 
@@ -299,6 +301,17 @@ test('a sentence at the first question is the place itself, and a scene saved un
   await finishSceneSet(page);
   await page.waitForURL(/\/scenes\/us-/);
   expect((await scenes(page)).some((s) => s.name === 'White cyclorama with')).toBe(true);
+});
+
+test('a long place at the first question is taken whole, to its last words', async ({ page }) => {
+  // The box ended at 400 characters and the words door kept 400 of what it
+  // was given, so a place described at length was cut in silence (2026-09-27).
+  await start(page);
+  const long = `${'White cyclorama with hard flash from the left, a pale concrete floor, soft falloff into grey at the edges, '.repeat(12)}and one brass stool at the centre`;
+  expect(long.length).toBeGreaterThan(1200);
+  await place(page, long);
+  await expect(openQ(page)).toContainText('What your shots are told');
+  await expect(openQ(page)).toContainText('and one brass stool at the centre');
 });
 
 test('the picture door: pictures read into words, the reader’s note said, the pictures kept on the scene', async ({

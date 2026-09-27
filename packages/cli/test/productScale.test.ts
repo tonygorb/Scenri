@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import sharp from 'sharp';
 import { createCore, type Core, type EngineAdapter, type EngineCapabilities } from '@scenri/core';
 import { compileBrief, type Brief, type ScalePlan } from '../src/brief.js';
 import {
@@ -325,6 +326,54 @@ describe('the two draws', () => {
     const { engine } = fake({ editFails: [0] });
     await expect(run(engine, 1)).rejects.toThrow('placement refused');
   });
+
+  it('hands the engine the place and the product no larger than it reads, and the plate at its own size', async () => {
+    // A person's own photographs are kept at up to 8192 px, and Codex reads a
+    // referenced path at its original size.
+    const big = (shade: number) =>
+      sharp({ create: { width: 3000, height: 2400, channels: 3, background: { r: shade, g: 90, b: 40 } } })
+        .png()
+        .toBuffer();
+    const product = core.images.save(await big(200));
+    const place = core.images.save(await big(120));
+    const plate = core.images.save(await big(60));
+    const calls: { generate: any[]; edit: any[] } = { generate: [], edit: [] };
+    const engine = {
+      capabilities: () => ({ id: 'fake', imageConcurrency: 1, maxReferenceEdge: 2048 }),
+      generate: async (req: any, _signal?: AbortSignal, onImage?: (slot: number, hash: string) => void) => {
+        calls.generate.push(req);
+        onImage?.(0, plate);
+        return { images: [plate], costUsd: 0 };
+      },
+      edit: async (req: any) => {
+        calls.edit.push(req);
+        return { images: [core.images.save(Buffer.from('placed'))], costUsd: 0 };
+      },
+    } as unknown as EngineAdapter;
+    await drawAtScale({
+      engine,
+      images: core.images,
+      brand: { brand: {} } as any,
+      plan: { ...plan(), productHash: product, sceneHash: place },
+      size: { text: 'about 2 cm across', largestCm: 2 },
+      width: 1024,
+      height: 1280,
+      count: 1,
+      signal: new AbortController().signal,
+      onImage: () => {},
+    });
+    const edge = async (path: string) => {
+      const m = await sharp(path).metadata();
+      return Math.max(m.width ?? 0, m.height ?? 0);
+    };
+    expect(await edge(calls.generate[0].referenceImages[0])).toBe(2048);
+    expect(await edge(calls.edit[0].referenceImages[0])).toBe(2048);
+    // the plate is the picture being edited, and keeps its pixels as a refinement's source does
+    expect(calls.edit[0].sourceImage).toBe(core.images.pathFor(plate));
+    // and the stored originals are untouched
+    expect(await edge(core.images.pathFor(product))).toBe(3000);
+    expect(await edge(core.images.pathFor(place))).toBe(3000);
+  });
 });
 
 describe('product sizes', () => {
@@ -356,6 +405,78 @@ describe('product sizes', () => {
     // another brand never shares a guess
     await sizes.ensure('b2', ring());
     expect(r.reads()).toBe(2);
+  });
+
+  it('a read that found nothing stands for a day, unless the photograph is replaced', async () => {
+    let reads = 0;
+    let fails = true;
+    const analyzer = {
+      measure: async () => {
+        reads++;
+        if (fails) return null;
+        return { text: 'about 2 cm across', largestCm: 2 };
+      },
+    };
+    let clock = Date.parse('2026-09-27T09:00:00Z');
+    const sizes = createProductSizes(
+      core,
+      async () => analyzer as any,
+      () => clock,
+    );
+    expect(await sizes.ensure('b1', ring())).toBeNull();
+    expect(reads).toBe(1);
+    // the page opened again, or a Generate, spends nothing more
+    expect(await sizes.ensure('b1', ring())).toBeNull();
+    expect(reads).toBe(1);
+    // a new photograph is a new read at once
+    const replaced = { ...ring(), photo: core.images.pathFor(core.images.save(Buffer.from('new-product-bytes'))) };
+    expect(await sizes.ensure('b1', replaced)).toBeNull();
+    expect(reads).toBe(2);
+    clock += 23 * 60 * 60 * 1000;
+    expect(await sizes.ensure('b1', replaced)).toBeNull();
+    expect(reads).toBe(2);
+    // a day on, the same photograph is read again
+    clock += 60 * 60 * 1000;
+    fails = false;
+    expect(await sizes.ensure('b1', replaced)).toEqual({ text: 'about 2 cm across', largestCm: 2, by: 'estimate' });
+    expect(reads).toBe(3);
+  });
+
+  it('a read that failed for a moment is not a miss: the next look reads again', async () => {
+    // A timeout, a usage limit or a lost sign-in says nothing about the photograph. Kept as a miss,
+    // it would skip the scale step for small products for a day.
+    let reads = 0;
+    const failures = ['Codex timed out', 'You have reached your usage limit', '401 Unauthorized'];
+    const analyzer = {
+      measure: async () => {
+        const failure = failures[reads++];
+        if (failure) throw new Error(failure);
+        return { text: 'about 2 cm across', largestCm: 2 };
+      },
+    };
+    const sizes = createProductSizes(core, async () => analyzer as any);
+    for (let i = 0; i < failures.length; i++) expect(await sizes.ensure('b1', ring())).toBeNull();
+    expect(reads).toBe(3);
+    expect(await sizes.ensure('b1', ring())).toEqual({ text: 'about 2 cm across', largestCm: 2, by: 'estimate' });
+    expect(reads).toBe(4);
+  });
+
+  it('a stopped read, or nothing to read with, is not remembered as a miss', async () => {
+    let reads = 0;
+    const analyzer = {
+      measure: async (_req: unknown, signal?: AbortSignal) => {
+        reads++;
+        if (signal?.aborted) throw new Error('cancelled');
+        return { text: 'about 2 cm across', largestCm: 2 };
+      },
+    };
+    expect(await createProductSizes(core, async () => null).ensure('b1', ring())).toBeNull();
+    const sizes = createProductSizes(core, async () => analyzer as any);
+    const stop = new AbortController();
+    stop.abort();
+    expect(await sizes.ensure('b1', ring(), stop.signal)).toBeNull();
+    expect(await sizes.ensure('b1', ring())).toEqual({ text: 'about 2 cm across', largestCm: 2, by: 'estimate' });
+    expect(reads).toBe(2);
   });
 
   it('asks nothing when nothing can read, or when the record already says', async () => {

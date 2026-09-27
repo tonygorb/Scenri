@@ -8,6 +8,7 @@ import type { DemoProduct } from './demoProducts.js';
 import type { Presenter } from './presenters.js';
 import { drawAtScale, needsOwnScale, type ProductSize } from './productScale.js';
 import type { ProductSizes } from './productSizes.js';
+import { capReferenceEdge } from './routes/shared.js';
 
 /**
  * A scene's examples: the place in use, shown on its page and never handed to
@@ -555,12 +556,19 @@ export function createSceneExamples(deps: SceneExamplesDeps): SceneExamples {
     const engineId = engine.capabilities().id;
     const brand = deps.brandContext(brandId);
     const path = (h: string) => deps.core.images.pathFor(h);
+    const edge = engine.capabilities().maxReferenceEdge;
     return async (source, instruction, refs, role) => {
+      // References never bigger than the engine reads, as on every other draw:
+      // a product photograph can be kept at up to 8192 px. The picture being
+      // edited keeps its pixels, as a refinement's source frame does.
+      const referenceImages = await Promise.all(
+        refs.map(path).map((p) => (edge ? capReferenceEdge(deps.core, p, edge) : p)),
+      );
       const req = {
         instruction,
         sourceImage: path(source),
         brand,
-        referenceImages: refs.map(path),
+        referenceImages,
         referenceRoles: refs.map((_, i) => (Array.isArray(role) ? role[i] : role)),
         width: scene.width,
         height: scene.height,

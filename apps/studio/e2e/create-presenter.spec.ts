@@ -49,6 +49,8 @@ const log = (p: Page) => p.getByRole('log');
 const composer = (p: Page) => p.locator('.sc-convo-card textarea');
 const send = async (p: Page, text: string) => {
   await composer(p).fill(text);
+  // what was typed is what is sent: the box once stopped at 400 characters
+  await expect(composer(p)).toHaveValue(text);
   await composer(p).press('Enter');
 };
 const answer = (p: Page, label: string) => log(p).getByRole('button', { name: label, exact: true });
@@ -215,6 +217,23 @@ test.describe('a person from scratch', () => {
     expect((await draftsOf(page, brand.id)).drafts).toHaveLength(0);
   });
 
+  test('a long description is typed whole, and the draft keeps it to the last word', async ({ page }) => {
+    test.setTimeout(60_000);
+    // Testers were stopped mid-description: the box ended at 400 characters,
+    // and the draft cut what it was given at 400 again (2026-09-27).
+    const brand = await currentBrand(page);
+    await page.goto(`/${brand.slug}/presenters/new`);
+    await expect(composer(page)).toBeFocused();
+    const long = `${'Late 30s woman, Mediterranean appearance, dark shoulder-length hair, slim build, elegant and calm. '.repeat(15)}She smiles only with her eyes.`;
+    expect(long.length).toBeGreaterThan(1500);
+    await send(page, long);
+    await answer(page, 'Nothing else').click();
+    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
+    await expect
+      .poll(async () => (await draftOf(page, brand.id, here(page))).direction, { timeout: 20_000 })
+      .toContain('She smiles only with her eyes.');
+  });
+
   test('a step with chips still takes words, and small talk at it is answered by that step', async ({ page }) => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);
@@ -296,8 +315,7 @@ test.describe('a person from scratch', () => {
     await expect(log(page).getByRole('button', { name: 'Copy' })).toBeAttached();
     await log(page).getByRole('button', { name: 'Draw the presenter' }).click();
     await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
-    const tapped = await draftsOf(page, brand.id);
-    const first = await draftOf(page, brand.id, tapped.drafts[0].id);
+    const first = await draftOf(page, brand.id, here(page));
     expect(first.direction).toBe(
       'a Mediterranean woman in their 30s with shoulder-length black hair, green eyes, olive skin, average height with a solid build',
     );

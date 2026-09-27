@@ -436,3 +436,21 @@ test('a long record clamps on whole rows, says Show more legibly, and draws a co
   await more.click();
   await expect(more).toHaveText(/Show less/);
 });
+
+// Last in the file on purpose: it adds a take beside c, and the tests above
+// read this library as it was seeded.
+test('Try again pressed twice before the first lands starts one take, not two', async ({ page }) => {
+  // Every take is a paid run on the person's own provider, and the finished
+  // shot's Try again had no latch: a double click posted two.
+  await page.goto(shotUrl(shots.c));
+  await expect(page.locator('.sc-ovl')).toBeVisible();
+  const posts: string[] = [];
+  page.on('request', (r) => {
+    if (r.method() === 'POST' && new URL(r.url()).pathname === '/api/nodes') posts.push(r.url());
+  });
+  await page.locator('.sc-ovl .sc-sugg button', { hasText: 'Try again' }).dblclick();
+  // it walks to the take it started, as one press always did
+  await page.waitForURL((u) => !u.pathname.endsWith(shots.c.id));
+  await page.waitForTimeout(500);
+  expect(posts).toHaveLength(1);
+});

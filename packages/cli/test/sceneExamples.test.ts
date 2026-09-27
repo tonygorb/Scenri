@@ -178,7 +178,7 @@ function roleOf(instruction: string): string {
 }
 
 /** The demo engine with every call written down, and an edit that can be held open. */
-function spied(costUsd: number) {
+function spied(costUsd: number, maxReferenceEdge?: number) {
   const demo = createDemoEngine((b: Buffer) => core.images.save(b), { maxReferenceImages: 4 });
   const calls = { generate: [] as any[], edit: [] as any[] };
   const gate = {
@@ -201,7 +201,7 @@ function spied(costUsd: number) {
   };
   const engine: EngineAdapter = {
     ...demo,
-    capabilities: () => demo.capabilities(),
+    capabilities: () => ({ ...demo.capabilities(), ...(maxReferenceEdge ? { maxReferenceEdge } : {}) }),
     costEstimate: async () => costUsd,
     generate: (req, signal, onImage) => {
       calls.generate.push(req);
@@ -253,7 +253,11 @@ const LAMP = {
   height: 10,
 };
 
-async function setup(costUsd = 0, library = true, opts: { presenter?: boolean; lamp?: boolean } = {}) {
+async function setup(
+  costUsd = 0,
+  library = true,
+  opts: { presenter?: boolean; lamp?: boolean; maxReferenceEdge?: number } = {},
+) {
   const product = opts.lamp ? LAMP : VIAL;
   mkdirSync(join(templatesDir, 'demo-products'), { recursive: true });
   writeFileSync(join(templatesDir, 'demo-products', `${product.id}.json`), JSON.stringify(product));
@@ -306,7 +310,7 @@ async function setup(costUsd = 0, library = true, opts: { presenter?: boolean; l
       );
   }
 
-  const { engine, calls, gate } = spied(costUsd);
+  const { engine, calls, gate } = spied(costUsd, opts.maxReferenceEdge);
   const app = track(
     buildServer({
       core,
@@ -445,6 +449,21 @@ describe("a scene's examples", { timeout: 30_000 }, () => {
     expect(calls.generate).toHaveLength(1);
     // and with the set standing on this picture there is nothing left to offer
     expect((await status(id)).first).toEqual([]);
+  });
+
+  it('hands the engine each reference no larger than it reads, and the picture it edits at its own size', async () => {
+    // An engine that reads references at 48 px, against the 64 by 80 pictures here
+    const { calls, place, makeScene, drawn } = await setup(0, true, { lamp: true, maxReferenceEdge: 48 });
+    const job = await drawn(await makeScene());
+    expect(job.done).toEqual(['hero', 'close']);
+    // the lamp is too large for a plate: the hero and the close-up are both one edit with the product
+    expect(calls.edit).toHaveLength(2);
+    expect(calls.edit[0].sourceImage).toBe(core.images.pathFor(place));
+    for (const edit of calls.edit) {
+      expect(edit.referenceImages).toHaveLength(1);
+      const m = await sharp(edit.referenceImages[0]).metadata();
+      expect(Math.max(m.width ?? 0, m.height ?? 0)).toBe(48);
+    }
   });
 
   it('Add three more draws hands, another angle and a bold one, and tells the page first', async () => {

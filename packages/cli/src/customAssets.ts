@@ -110,11 +110,13 @@ export interface Analyzer {
   /**
    * How large a product really is, read from its photograph and name. Optional
    * so a reader that cannot answer is simply never asked (productSizes.ts).
+   * Null is the reader's answer that it cannot size it; a read that did not
+   * finish throws instead.
    */
   measure?(
     req: { imagePath: string; name: string; description?: string },
     signal?: AbortSignal,
-  ): Promise<{ text: string; largestCm: number }>;
+  ): Promise<{ text: string; largestCm: number } | null>;
 }
 
 export interface AssetBuildDeps {

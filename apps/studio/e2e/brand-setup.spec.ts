@@ -541,3 +541,63 @@ test('a kit you walk away from is not a brand you made', async ({ page }) => {
   await page.waitForURL((u) => !u.pathname.startsWith('/setup'), { timeout: 30_000 });
   expect(await count()).toBe(before + 1);
 });
+
+// Back while a kit was still being read: the screen's own clean-up ran before
+// the brand existed, so the brand the answer made stayed, one nobody chose
+// ("lucid-2" in the list).
+test('leaving setup while a kit is being read leaves no brand behind', async ({ page }) => {
+  let release = () => {};
+  const held = new Promise<void>((r) => {
+    release = r;
+  });
+  let reading = () => {};
+  const read = new Promise<void>((r) => {
+    reading = r;
+  });
+  const slow = createServer(async (req, res) => {
+    if (req.url !== '/') {
+      res.writeHead(404, { 'content-type': 'text/plain' });
+      return res.end('not found');
+    }
+    reading();
+    await held;
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.end(PAGE);
+  });
+  await new Promise<void>((r) => slow.listen(0, '127.0.0.1', r));
+  const port = (() => {
+    const a = slow.address();
+    return typeof a === 'object' && a ? a.port : 0;
+  })();
+  const count = async () => ((await (await page.request.get('/api/brands')).json()) as unknown[]).length;
+
+  try {
+    // arrive at setup from inside the app, so leaving is the app's own Back
+    await page.goto('/');
+    await page.waitForURL((u) => {
+      const seg = u.pathname.split('/').filter(Boolean);
+      return seg.length === 1 && seg[0] !== 'setup';
+    });
+    const before = await count();
+    await page.locator('.sc-org-btn').click();
+    await page.getByRole('menuitem', { name: 'Set up a brand' }).click();
+    await page.waitForURL(/\/setup/);
+    await page.locator('#sc-wiz-url').fill(`http://127.0.0.1:${port}/`);
+    const answered = page.waitForResponse((r) => r.url().endsWith('/api/brands/from-url'));
+    await page.getByRole('button', { name: 'Build the kit' }).click();
+    // an earlier test in this file made a brand from this machine's address
+    const anyway = page.getByRole('button', { name: 'Create anyway' });
+    if (await anyway.isVisible().catch(() => false)) await anyway.click();
+    // the site is being read when the screen goes away
+    await read;
+    await page.goBack();
+    await expect(page).not.toHaveURL(/\/setup/);
+
+    release();
+    expect((await answered).ok()).toBe(true);
+    await expect.poll(count, { timeout: 5_000 }).toBe(before);
+  } finally {
+    release();
+    await new Promise<void>((r) => slow.close(() => r()));
+  }
+});

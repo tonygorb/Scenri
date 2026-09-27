@@ -359,3 +359,26 @@ test('Check again asks for a real run, not the answer it already had', async ({ 
   // Opening the dialog must not spend a turn of the plan on its own.
   expect(asked[0]).not.toContain('force=1');
 });
+
+// A cap typed the way people write money ("$20") was refused without a word
+// and stayed in the box, so a guard that was never set read as set.
+test('a cap written as "$20" is set, and one that is not an amount says so', async ({ page }) => {
+  await openPane(page);
+  const caps = async () => ((await api(page, '/api/engines')) as { cap: number | null }[]).map((e) => e.cap);
+  const cap = page.getByLabel(/monthly cap in dollars/).first();
+  await cap.fill('$20');
+  await cap.press('Tab');
+  await expect.poll(caps).toContain(20);
+  await expect(cap).toHaveValue('20');
+
+  await cap.fill('twenty');
+  await cap.press('Tab');
+  await expect(page.locator('.sc-toast', { hasText: 'That is not an amount' })).toBeVisible();
+  await expect(cap).toHaveValue('20');
+  expect(await caps()).toContain(20);
+
+  // and an empty box takes the cap off again
+  await cap.fill('');
+  await cap.press('Tab');
+  await expect.poll(caps).not.toContain(20);
+});

@@ -379,3 +379,17 @@ test("an example staged on one brand's Home stays there, and the next brand's ow
   await switchTo(page, 'Quill', slugs.get('Quill')!);
   await expect(line).toContainText("Quill's own brief");
 });
+
+// The row the keyboard stood on showed only the hover fill, about 1.1:1 against
+// the panel: a later `outline: none` on every highlighted row beat the ring.
+test('the row the keyboard is on wears the focus ring', async ({ page }) => {
+  const own = await home(page);
+  await page.goto(`/${own}`);
+  await page.locator('.sc-org-btn').focus();
+  await page.keyboard.press('Enter');
+  await expect(panel(page)).toBeVisible();
+  await page.keyboard.press('ArrowDown');
+  const row = page.locator('.sc-menu-item[data-highlighted]').first();
+  await expect(row).toBeVisible();
+  expect(await row.evaluate((el) => getComputedStyle(el).outlineStyle)).not.toBe('none');
+});

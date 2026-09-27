@@ -56,25 +56,57 @@ async function sourceImageToDataUri(source: string): Promise<string> {
   return `data:${mimeForPath(source)};base64,${buf.toString('base64')}`;
 }
 
-/** Defensive parse of { images: [{ url }] }. Throws a clear Error on any missing field. */
-function extractImageUrls(json: unknown): string[] {
+/**
+ * Defensive parse of a fal reply into the image URLs worth keeping, with the
+ * slot each came from. Throws a clear Error on any missing field.
+ *
+ * The flux endpoints answer { images: [{ url }] }, but bria/expand answers
+ * with one { image: { url } } and the seed it used, so both shapes are read.
+ * Reading only the array made every extend fail after fal had billed for it.
+ *
+ * The flux endpoints also run a safety checker, and an image it flags is not
+ * withheld: it comes back as a black frame with its has_nsfw_concepts entry
+ * set. Keeping it would file a black square as a finished shot, so a flagged
+ * image is dropped, and a reply where every image was flagged is refused in
+ * words the studio files under content policy rather than as an empty run.
+ */
+function readReply(json: unknown): { urls: string[]; slots: number[] } {
   if (typeof json !== 'object' || json === null) {
     throw new Error('fal.ai response was not a JSON object');
   }
-  const images = (json as { images?: unknown }).images;
+  const reply = json as { images?: unknown; image?: unknown; has_nsfw_concepts?: unknown };
+  if (!Array.isArray(reply.images) && typeof reply.image === 'object' && reply.image !== null) {
+    const url = (reply.image as { url?: unknown }).url;
+    if (typeof url !== 'string' || url.length === 0) {
+      throw new Error('fal.ai response image missing "url"');
+    }
+    return { urls: [url], slots: [0] };
+  }
+  const images = reply.images;
   if (!Array.isArray(images)) {
-    throw new Error('fal.ai response missing "images" array');
+    throw new Error('fal.ai response missing "images" array or "image" object');
   }
   if (images.length === 0) {
     throw new Error('fal.ai response contained no images');
   }
-  return images.map((img, i) => {
+  const urls = images.map((img, i) => {
     const url = (img as { url?: unknown } | null)?.url;
     if (typeof url !== 'string' || url.length === 0) {
       throw new Error(`fal.ai response images[${i}] missing "url"`);
     }
     return url;
   });
+  const flagged = Array.isArray(reply.has_nsfw_concepts) ? reply.has_nsfw_concepts : [];
+  const slots = urls.map((_, i) => i).filter((i) => flagged[i] !== true);
+  if (slots.length === 0) {
+    throw new Error('fal.ai flagged every image as unsafe and returned only black frames, so none were kept');
+  }
+  return { urls: slots.map((i) => urls[i]), slots };
+}
+
+/** The URLs alone, where one reply is one image and a slot means nothing. */
+function extractImageUrls(json: unknown): string[] {
+  return readReply(json).urls;
 }
 
 export function createFalEngine(opts: FalEngineOptions): EngineAdapter {
@@ -179,12 +211,34 @@ export function createFalEngine(opts: FalEngineOptions): EngineAdapter {
           prompt: req.prompt,
           image_size: { width: req.width, height: req.height },
           num_images: req.count,
+          // fal defaults to jpeg. png costs nothing extra, and a shot that
+          // may be refined or extended later should not start out lossy.
+          output_format: 'png',
         },
         signal,
       );
-      const urls = extractImageUrls(json);
+      const { urls, slots } = readReply(json);
       const images = await saveAll(urls, signal);
-      return { images, costUsd: req.count * GENERATE_COST_PER_IMAGE_USD, raw: json };
+      // fal bills a flagged frame like any other, so the cost stays whole.
+      const costUsd = req.count * GENERATE_COST_PER_IMAGE_USD;
+      if (slots.length === req.count) return { images, costUsd, raw: json };
+      // Some frames flagged, some kept: say which slots survived, the partial
+      // run contract codex uses, so each dropped slot fails as the refusal it
+      // was rather than as a blank run worth another paid try.
+      const dropped = req.count - slots.length;
+      return {
+        images,
+        costUsd,
+        raw: {
+          ...(json as object),
+          requested: req.count,
+          variantIndexes: slots,
+          partialFailures: Array.from(
+            { length: dropped },
+            () => 'fal.ai flagged this image as unsafe and returned a black frame, so it was not kept',
+          ),
+        },
+      };
     },
 
     async edit(req: EditRequest, signal?: AbortSignal): Promise<EngineResult> {
@@ -219,7 +273,13 @@ export function createFalEngine(opts: FalEngineOptions): EngineAdapter {
         const images = await saveAll(urls, signal);
         return { images, costUsd: EDIT_COST_USD, raw: json };
       }
-      const json = await postJson(editModel, key, { prompt: req.instruction, image_url: imageUrl }, signal);
+      // png for the same reason as generate; bria/expand above has no such field.
+      const json = await postJson(
+        editModel,
+        key,
+        { prompt: req.instruction, image_url: imageUrl, output_format: 'png' },
+        signal,
+      );
       const urls = extractImageUrls(json);
       const images = await saveAll(urls, signal);
       return { images, costUsd: EDIT_COST_USD, raw: json };

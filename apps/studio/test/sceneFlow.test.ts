@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SceneReading, SceneStudioJob } from '../src/apiTypes.js';
 import type { Turn } from '../src/conversation/question.js';
+import { TEXT_MAX } from '../src/conversation/textMax.js';
 import {
   composerFor,
   type FlowArgs,
@@ -514,8 +515,9 @@ describe('the light row says what the world already gave it', () => {
     // A tapped direction is composed, not typed: when the cap was sized for a
     // sentence somebody wrote, four taps plus a few words of their own ran
     // past it and the end was lost in silence. Every combination must fit,
-    // with room left for words of their own.
-    const ROOM = 'x'.repeat(120);
+    // with a whole answer of their own beside it: as long as the composer
+    // lets them type (it once stopped at 400 and the record cut at 800).
+    const ROOM = 'x'.repeat(TEXT_MAX);
     let worst = 0;
     for (const w of ROWS.world.options) {
       for (const s of optionsFor('surface', w.id)) {
