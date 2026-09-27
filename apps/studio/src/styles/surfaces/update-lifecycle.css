@@ -148,6 +148,10 @@
     animation: none;
   }
 }
+/* Shut down is not a wait: nothing is coming, so nothing breathes. */
+.sc-upd-stopped .sc-upd-overlay-card svg {
+  animation: none;
+}
 .sc-upd-overlay-card b {
   font: 600 13.5px / 1.4 var(--sc-font);
 }

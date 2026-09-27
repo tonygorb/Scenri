@@ -62,7 +62,7 @@ test.describe
       await expect(row.locator('button')).toHaveCount(0);
     });
 
-    test('Shut down lives at the bottom of the brand menu, behind a confirm, stops the server and closes the tab', async ({
+    test('Shut down lives at the bottom of the brand menu, behind a confirm, stops the server and says so', async ({
       page,
       baseURL,
     }) => {
@@ -81,9 +81,14 @@ test.describe
       const dialog = page.getByRole('alertdialog');
       await expect(dialog).toBeVisible();
       await dialog.locator('button', { hasText: 'Shut down Scenri' }).click();
-      // the tab goes away when the browser allows a page to close itself, and
-      // is emptied to a blank page otherwise; either way nothing of Scenri is left
-      await Promise.race([page.waitForEvent('close'), page.waitForURL('about:blank', { timeout: 10_000 })]);
+      // This tab has moved inside the studio (two navigations above), so the
+      // browser does not let the page close it: once the server is gone the page
+      // says so instead (a tab with one entry closes: shutdown-close.spec.ts).
+      await expect(page.getByText('Scenri is shut down')).toBeVisible({ timeout: 15_000 });
+      await expect(
+        page.getByText('You can close this tab. Start it again from your desktop icon or with npx scenri.'),
+      ).toBeVisible();
+      await expect(page.locator('.sc-topbar')).toHaveCount(0);
       await expect
         .poll(
           async () => {
