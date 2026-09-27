@@ -154,7 +154,9 @@ async function run(): Promise<void> {
   const shutdown = (signal: NodeJS.Signals) => {
     if (closing) return;
     closing = true;
-    console.log(`\n  ${signal}: closing Scenri…`);
+    // A hangup is the terminal going away: there is nobody left to read this,
+    // and a write to a closed terminal can fail the very drain it announces.
+    if (signal !== 'SIGHUP') console.log(`\n  ${signal}: closing Scenri…`);
     setTimeout(() => process.exit(1), 5000).unref();
     app
       .drain()
@@ -163,6 +165,12 @@ async function run(): Promise<void> {
   };
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
+  // Closing the terminal window is the other way the install guide says to
+  // stop Scenri, and it arrives as a hangup (Windows raises the same signal
+  // when the console closes, with about ten seconds to go). Left to Node's
+  // default it ended the process on the spot: no drain, so a Codex exec,
+  // which runs in its own session, went on drawing and spending the plan.
+  process.on('SIGHUP', shutdown);
 
   // First look ~10s after listen, then a staleness tick every few minutes. check() itself honours the
   // Settings toggle and SCENRI_NO_UPDATE_CHECK, and stays silent offline.
