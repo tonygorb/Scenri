@@ -8,7 +8,7 @@ import { registerDesktopRoutes } from '../src/routes/desktop.js';
 import type { DesktopStatus, InstallResult } from '../src/desktop/install.js';
 
 /**
- * Settings > About talks to these three routes: what the desktop launcher's
+ * Settings > Local access talks to these three routes: what the desktop launcher's
  * state is, add or recreate it, and quit Scenri. Everything that touches the
  * machine is injected; the quit route reuses the server's own drain.
  */
@@ -107,7 +107,7 @@ describe('POST /api/desktop/install', () => {
     expect(installs.count).toBe(1);
   });
 
-  it('passes a refusal through as a 409 with the sentence About shows', async () => {
+  it('passes a refusal through as a 409 with the sentence Local access shows', async () => {
     const { a } = build({
       installImpl: async () => ({
         ok: false,

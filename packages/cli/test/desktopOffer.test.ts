@@ -83,7 +83,7 @@ describe('offerDesktop', () => {
     expect(calls.added).toBe(0);
     expect(calls.declined).toBe(1);
     expect(calls.said.join('\n')).toContain('npx scenri desktop');
-    expect(calls.said.join('\n')).toContain('Settings > About');
+    expect(calls.said.join('\n')).toContain('Settings > Local access');
   });
 
   it('does nothing when stdin goes away mid-question', async () => {

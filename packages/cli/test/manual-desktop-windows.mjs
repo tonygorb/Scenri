@@ -566,7 +566,7 @@ await quit();
 // fails, stop Scenri" - but a rejection from the launcher step used to unwind
 // to index.ts and exit(1) on a server that was already listening. The prompt
 // itself needs a real console, so the keypress stays a VM check; what runs
-// here is the same composition behind it, through the route Settings > About
+// here is the same composition behind it, through the route Settings > Local access
 // uses, on real Windows with real PowerShell and a Desktop that cannot be
 // written.
 {

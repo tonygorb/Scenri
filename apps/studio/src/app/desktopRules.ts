@@ -1,7 +1,7 @@
 import type { DesktopStatus } from '../api.js';
 
 /**
- * The Desktop shortcut row in Settings > About: one sentence and at most one
+ * The Desktop shortcut row in Settings > Local access: one sentence and at most one
  * button, decided here so the component only maps kinds to markup. An earlier
  * "Not now" at the terminal never hides the button: that answer silenced the
  * prompt, not the offer.
