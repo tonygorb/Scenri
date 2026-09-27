@@ -287,12 +287,22 @@ first:
 **The browser did not open.** Copy the address the terminal printed, `http://127.0.0.1:4747`, into
 any browser on the same computer.
 
-**`Scenri could not start: a native component failed to load.`** Two causes. If you have
-upgraded npm to version 12, it blocks the install script of Scenri's database component
-(`better-sqlite3`) by default; start Scenri with `npx --allow-scripts=better-sqlite3 scenri`
-instead (the npm that ships with current Node releases, npm 11, does not need this). Otherwise Node
-changed since Scenri was installed, usually after a Node update: install the current LTS from
-[nodejs.org](https://nodejs.org), then run `npx scenri@latest`.
+**`Scenri could not start: a native component failed to load.`** Two causes. If
+`npm --version` prints 12, npm skipped the install script of Scenri's database component
+(`better-sqlite3`), which npm 12 does until you allow it, and npx keeps the unbuilt copy. Allow the
+script once, clear that copy, and start again:
+
+```bash
+npm config set allow-scripts=better-sqlite3 --location=user
+npm cache npx rm --force
+npx scenri
+```
+
+The second line empties npx's download cache, which npm refills as needed. The setting also lets
+Scenri's in-app updates install under npm 12. The npm that ships with current Node releases, npm
+11, needs none of this. Otherwise Node changed since Scenri was installed, usually after a Node
+update: install the current LTS from [nodejs.org](https://nodejs.org), then run
+`npx scenri@latest`.
 
 **Codex is not installed, or not signed in.** Open the composer notice or Settings, then
 Providers, then **Set up**, and the in-app steps handle both. If sign-in keeps failing, the dialog

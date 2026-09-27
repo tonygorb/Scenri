@@ -9,9 +9,11 @@ import { resolve } from 'node:path';
 
 export const INSTALL_GUIDE = 'https://github.com/tonygorb/scenri/blob/main/docs/INSTALL.md';
 
-// The three shapes a broken better-sqlite3 or sharp install actually takes:
-// ABI mismatch, dlopen failure, missing binding after a blocked install script.
-const NATIVE_MARKERS = ['NODE_MODULE_VERSION', 'Could not locate the bindings file', 'ERR_DLOPEN_FAILED'];
+// Two shapes a broken better-sqlite3 or sharp install takes when Node changed
+// under it: ABI mismatch and dlopen failure. The third, a binding that was
+// never built, is a blocked install script and gets its own answer below.
+const NATIVE_MARKERS = ['NODE_MODULE_VERSION', 'ERR_DLOPEN_FAILED'];
+const NEVER_BUILT = 'Could not locate the bindings file';
 
 export function portBusyLines(port: number): string[] {
   const next = port + 1;
@@ -28,6 +30,20 @@ export function bootErrorLines(err: unknown): string[] {
   const first = raw.split('\n')[0];
   const code = (err as { code?: unknown } | null)?.code;
   const haystack = `${typeof code === 'string' ? code : ''} ${raw}`;
+  // npm 12 skips dependency install scripts until they are allowed, and npx
+  // then reuses the unbuilt copy it keeps, so allowing the script alone changes
+  // nothing: the copy has to go too (measured with npm 12.1.0, 2026-09-28).
+  if (haystack.includes(NEVER_BUILT)) {
+    return [
+      'Scenri could not start: a native component failed to load.',
+      `(${first})`,
+      'Its install script did not run: npm 12 skips install scripts until they are allowed.',
+      'Fix: allow it once, clear the copy npx kept, then start again:',
+      '  npm config set allow-scripts=better-sqlite3 --location=user',
+      '  npm cache npx rm --force',
+      '  npx scenri',
+    ];
+  }
   if (NATIVE_MARKERS.some((marker) => haystack.includes(marker))) {
     return [
       'Scenri could not start: a native component failed to load.',
