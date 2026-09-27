@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { api, type Scene, type SceneView } from '../api.js';
 import type { CustomScene } from '../brandAssets.js';
 import { VIEW_CHIP_NAME } from '../sceneExampleRules.js';
+import { useLibraryLanded } from '../app/useLibraryLanded.js';
+import { keepIfSame } from '../catalogRead.js';
 
 /** One picture of a scene a shot can follow, as the scene chip's picker offers it. */
 export interface SceneViewOption {
@@ -44,6 +46,18 @@ export function useSceneViews(scene: Scene | null): SceneViewOption[] {
       live = false;
     };
   }, [catalogId]);
+  // views still arriving with the first-run library join the strip as they land
+  useLibraryLanded(() => {
+    if (!catalogId) return;
+    const id = catalogId;
+    void api
+      .sceneFrames(id)
+      .then((r) => {
+        const views = r.views.map((v) => ({ view: v.view, name: VIEW_CHIP_NAME[v.view], thumb: v.url, hash: null }));
+        setFrames((cur) => (cur && cur.id !== id ? cur : keepIfSame(cur, { id, views })));
+      })
+      .catch(() => {});
+  });
 
   if (custom) {
     const views: SceneViewOption[] = [];

@@ -25,6 +25,7 @@ import {
   taskFromAssetBuild,
   taskFromCatalogJob,
   taskFromContent,
+  CONTENT_TASK_ID,
   taskFromNode,
   taskFromStudioWork,
   unreadCount,
@@ -94,8 +95,10 @@ export function useTaskCenter(): TaskCenterValue {
   return value;
 }
 
-/** When this tab first saw the library download running: the row's clock, kept across brand switches. */
+/** When this tab first saw the library download running: the row's clock when the server does not say, kept across brand switches. */
 let contentSince: string | null = null;
+/** The library's outcome is filed once for the machine, in whichever brand first sees it, not once per brand visited. */
+let contentFiled = false;
 
 export function TaskCenterProvider({
   brand,
@@ -229,7 +232,9 @@ export function TaskCenterProvider({
         ...jobs.map((j) => taskFromCatalogJob(j, brandRef.current)),
         ...bs.map((b) => taskFromAssetBuild(b, brandRef.current)),
         ...studio.map((w) => taskFromStudioWork(w, brandRef.current)),
-        ...(content?.arriving && contentSince ? [taskFromContent(contentSince)] : []),
+        ...(content
+          ? [taskFromContent(content, contentSince ?? new Date().toISOString())].filter((t) => t !== null)
+          : []),
       ];
     } catch {
       // the bell is not worth an error state; the next tick will tell the truth
@@ -282,9 +287,18 @@ export function TaskCenterProvider({
     const prev = prevRef.current ?? resumeFrom(loadRunning(brandId), next);
     const lost = unreachableRef.current ? lostWork(prev, next) : [];
     unreachableRef.current = false;
-    const arrivals = settled(prev, [...next, ...lost]);
+    const arrivals = settled(prev, [...next, ...lost]).filter((a) => {
+      if (a.id !== CONTENT_TASK_ID) return true;
+      if (contentFiled) return false;
+      contentFiled = true;
+      return true;
+    });
     prevRef.current = new Map(next.map((t) => [t.id, t]));
-    saveRunning(brandId, next);
+    // the library is the machine's: another brand's tab must not file it again from its memory of it running
+    saveRunning(
+      brandId,
+      next.filter((t) => t.id !== CONTENT_TASK_ID),
+    );
     runningRef.current = next.filter((t) => t.state === 'running').length;
     const ordered = orderTasks(next);
     setTasks((prev) => (sameByValue(prev, ordered) ? prev : ordered));
@@ -298,12 +312,18 @@ export function TaskCenterProvider({
       // and so is studio work that finished on the studio page it belongs to:
       // the stage showed it, failure and all
       const here = window.location.pathname;
+      // The library landing is already on every card that shows it: kept in the
+      // record, never an unread alert. A partial run is one to read.
       const marked = arrivals.map((a) =>
-        isStudioTask(a.id) && (showingTask(a.href, here) || examplesInItsStudio(a, here, brandId))
-          ? { ...a, watched: true }
-          : watchingFeedRef.current && a.state !== 'error'
+        a.kind === 'library'
+          ? a.state === 'done'
             ? { ...a, watched: true }
-            : a,
+            : a
+          : isStudioTask(a.id) && (showingTask(a.href, here) || examplesInItsStudio(a, here, brandId))
+            ? { ...a, watched: true }
+            : watchingFeedRef.current && a.state !== 'error'
+              ? { ...a, watched: true }
+              : a,
       );
       const merged = mergeFeed(f, marked);
       saveFeed(brandId, merged);
@@ -313,6 +333,8 @@ export function TaskCenterProvider({
     // you are already looking at the list; a toast over it is noise
     if (panelOpenRef.current) return;
     for (const n of arrivals) {
+      // the pictures say it (and a partial run is in the record, unread): no toast
+      if (n.kind === 'library') continue;
       if (announcedRef.current.has(n.id)) continue;
       announcedRef.current.add(n.id);
       // you already know: you are the one who cancelled it

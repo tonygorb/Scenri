@@ -33,6 +33,8 @@ import { Tip } from '../layout/Tip.js';
 import { ProductDetailsDialog } from './ProductDetailsDialog.js';
 import { categoryLabel, effectiveCategory } from '../productCategories.js';
 import { sizeChips } from '../sizeChips.js';
+import { useLibraryLanded } from '../app/useLibraryLanded.js';
+import { keepIfSame } from '../catalogRead.js';
 
 /** Mirrors PRODUCT_REF_MAX in packages/cli/src/brief.ts — the number of product images a brief actually attaches. */
 const PRODUCT_REF_MAX = 3;
@@ -153,6 +155,19 @@ export function ProductPage() {
       alive = false;
     };
   }, [demoProduct?.id]);
+  // shots still arriving with the first-run library join the rail as they land
+  const demoId = useRef(demoProduct?.id);
+  demoId.current = demoProduct?.id;
+  useLibraryLanded(() => {
+    const id = demoProduct?.id;
+    if (!id) return;
+    void api
+      .demoProductFrames(id)
+      .then((r) => {
+        if (demoId.current === id) setDemoFrames((cur) => keepIfSame(cur, r.frames));
+      })
+      .catch(() => {});
+  });
 
   const [name, setName] = useState(product?.name ?? '');
   useEffect(() => {

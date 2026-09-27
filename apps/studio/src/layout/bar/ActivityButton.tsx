@@ -8,7 +8,7 @@ import { Tip } from '../Tip.js';
 import { ImportProgress } from '../../views/ImportProgress.js';
 import { useBrand } from '../../app/BrandLayout.js';
 import { useTaskCenter } from '../../app/TaskCenter.js';
-import { elapsedLabel } from '../../tasks.js';
+import { elapsedLabel, leadTask, runningVerb } from '../../tasks.js';
 import { PHONE, useMediaQuery } from '../../useMediaQuery.js';
 
 /**
@@ -44,7 +44,7 @@ export function ActivityButton() {
   useEffect(() => setDetailJob(null), [brand.id]);
   useBarPanel(panelOpen, () => setPanelOpen(false));
 
-  const lead = tasks.find((t) => t.state === 'running') ?? null;
+  const lead = leadTask(tasks);
   const mode: ActivityMode = running > 0 ? 'busy' : unread > 0 ? 'new' : 'quiet';
   const label =
     'Activity' +
@@ -52,7 +52,8 @@ export function ActivityButton() {
     (running ? `, ${running} task${running === 1 ? '' : 's'} running` : '');
   // The bar carries no clock: a readout that changes width every second never
   // settles. The elapsed time is here, and in the panel.
-  const tip = mode === 'busy' && lead ? `Rendering, ${elapsedLabel(lead.startedAt, Date.now())}` : 'Activity';
+  const tip =
+    mode === 'busy' && lead ? `${runningVerb(lead.kind)}, ${elapsedLabel(lead.startedAt, Date.now())}` : 'Activity';
 
   const face = <ActivityFace mode={mode} lead={lead} running={running} unread={unread} animate={settled} />;
 

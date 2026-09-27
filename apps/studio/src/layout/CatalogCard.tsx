@@ -159,6 +159,7 @@ function CatalogCardInner({
       srcSet={tileSrcSet(previewUrl)}
       sizes={CARD_SIZES[density]}
       wait
+      keep
       blank="sc-lookcard-blank"
     />
   ) : pending ? (

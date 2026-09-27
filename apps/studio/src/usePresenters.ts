@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, type Presenter } from './api.js';
+import { keepIfSame, release } from './catalogRead.js';
 
 export interface PresentersData {
   presenters: Presenter[];
@@ -18,7 +19,7 @@ export interface UsePresentersResult extends PresentersData {
    * that has only gained pictures (the library download landing), where
    * falling back to skeletons would be the flash this exists to avoid.
    */
-  refetch: (opts?: { quiet?: boolean }) => void;
+  refetch: (opts?: { quiet?: boolean }) => Promise<void>;
 }
 
 const EMPTY: PresentersData = { presenters: [], categories: [], styles: [], loaded: false, error: false };
@@ -32,6 +33,8 @@ export function usePresenters(): UsePresentersResult {
   const [data, setData] = useState<PresentersData>(EMPTY);
   const [tick, setTick] = useState(0);
   const quiet = useRef(false);
+  // whoever asked for a re-read, told when a read settles (AppShell waits on it)
+  const settled = useRef<(() => void)[]>([]);
 
   useEffect(() => {
     let alive = true;
@@ -39,21 +42,37 @@ export function usePresenters(): UsePresentersResult {
       .presenters()
       .then((r) => {
         if (alive)
-          setData({ presenters: r.presenters, categories: r.categories, styles: r.styles, loaded: true, error: false });
+          setData((d) =>
+            keepIfSame(d, {
+              presenters: r.presenters,
+              categories: r.categories,
+              styles: r.styles,
+              loaded: true,
+              error: false,
+            }),
+          );
       })
       .catch(() => {
         if (alive && !quiet.current) setData((d) => ({ ...d, loaded: true, error: true }));
+      })
+      .finally(() => {
+        if (alive) release(settled);
       });
     return () => {
       alive = false;
     };
   }, [tick]);
 
-  const refetch = useCallback((opts?: { quiet?: boolean }) => {
-    quiet.current = !!opts?.quiet;
-    if (!quiet.current) setData((d) => ({ ...d, loaded: false, error: false }));
-    setTick((t) => t + 1);
-  }, []);
+  const refetch = useCallback(
+    (opts?: { quiet?: boolean }) =>
+      new Promise<void>((resolve) => {
+        settled.current.push(resolve);
+        quiet.current = !!opts?.quiet;
+        if (!quiet.current) setData((d) => ({ ...d, loaded: false, error: false }));
+        setTick((t) => t + 1);
+      }),
+    [],
+  );
 
   return { ...data, refetch };
 }

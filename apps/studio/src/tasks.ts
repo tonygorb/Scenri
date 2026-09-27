@@ -1,4 +1,11 @@
-import { type ActivityNode, type AssetBuild, type CatalogImportJob, nodeLabel, type StudioWork } from './api.js';
+import {
+  type ActivityNode,
+  type AssetBuild,
+  type CatalogImportJob,
+  type ContentState,
+  nodeLabel,
+  type StudioWork,
+} from './api.js';
 import { VIEW_NAME, type StudioView } from './create/presenter/presenterStudioRules.js';
 import {
   presenterEditPath,
@@ -27,7 +34,7 @@ import { describeFailure } from './failure.js';
  * so it lives here where a test can reach it. (vitest only globs `.ts`.)
  */
 
-export type TaskKind = 'generation' | 'edit' | 'catalog' | 'presenter' | 'scene';
+export type TaskKind = 'generation' | 'edit' | 'catalog' | 'presenter' | 'scene' | 'library';
 export type TaskState = 'running' | 'done' | 'error' | 'cancelled' | 'partial';
 
 export interface Task {
@@ -246,24 +253,67 @@ function isShoplessSite(j: Pick<CatalogImportJob, 'stage' | 'errors'>): boolean 
 }
 
 /**
- * The one-time library download, while it runs: one row, machine-wide, with
- * no percent (the archive is read in one piece, so there is no honest one)
- * and nothing to stop. It is never filed as a notification: it only ever
- * exists as running, and `settled` reads rows that are still there.
+ * The one-time library download: one row, machine-wide, nothing to stop. Its
+ * pictures arrive a few at a time and both totals are known from the pin, so
+ * it counts them and fills by bytes. When the run ends the row says how, and
+ * `settled` files it once: done quietly, a partial run as one to read.
  */
 export const CONTENT_TASK_ID = 'content:library';
-export function taskFromContent(since: string): Task {
-  return {
+export function taskFromContent(c: ContentState, since: string): Task | null {
+  const base = {
     id: CONTENT_TASK_ID,
-    kind: 'catalog',
-    state: 'running',
-    title: 'Downloading the Scenri library',
-    subtitle: 'Pictures for the examples, products and presenters, once',
+    kind: 'library' as const,
     thumb: null,
-    percent: null,
-    startedAt: since,
+    startedAt: c.startedAt ?? since,
     href: null,
   };
+  const total = c.total ?? 0;
+  if (c.arriving) {
+    return {
+      ...base,
+      state: 'running',
+      title: 'Downloading the Scenri library',
+      subtitle: total ? `${c.landed ?? 0} of ${total} pictures` : 'Pictures for the examples, products and presenters',
+      percent: c.totalBytes ? Math.min(99, Math.floor(((c.bytes ?? 0) / c.totalBytes) * 100)) : null,
+    };
+  }
+  if (c.outcome === 'complete') {
+    return {
+      ...base,
+      state: 'done',
+      title: 'Scenri library downloaded',
+      subtitle: total ? `${total} pictures for the examples, products and presenters` : 'Pictures for the examples',
+      percent: 100,
+    };
+  }
+  if (c.outcome === 'partial') {
+    const n = c.failed ?? 0;
+    return {
+      ...base,
+      state: 'partial',
+      title: 'Scenri library partly downloaded',
+      subtitle: `${n} ${n === 1 ? 'picture' : 'pictures'} did not download. Scenri tries again when it next starts.`,
+      percent: null,
+    };
+  }
+  return null;
+}
+
+/** What the bar's tooltip says the lead task is doing. */
+export function runningVerb(kind: TaskKind): string {
+  if (kind === 'library') return 'Downloading the library';
+  if (kind === 'catalog') return 'Importing';
+  return 'Rendering';
+}
+
+/**
+ * The task the bar's face is about: the oldest running one, but real work
+ * before the library download, which starts with the server and would
+ * otherwise stand in front of the first shot sent while it runs.
+ */
+export function leadTask(tasks: readonly Task[]): Task | null {
+  const running = tasks.filter((t) => t.state === 'running');
+  return running.find((t) => t.kind !== 'library') ?? running[0] ?? null;
 }
 
 export function taskFromCatalogJob(j: CatalogImportJob, brand: { slug: string }): Task {

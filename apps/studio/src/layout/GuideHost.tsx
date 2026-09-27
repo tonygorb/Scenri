@@ -463,7 +463,10 @@ export function GuideHost() {
   const welcomeParam = useDialogParam('welcome');
   const welcomeAsked = welcomeParam.value !== null;
   const ready = (home && data.showcaseLoaded) || hub;
-  const busyWork = builds.some((b) => !b.finished) || tasks.some((t) => t.state === 'running' && t.kind !== 'catalog');
+  // an import or the library download is a load, not work to wait on
+  const busyWork =
+    builds.some((b) => !b.finished) ||
+    tasks.some((t) => t.state === 'running' && t.kind !== 'catalog' && t.kind !== 'library');
   const mayWelcome = canWelcome({
     onMainPage: home || hub,
     eligible: guide.eligible,
