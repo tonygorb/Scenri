@@ -21,12 +21,16 @@ export function registerLogoRoutes(app: FastifyInstance, deps: { core: Core }): 
   };
 
   app.post('/api/brands/:id/logos', async (req: any, reply: any) => {
+    if (!core.store.getBrand(req.params.id)) return reply.status(404).send({ error: 'brand not found' });
+    const part = await readImagePart(core, req, toMarkPng);
+    if ('error' in part) return reply.status(400).send({ error: part.error });
+    // The document is read after the upload, never before it: a copy taken
+    // ahead of the await wrote back over whatever was saved while the file
+    // arrived (a kit edit, a scene or presenter a build had just landed).
     const brand = core.store.getBrand(req.params.id);
     if (!brand) return reply.status(404).send({ error: 'brand not found' });
     const json = { ...(brand.json as any) };
     const logos = [...readLogos(json)];
-    const part = await readImagePart(core, req, toMarkPng);
-    if ('error' in part) return reply.status(400).send({ error: part.error });
     // The store is content-addressed, so re-uploading the same artwork yields
     // the same hash. Appending would put two entries in the array that no
     // hash-addressed patch or delete could ever tell apart, so the second

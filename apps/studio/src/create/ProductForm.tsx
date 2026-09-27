@@ -34,8 +34,11 @@ export function ProductForm({ onBack, onStarted, restore, onDiscarded }: FlowPro
   const [showImport, setShowImport] = useState(false);
   const f = useAssetFields(brand.id, 'product', { max: MAX_REFS, pendingState: () => 'unknown', restore, onDiscarded });
 
-  const ready = f.fields.imageHashes.length > 0;
-  const blocked = ready ? undefined : 'Add at least one photo';
+  // Photos join the form together, once the whole batch has uploaded. A
+  // product made while more were on their way was made without them, and
+  // they then landed in a form that had already closed.
+  const ready = f.fields.imageHashes.length > 0 && !f.uploading;
+  const blocked = f.uploading ? 'Photos are still uploading' : ready ? undefined : 'Add at least one photo';
 
   const create = async () => {
     setBusy(true);

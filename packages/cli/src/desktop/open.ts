@@ -11,7 +11,7 @@
  */
 import type { SpawnOptions } from 'node:child_process';
 import { closeSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { delimiter, dirname } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
 import { openLogFd } from './log.js';
 import type { StartingServer } from './startingPage.js';
 
@@ -125,10 +125,7 @@ export async function openScenri(deps: OpenDeps): Promise<number> {
           ...deps.env,
           SCENRI_NO_OPEN: '1',
           SCENRI_HEADLESS: '1',
-          // npm sits beside node for nvm, fnm, Volta, Homebrew and the installer,
-          // and a Finder or Explorer PATH has none of them: without this the
-          // server boots but one-click updates report no npm.
-          PATH: [dirname(deps.execPath), deps.env.PATH].filter(Boolean).join(delimiter),
+          PATH: serverPath(deps.execPath, deps.env, process.platform, existsSync),
         },
       });
     } catch (err) {
@@ -295,4 +292,34 @@ function releaseLock(path: string): void {
   } catch {
     /* already gone */
   }
+}
+
+/**
+ * The PATH the icon's server starts with. npm sits beside node for nvm, fnm,
+ * Volta, Homebrew and the installer, so node's own folder leads: a Finder or
+ * Explorer PATH has none of them, and without it the server boots but
+ * one-click updates report no npm.
+ *
+ * A Mac also gets the folders a terminal would have found Codex in. Finder
+ * starts the icon with /usr/bin:/bin:/usr/sbin:/sbin, and Node reports its
+ * own path resolved, so under Homebrew node's folder is the Cellar one, which
+ * holds node, npm and npx and nothing npm installed. Codex installed with npm
+ * under Homebrew (/opt/homebrew/bin, or /usr/local/bin on Intel), by its own
+ * installer (~/.local/bin) or under Volta (~/.volta/bin) was "not installed"
+ * from the icon and fine from a terminal. They come last, and only the ones
+ * that exist, so nothing the PATH already names is shadowed.
+ */
+export function serverPath(
+  execPath: string,
+  env: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform,
+  exists: (dir: string) => boolean,
+): string {
+  const base = [dirname(execPath), env.PATH].filter(Boolean).join(delimiter);
+  if (platform !== 'darwin') return base;
+  const named = new Set(base.split(delimiter));
+  const home = env.HOME;
+  const terminal = ['/opt/homebrew/bin', '/usr/local/bin'];
+  if (home) terminal.push(join(home, '.local', 'bin'), join(home, '.volta', 'bin'));
+  return [base, ...terminal.filter((dir) => !named.has(dir) && exists(dir))].join(delimiter);
 }

@@ -105,7 +105,7 @@ pnpm dev          # starts the server on 127.0.0.1:4747
 
 | Engine | What it costs you | Needs | Carries a Product or Presenter |
 |---|---|---|---|
-| **Codex CLI** | your ChatGPT plan | a ChatGPT account; the app installs and signs in for you | yes, up to 6 references |
+| **Codex CLI** | your ChatGPT plan | a ChatGPT account; the app installs and signs in for you | yes, up to 5 references |
 | OpenRouter | about $0.04 a generation | API key | yes, up to 4 references |
 | Replicate | about $0.003 a generation | API token | no |
 | fal | about $0.003 a generation | API key | no |

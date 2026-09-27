@@ -72,6 +72,43 @@ test.describe('a new product', () => {
     expect(made.shots.every((s: any) => s.locked)).toBe(true);
   });
 
+  test('Add product waits for photos that are still uploading', async ({ page }) => {
+    const brand = await currentBrand(page);
+    const name = `Held Tin ${Date.now()}`;
+    await page.goto(`/${brand.slug}/products?new=product`);
+    const drop = page.locator('.sc-newdlg .sc-dropzone input[type="file"]').first();
+    await drop.setInputFiles([{ name: 'front.png', mimeType: 'image/png', buffer: bytes('a') }]);
+    await expect(page.locator('.sc-assetform-ref')).toHaveCount(1);
+    await page.locator('.sc-newdlg input[type="text"], .sc-newdlg .rt-TextFieldInput').first().fill(name);
+
+    // the second photo's upload is held open while Add product is pressed
+    let release = () => {};
+    const held = new Promise<void>((r) => {
+      release = r;
+    });
+    await page.route('**/api/images', async (route) => {
+      await held;
+      await route.continue();
+    });
+    const uploading = page.waitForRequest((r) => r.url().endsWith('/api/images') && r.method() === 'POST');
+    await drop.setInputFiles([{ name: 'side.png', mimeType: 'image/png', buffer: bytes('b') }]);
+    await uploading;
+    // pressed anyway: the button is aria-disabled, which a pointer still reaches
+    await page.locator('.sc-dlg-go').click({ force: true });
+    await expect(page.locator('.sc-dlg-go')).toHaveAttribute('title', 'Photos are still uploading');
+    await expect(page.locator('.sc-newdlg')).toHaveCount(1);
+
+    release();
+    await expect(page.locator('.sc-assetform-ref')).toHaveCount(2);
+    await page.locator('.sc-dlg-go').click();
+    await expect(page.locator('.sc-newdlg')).toHaveCount(0);
+    const lib = (await page.evaluate(
+      async (id) => (await fetch(`/api/brands/${id}/products-library`)).json(),
+      brand.id,
+    )) as any;
+    expect(lib.products.find((p: any) => p.name === name)?.shots).toHaveLength(2);
+  });
+
   test('the success toast offers the two things anyone does next', async ({ page }) => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/products?new=product`);

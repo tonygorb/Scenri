@@ -984,12 +984,17 @@ export function createStore(db: DB) {
           .all(projectId, Math.max(1, Math.min(FEED_PAGE_MAX, limit))) as any[]
       ).map(rowToFeedNode);
     },
-    /** A year of runs by day, counted where the rows are. */
+    /**
+     * A year of runs by day, counted where the rows are. Days are this
+     * computer's own calendar days: the rows are stamped in UTC, and a UTC day
+     * put an evening's work in New York, or a night's in Tel Aviv, on the next
+     * or the previous square of the person's grid.
+     */
     usageByDay(brandId: string): UsageDay[] {
       return (
         db
           .prepare(
-            `SELECT substr(n.created_at, 1, 10) AS day,
+            `SELECT date(n.created_at, 'localtime') AS day,
                     coalesce(sum(n.kind = 'generation'), 0) AS generations,
                     coalesce(sum(n.kind = 'edit'), 0) AS edits
                FROM nodes n JOIN projects p ON p.id = n.project_id

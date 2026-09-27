@@ -220,3 +220,24 @@ describe('another app on this computer', () => {
     expect(own.statusCode).toBe(200);
   });
 });
+
+describe('this computer', () => {
+  // Reveal spawns the OS file manager. Under WSL or in a container there is
+  // no xdg-open, and a spawn that cannot find its command fails with an
+  // 'error' event after it has returned: unheard, that event took the whole
+  // server down. An empty PATH makes every platform's opener missing.
+  it('Reveal with no file manager to open says so, and Scenri keeps running', async () => {
+    const { app } = serve();
+    const path = process.env.PATH;
+    process.env.PATH = '';
+    try {
+      const res = await app.inject({ method: 'POST', url: '/api/system/reveal', headers: { host: '127.0.0.1:4747' } });
+      expect(res.statusCode).toBe(501);
+      expect(res.json().error).toMatch(/file manager/);
+    } finally {
+      process.env.PATH = path;
+    }
+    const after = await app.inject({ method: 'GET', url: '/api/brands', headers: { host: '127.0.0.1:4747' } });
+    expect(after.statusCode).toBe(200);
+  });
+});

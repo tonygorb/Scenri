@@ -25,6 +25,7 @@ import type {
   EditRequest,
   ReferenceRole,
   EngineResult,
+  TreeNode,
 } from '@scenri/core';
 import { SpendCapError, ASPECT_TOLERANCE, BUDGET_EXHAUSTED, budgetSize, type OnImageLanded } from '@scenri/core';
 import { readMeta } from './meta.js';
@@ -36,6 +37,7 @@ import { inspectMark } from './markShape.js';
 import { IGNORE_ENV_KEYS_SETTING, ignoreEnvKeysGetter, type EngineRegistry } from './engines.js';
 import {
   brandJsonWithCatalogProducts,
+  cancelCatalogImport,
   resolveLibraryProduct,
   runningImportCount,
   settleCatalogImports,
@@ -240,6 +242,21 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   // map: a node only ever leaves 'running' via the promise this map tracks, so
   // cancelling it is looking the controller up and aborting it.
   const runningGenerations = new Map<string, AbortController>();
+  /**
+   * Stop every running generation whose node `belongs`, once per run: sibling
+   * shots share one controller. Called before the rows go, while a node can
+   * still be traced to its brand; the run's own catch then settles them.
+   */
+  const stopRuns = (belongs: (node: TreeNode) => boolean) => {
+    const stopped = new Set<AbortController>();
+    for (const [id, ctrl] of runningGenerations) {
+      if (stopped.has(ctrl)) continue;
+      const node = core.store.getNode(id);
+      if (!node || !belongs(node)) continue;
+      ctrl.abort();
+      stopped.add(ctrl);
+    }
+  };
   // Derivatives for every picture shown smaller than it is. Made when a shot
   // lands and on first request; the originals stay where they were.
   // Nothing is importing at the moment a server starts, so any job the
@@ -361,6 +378,12 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         vocabulary: { collections: [], verticals: [], categories: [] },
       };
       for (const d of listPresenterDrafts(core, id)) await discardPresenterDraft(quiet, d.id, hooks);
+      // Its shots and its store imports as well. An engine still drawing for a
+      // brand that is gone spends the person's plan on a picture nobody can
+      // open, and holds update and quit behind "work is still running" until
+      // its node times out.
+      stopRuns((node) => core.store.getProject(node.projectId)?.brandId === id);
+      for (const job of core.catalog.listJobs(id)) cancelCatalogImport(job.id);
     }
     core.store.deleteBrand(id);
     // Then the pictures its document held (scenes, presenters, products, logos),
@@ -441,7 +464,11 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     }
 
     const id = `${spec.prefix}-${randomUUID().slice(0, 8)}`;
-    const json = { ...(brand.json as any) };
+    // The document as it is now: a multipart upload is an await, and the copy
+    // read before it wrote back over anything saved while the file arrived.
+    const current = core.store.getBrand(brand.id);
+    if (!current) return reply.status(404).send({ error: 'brand not found' });
+    const json = { ...(current.json as any) };
     json[spec.key] = [
       ...(json[spec.key] ?? []),
       {
@@ -488,7 +515,11 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       inspectMark: (buf) => inspectMark(buf, toMarkPng),
       createdWith: `${meta.name}/${meta.version}`,
     });
-    const { brand: merged, suggestions } = mergeScrape(brand.json, scraped);
+    // Merged into the document as it is now: a scrape takes seconds, and the
+    // copy read before it began wrote back over the kit being edited meanwhile.
+    const current = core.store.getBrand(brand.id);
+    if (!current) return reply.status(404).send({ error: 'brand not found' });
+    const { brand: merged, suggestions } = mergeScrape(current.json, scraped);
     const v = validateBrand(merged);
     if (!v.valid) return reply.status(400).send({ error: 'brand became invalid', details: v.errors });
     const row = core.store.updateBrand(brand.id, merged as any);
@@ -527,11 +558,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     if (!brand) return reply.status(404).send({ error: 'brand not found' });
     const productId = String((req.params as any).productId);
     const catalogId = productId.startsWith('cat-') ? productId.slice(4) : null;
-    const json = { ...(brand.json as any) };
-    const products: any[] = json.products ?? [];
-    const idx = catalogId ? -1 : products.findIndex((p) => p.id === productId);
+    const owned = (json: any) => (json.products ?? []).findIndex((p: any) => p.id === productId);
     const catalogRow = catalogId ? core.catalog.getProduct(catalogId) : null;
-    if (idx === -1 && (!catalogRow || catalogRow.brandId !== brand.id)) {
+    if ((catalogId ? -1 : owned(brand.json)) === -1 && (!catalogRow || catalogRow.brandId !== brand.id)) {
       return reply.status(404).send({ error: 'product not found' });
     }
     const part = await readImagePart(core, req, toPng);
@@ -542,6 +571,13 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       core.catalog.addLocalImage(catalogId, `asset:${hash}`, angle ?? null);
       return core.store.getBrand(brand.id);
     }
+    // The document as it is now, not as it was before the upload: the copy
+    // read ahead of the await wrote back over anything saved meanwhile.
+    const current = core.store.getBrand(brand.id);
+    const json = { ...(current?.json as any) };
+    const products: any[] = json.products ?? [];
+    const idx = current ? owned(json) : -1;
+    if (idx === -1) return reply.status(404).send({ error: 'product not found' });
     const shot: any = { file: `asset:${hash}`, locked: true };
     if (angle) shot.angle = angle;
     json.products = products.map((p, i) => (i === idx ? { ...p, shots: [...(p.shots ?? []), shot] } : p));
@@ -2707,7 +2743,12 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const id = (req.params as { id: string }).id;
     const n = core.store.getNode(id);
     if (!n) return reply.status(404).send({ error: 'node not found' });
-    if (n.status === 'running') return reply.status(409).send({ error: 'already running' });
+    // The run itself, not only the row: a row can read "interrupted" while its
+    // run is still drawing (a second process that opened the library swept
+    // it), and a Try again then paid for the same shot twice, the second run
+    // beyond the reach of Cancel.
+    if (n.status === 'running' || runningGenerations.has(id))
+      return reply.status(409).send({ error: 'already running' });
     if (n.status === 'done') return reply.status(400).send({ error: 'finished shots start a new take' });
     if (n.status !== 'error' && n.status !== 'cancelled') {
       return reply.status(400).send({ error: 'cannot retry this shot' });
@@ -2851,7 +2892,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     return drained;
   });
 
-  registerSystemRoutes(app, { core, thumbs });
+  registerSystemRoutes(app, { core, thumbs, stopAllRuns: () => stopRuns(() => true) });
   registerPhoneRoutes(app, { phone });
   registerGuideRoutes(app, { core, version: meta.version });
   registerDesktopRoutes(app, {

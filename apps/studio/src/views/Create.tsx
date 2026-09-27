@@ -866,8 +866,12 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       // its picker must not also open whichever shot is selected behind it.
       const pressable = !!el?.closest('button, a[href], [role="button"], [role="tab"], [role="menuitem"]');
 
-      // cmd+enter runs the brief from anywhere, including mid-sentence
+      // cmd+enter runs the brief from anywhere, including mid-sentence, but
+      // never from in front of it: a press in a dialog's field (a set's name,
+      // a spend cap) or on the open shot sent a paid shot from a brief nobody
+      // could see. A brief line, the open shot's included, runs its own Enter.
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        if (nodeId || inFrontOfDock(el)) return;
         composerRef.current?.submit();
         e.preventDefault();
         return;
@@ -1428,4 +1432,16 @@ interface LastCounts {
   all: number;
   keepers: number;
   archived: number;
+}
+
+/**
+ * What stands in front of the dock: a dialog, a sheet, the open shot or a
+ * studio. The dock's own popovers do not, since they sit beside the brief; a
+ * popover (portaled, so outside whatever opened it) counts only while one of
+ * those is up.
+ */
+const IN_FRONT_OF_DOCK = '[aria-modal="true"], [role="alertdialog"], .rt-BaseDialogContent, .sc-newdlg-layer';
+function inFrontOfDock(el: Element | null): boolean {
+  if (el?.closest(IN_FRONT_OF_DOCK)) return true;
+  return !!el?.closest('[data-radix-popper-content-wrapper]') && !!document.querySelector(IN_FRONT_OF_DOCK);
 }
