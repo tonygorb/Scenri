@@ -18,10 +18,11 @@ isolate({ brand: false, library: true, env: { SCENRI_DEMO_REFS: '5', SCENRI_DEMO
 
 const BEATS: Beat[] = [
   'home',
-  'attach',
-  'product',
-  'scene',
-  'chips',
+  'line',
+  'menu-1',
+  'chip-1',
+  'menu-2',
+  'chip-2',
   'direction',
   'generate',
   'rendering',
@@ -45,7 +46,7 @@ test('the compose story walks from Home to a refined shot, on its own library', 
   const brands = (await (await request.get('/api/brands')).json()) as { json?: { meta?: { name?: string } } }[];
   expect(brands.map((b) => b.json?.meta?.name)).toEqual([barrierCream.brand]);
 
-  // what Generate sends: the two ingredients and the line on the screen
+  // what Generate sends: the prompt as written, both ingredients and every word around them
   const sent = page.waitForRequest((r) => r.url().endsWith('/api/nodes') && r.method() === 'POST');
   const reached: Beat[] = [];
   const checked: Director = {
@@ -62,9 +63,9 @@ test('the compose story walks from Home to a refined shot, on its own library', 
 
   expect(reached).toEqual(BEATS);
   const body = JSON.stringify((await sent).postDataJSON());
-  expect(body).toContain(barrierCream.productId);
-  expect(body).toContain(barrierCream.sceneId);
-  expect(body).toContain(barrierCream.direction.trim());
+  for (const part of barrierCream.line) {
+    expect(body).toContain(typeof part === 'string' ? part.trim() : part.token.slice(2));
+  }
 
   // the refinement is made from the shot, and the stage says which step it shows
   const child = (await (await request.get(`/api/nodes/${refinedId}`)).json()) as { parentId: string };

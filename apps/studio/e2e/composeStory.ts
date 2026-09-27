@@ -1,8 +1,9 @@
 import type { APIRequestContext, Locator, Page, Response } from '@playwright/test';
 
 /**
- * The compose story, walked the way a person walks it: open the brand, add a product and a scene
- * from the attach panel, say how in one line, generate, open the shot, and refine it once.
+ * The compose story, walked the way a person walks it: open the brand, write the prompt with each
+ * ingredient summoned inline by its sigil, generate, open the shot while it renders, and refine it
+ * once in words.
  *
  * One walk, two callers. compose-story.spec.ts walks it plainly on the demo engine, so a change to
  * any surface it crosses fails there first. A film capture outside the repo walks the same steps
@@ -10,40 +11,45 @@ import type { APIRequestContext, Locator, Page, Response } from '@playwright/tes
  * this file by path from a plain Node process, which is why it imports types and nothing else.
  */
 
+/** One ingredient, summoned inline: its sigil and the first letters of its name, taken from the caret menu. */
+export type Pick = {
+  /** `$` a product, `/` a scene, `@` a presenter, `#` a colour. */
+  sigil: '$' | '/' | '@' | '#';
+  /** What is typed after the sigil. */
+  query: string;
+  /** The row the menu offers, and the chip's token once it is taken. */
+  name: string;
+  token: string;
+};
+
 /** What the story composes: public demo content only, nothing from anyone's library. */
 export type Story = {
   /** The fictional brand the product is sold under, seeded by name. */
   brand: string;
-  /** The product as its attach tile names it, and its catalog id (the chip's token). */
-  product: string;
-  productId: string;
-  /** The scene as its attach tile names it, and its catalog id. */
-  scene: string;
-  sceneId: string;
-  /** Everything typed after the two chips. It is the whole direction: nothing else is sent. */
-  direction: string;
+  /** The prompt as a person writes it: words, and ingredients inline. It is the whole direction: nothing else is sent. */
+  line: (string | Pick)[];
   /** The one refinement, typed on the open shot. */
   refinement: string;
 };
 
-/** The public recipe templates/showcase/barrier-cream-caddy.json, cut to one line a person would type. */
+/** The public recipe templates/showcase/barrier-cream-caddy.json, written as one sentence. */
 export const barrierCream: Story = {
   brand: 'Fenwick Slade',
-  product: 'Barrier Cream',
-  productId: 'fenwick-slade-barrier-cream',
-  scene: 'Bath Caddy',
-  sceneId: 'teak-bath-caddy',
-  direction: ' Lid off, the jar centred on the caddy in hard sun.',
+  line: [
+    { sigil: '$', query: 'barr', name: 'Barrier Cream', token: 'p:fenwick-slade-barrier-cream' },
+    ' on the ',
+    { sigil: '/', query: 'bath', name: 'Bath Caddy', token: 't:teak-bath-caddy' },
+    ', lid off, centred in the hard sun.',
+  ],
   refinement: 'Golden hour, long warm shadows',
 };
 
 /** The moments the story reaches, in order. A film cuts and frames on them; the spec checks the order. */
 export type Beat =
   | 'home'
-  | 'attach'
-  | 'product'
-  | 'scene'
-  | 'chips'
+  | 'line'
+  | `menu-${number}`
+  | `chip-${number}`
   | 'direction'
   | 'generate'
   | 'rendering'
@@ -58,18 +64,17 @@ export type Director = {
   /** The story reached a beat. `subject` is what the moment is about, for a camera to frame. */
   beat(name: Beat, subject?: Locator): Promise<void>;
   click(target: Locator): Promise<void>;
-  /** Type into a field, after whatever it already holds. */
+  /** Type into `field`, which already has the caret. */
   type(field: Locator, text: string): Promise<void>;
+  /** Press one key in `field`: Enter takes the caret menu's highlighted row. */
+  press(field: Locator, key: string): Promise<void>;
 };
 
 export const direct: Director = {
   beat: async () => {},
   click: (target) => target.click(),
-  type: async (field, text) => {
-    await field.click();
-    await field.page().keyboard.press('End');
-    await field.page().keyboard.type(text);
-  },
+  type: (field, text) => field.page().keyboard.type(text),
+  press: (field, key) => field.page().keyboard.press(key),
 };
 
 /** The story's brand, created by name: the only brand a story's home should hold. */
@@ -111,25 +116,27 @@ export async function composeStory(
   await line.waitFor();
   await d.beat('home', heading);
 
-  // the catalog, one kind at a time: what, then where
-  await d.click(dock.getByRole('button', { name: 'Add to shot', exact: true }));
-  const panel = page.locator('.sc-attachpanel');
-  await panel.waitFor();
-  await d.beat('attach', panel);
-  await pick(d, panel, 'Products', `Product: ${story.product}`);
-  const productChip = line.locator(`[data-tok^="p:${story.productId}"]`);
-  await productChip.waitFor();
-  await d.beat('product', productChip);
-  await pick(d, panel, 'Scenes', `Scene: ${story.scene}`);
-  const sceneChip = line.locator(`[data-tok^="t:${story.sceneId}"]`);
-  await sceneChip.waitFor();
-  await d.beat('scene', sceneChip);
-  await page.keyboard.press('Escape');
-  await panel.waitFor({ state: 'hidden' });
-  await d.beat('chips', line);
-
-  // how, in one line
-  await d.type(line, story.direction);
+  // the prompt, written the way a person writes one: words, with each ingredient summoned inline
+  await d.click(line);
+  await page.keyboard.press('End');
+  await d.beat('line', line);
+  let n = 0;
+  for (const part of story.line) {
+    if (typeof part === 'string') {
+      await d.type(line, part);
+      continue;
+    }
+    n += 1;
+    await d.type(line, part.sigil + part.query);
+    // Enter takes the highlighted row, and with no menu open it would send the prompt: it must be this row
+    const menu = page.locator('.sc-cmd');
+    await menu.locator('.sc-cmd-row[aria-selected="true"]', { hasText: part.name }).waitFor();
+    await d.beat(`menu-${n}`, menu);
+    await d.press(line, 'Enter');
+    const chip = line.locator(`[data-tok^="${part.token}"]`);
+    await chip.waitFor();
+    await d.beat(`chip-${n}`, chip);
+  }
   await d.beat('direction', line);
 
   // Home starts the shot and moves to Create, where it renders; opened at once, it lands on the stage
@@ -151,7 +158,10 @@ export async function composeStory(
 
   // one refinement, said in words; the stage moves onto the new step and it lands in place
   const edit = page.locator('.sc-ovl-edit');
-  await d.type(edit.locator('.sc-brief-line'), story.refinement);
+  const editLine = edit.locator('.sc-brief-line');
+  await d.click(editLine);
+  await page.keyboard.press('End');
+  await d.type(editLine, story.refinement);
   await d.beat('refine', edit);
   const asked = page.waitForResponse(postsNode);
   await d.click(edit.getByRole('button', { name: 'Refine', exact: true }));
@@ -162,12 +172,6 @@ export async function composeStory(
   await page.locator('.sc-ovl-head b', { hasText: 'Refinement 1' }).waitFor();
   await d.beat('refined', stage);
   return { shotId, refinedId };
-}
-
-/** Switch the panel to a kind's tab and add the one tile named, the way a person picks from it. */
-async function pick(d: Director, panel: Locator, tab: string, name: string): Promise<void> {
-  await d.click(panel.locator('.sc-ap-tabs button', { hasText: new RegExp(`^${literal(tab)}`) }));
-  await d.click(panel.getByRole('button', { name: new RegExp(`^${literal(name)}\\b`) }));
 }
 
 const postsNode = (r: Response) => r.url().endsWith('/api/nodes') && r.request().method() === 'POST';
@@ -212,5 +216,3 @@ function firstId(body: unknown): string {
   if (!id) throw new Error(`a send answered without a shot: ${JSON.stringify(body)}`);
   return id;
 }
-
-const literal = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
