@@ -4,7 +4,7 @@
  * function of what serve already knows; the prompt reads one line with
  * readline in cooked mode, so the server keeps running underneath it and
  * Ctrl-C still stops it. "Not now" is remembered in the settings table, and
- * Settings > About keeps offering the icon regardless.
+ * Settings > Local access keeps offering the icon regardless.
  *
  * The hard invariant, learned from a tester on 0.9.2 whose "Y" killed a
  * running Scenri: answering yes ATTEMPTS the icon, answering no SKIPS it, and
@@ -37,8 +37,8 @@ export function shouldOfferDesktop(i: {
 }
 
 export const OFFER_QUESTION = '  Add Scenri to your desktop? Then you can open it without a terminal. [Y/n] ';
-const LATER_LINE = '  Not now. Add it later with: npx scenri desktop, or from Settings > About.';
-const STILL_RUNNING_LINE = '  Scenri is running anyway. Add the icon later from Settings > About.';
+const LATER_LINE = '  Not now. Add it later with: npx scenri desktop, or from Settings > Local access.';
+const STILL_RUNNING_LINE = '  Scenri is running anyway. Add the icon later from Settings > Local access.';
 
 /** Nobody is at the keyboard forever. After this the prompt gives up and the boot moves on. */
 const ASK_TIMEOUT_MS = 120_000;

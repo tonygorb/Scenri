@@ -75,6 +75,11 @@ const STARTER_SHOWCASE = new Set([
   'scarlet-red-blade',
 ]);
 
+// Heroes redrawn after the pinned content archive was built (src/content/pin.json).
+// A bundled file wins over the downloaded library (src/content/overlay.ts), so a
+// corrected picture ships here until an archive carries it, then leaves this list.
+const REDRAWN_SINCE_ARCHIVE = new Set(['court-72-checker-sit']);
+
 const scenesSrc = join(repo, 'templates');
 if (!existsSync(scenesSrc)) fail('templates/ is missing');
 const scenesDest = join(pkg, 'templates');
@@ -111,11 +116,12 @@ copyInto(
   join(scenesDest, 'previews', 'presenters'),
   jpgsOf(join(scenesSrc, 'previews', 'presenters')),
 );
-// the starter wall heroes only
+// the starter wall heroes, and any hero redrawn since the archive
+const bundledHero = (id) => STARTER_SHOWCASE.has(id) || REDRAWN_SINCE_ARCHIVE.has(id);
 copyInto(
   join(scenesSrc, 'previews', 'showcase'),
   join(scenesDest, 'previews', 'showcase'),
-  jpgsOf(join(scenesSrc, 'previews', 'showcase')).filter((f) => STARTER_SHOWCASE.has(f.replace(/\.jpg$/, ''))),
+  jpgsOf(join(scenesSrc, 'previews', 'showcase')).filter((f) => bundledHero(f.replace(/\.jpg$/, ''))),
 );
 console.log('prepack: copied the catalog and starter imagery');
 

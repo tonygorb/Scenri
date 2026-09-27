@@ -1,5 +1,5 @@
 /**
- * Settings > About's side of the desktop launcher: what state it is in, add
+ * Settings > Local access's side of the desktop launcher: what state it is in, add
  * or recreate it, and quit Scenri. Quit is the twin of the update restart:
  * never over live work, answer first, then drain and leave with 0 so a
  * supervising launcher does not respawn.

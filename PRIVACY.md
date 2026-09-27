@@ -34,9 +34,10 @@ and both optional:
    and stages it locally, the same request installing the package made;
    restarting into it is always your choice. Off switch for both:
    `SCENRI_NO_UPDATE_CHECK=1` or Settings.
-2. **A one-time download of the library imagery archive** from this
-   repository's GitHub Releases, cached locally forever after. Off switch:
-   `SCENRI_NO_CONTENT_FETCH=1`.
+2. **The download of the library imagery archive** from this repository's
+   GitHub Releases, cached locally. It happens once for each archive a Scenri
+   version pins, so an update that brings new imagery downloads it again.
+   Off switch: `SCENRI_NO_CONTENT_FETCH=1`.
 
 Both carry no identifier, no telemetry, and no user data. Like any HTTP
 request, they expose your IP address to the server that answers them (npm and
@@ -54,6 +55,11 @@ ChatGPT session. That data is governed by that provider's terms and privacy
 policy, not by Scenri. Scenri never sees it, proxies it, or stores it anywhere
 but your own disk.
 
+With Codex connected, Scenri also reads each product's real size once from
+its first photo, so shots draw it at scale. That photo goes to Codex like a
+generation's references do, the answer is kept in your library, and you can
+correct it on the product's page.
+
 The website importers (brand kit from a URL, product catalog import) fetch the
 URLs you paste, directly from your machine.
 
@@ -63,7 +69,11 @@ Provider keys are stored in the local database, sent only to their own
 provider, and never returned by the API: the settings endpoint answers with a
 boolean, not the value. `.brand` exports and library exports never contain
 credentials. Scenri never reads or stores your ChatGPT credential; the Codex
-sign-in happens in your own browser with the official CLI.
+sign-in happens in your own browser with the official CLI. Two things Scenri
+does touch in Codex's own folder: it reads the names (never the values) of the
+MCP servers and plugins in `~/.codex/config.toml`, so its runs can switch them
+off, and once a picture Codex drew is safe in your library, it deletes Codex's
+byte-identical copy, so a shot you delete in Scenri does not live on there.
 
 ## The short version
 

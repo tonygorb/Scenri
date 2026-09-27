@@ -67,11 +67,12 @@ are read from `package.json` at runtime, never hardcoded.
 ## The library download
 
 The npm package carries the complete catalog, the scene and presenter cards
-and a starter wall of fifteen examples, so the whole library is browsable
-offline from first launch. The heavy imagery (scene reference galleries, the
-rest of the showcase heroes, product shots, presenter identity sets) is
-downloaded once from a versioned archive on the project's GitHub releases and
-cached under `~/.scenri/content`.
+and a starter wall of fifteen examples, so the catalog is browsable offline
+from first launch. The heavy imagery (scene reference galleries, the rest of
+the showcase heroes, product shots, presenter identity sets) is downloaded
+from a versioned archive on the project's GitHub releases and cached under
+`~/.scenri/content`, once for each archive a Scenri version pins: a later
+version that pins a newer archive downloads that one.
 
 The archive is read by byte range, a file at a time and the pictures Home shows
 first, and each file is kept, the moment its bytes are in, only once its own

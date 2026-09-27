@@ -55,9 +55,16 @@ describe('bootErrorLines', () => {
     expect(bootErrorLines(err).join('\n')).toContain('a native component failed to load');
   });
 
-  it('a blocked install script leaves no bindings file', () => {
-    const text = bootErrorLines(new Error('Could not locate the bindings file. Tried: ...')).join('\n');
-    expect(text).toContain('a native component failed to load');
+  it('a blocked install script leaves no bindings file: allow it, clear the copy npx kept, start again', () => {
+    const lines = bootErrorLines(new Error('Could not locate the bindings file. Tried: ...'));
+    expect(lines.join('\n')).toContain('a native component failed to load');
+    expect(lines.join('\n')).not.toContain('Node changed');
+    // The order is the fix: allowing the script alone leaves npx's unbuilt copy in place.
+    expect(lines.slice(-3).map((l) => l.trim())).toEqual([
+      'npm config set allow-scripts=better-sqlite3 --location=user',
+      'npm cache npx rm --force',
+      'npx scenri',
+    ]);
   });
 
   it('survives a non-Error throw', () => {
@@ -69,6 +76,7 @@ describe('bootErrorLines', () => {
       ...portBusyLines(4747),
       ...bootErrorLines(new Error('x')),
       ...bootErrorLines(new Error('NODE_MODULE_VERSION 115')),
+      ...bootErrorLines(new Error('Could not locate the bindings file')),
     ].join('\n');
     expect(all).not.toMatch(/[–—]/);
     expect(all).not.toMatch(/!/);
