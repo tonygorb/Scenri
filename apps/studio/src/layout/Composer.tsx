@@ -417,15 +417,16 @@ export const Composer = forwardRef<
     const carriedFormat = (initialBrief.tokens ?? []).find((t) => t.t === 'format') as
       | Extract<BriefToken, { t: 'format' }>
       | undefined;
-    // A curated example was shot at a chosen shape, variant count and
-    // resolution. Left to the visitor's own prefs, a 4-variant catalog example
-    // could open as a single draft frame and stop matching the tile it came
-    // from. Borrowed for this brief rather than written: looking at an example
-    // is not a decision about what every later shot should be. The shape used
-    // to be the exception here, so opening one 16:9 example permanently
-    // rewrote the default aspect of every shot after it.
+    // A curated example lends its shape and resolution, and a remix lends the
+    // count it was shot at too. Borrowed for this brief rather than written:
+    // looking at an example is not a decision about what every later shot
+    // should be. The shape used to be the exception here, so opening one 16:9
+    // example permanently rewrote the default aspect of every shot after it.
+    // A curated example's count deliberately stays with the person (see
+    // showcaseBrief), and a brief that lends none clears any count an earlier
+    // brief lent, or a remix of four would ride on into the next example.
     if (carriedFormat) borrowFormat(carriedFormat.id);
-    if (initialBrief.variants) borrowCount(initialBrief.variants);
+    borrowCount(initialBrief.variants ?? null);
     if (initialBrief.quality) borrowQuality(initialBrief.quality);
     setTplFields(initialBrief.templateFields ?? {});
     const tokens = briefTokens(initialBrief);

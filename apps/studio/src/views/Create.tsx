@@ -544,7 +544,10 @@ export function CreateView({ set }: { set: ShotSet | null }) {
    */
   const retrying = useRef(new Set<string>());
   const retry = async (node: FeedNode): Promise<string | null> => {
-    if (node.status === 'running' || retrying.current.has(node.id)) return node.id;
+    if (node.status === 'running') return node.id;
+    // One press is one take. The latch used to cover only a failure, so a
+    // double click on a finished shot's Try again started two paid runs.
+    if (retrying.current.has(node.id)) return null;
     if (node.status === 'error' || node.status === 'cancelled') {
       retrying.current.add(node.id);
       try {
@@ -559,6 +562,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
         retrying.current.delete(node.id);
       }
     }
+    retrying.current.add(node.id);
     try {
       // the whole record: a shot made before briefs existed runs again from its prompt
       const full = await api.node(node.id);
@@ -579,6 +583,8 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     } catch (e: any) {
       push(failureToast(e, 'Could not run this again'));
       return null;
+    } finally {
+      retrying.current.delete(node.id);
     }
   };
 

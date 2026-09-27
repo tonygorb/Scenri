@@ -16,7 +16,17 @@ const DEFAULT_EDIT_MODEL = 'black-forest-labs/flux-kontext-pro';
 /** The expansion model: given a picture and a canvas, it paints only the margin. */
 const DEFAULT_EXPAND_MODEL = 'bria/expand-image';
 const DEFAULT_POLL_INTERVAL_MS = 1500;
-const DEFAULT_TIMEOUT_MS = 120_000;
+/**
+ * The adapter's own ceiling on one prediction. The server's node budget is ten
+ * minutes too, so in practice the caller's signal ends a slow prediction first
+ * and this is only the backstop. It used to be two minutes, which gave up on a
+ * slow prediction long before anyone else had, and it went on to be billed.
+ */
+const DEFAULT_TIMEOUT_MS = 600_000;
+/** Replicate refuses a Cancel-After shorter than this. */
+const MIN_CANCEL_AFTER_S = 5;
+/** A cancel is best effort, so a Stop never waits on one longer than this. */
+const CANCEL_TIMEOUT_MS = 5_000;
 const GENERATE_COST_PER_IMAGE_USD = 0.003;
 const EDIT_COST_USD = 0.04;
 
@@ -29,30 +39,41 @@ export interface ReplicateEngineOptions {
   /** Outpainting model slug, used when an edit is an expansion. */
   expandModel?: string;
   pollIntervalMs?: number;
+  /** The adapter's own ceiling on one prediction, in ms; also sent to Replicate as Cancel-After, rounded up to whole seconds and never below five. */
   timeoutMs?: number;
 }
 
-type AspectRatio = '1:1' | '16:9' | '9:16';
+type AspectRatio = '1:1' | '16:9' | '21:9' | '3:2' | '2:3' | '4:5' | '5:4' | '3:4' | '4:3' | '9:16' | '9:21';
 
 interface Prediction {
+  id?: unknown;
   status?: string;
   output?: unknown;
   error?: unknown;
-  urls?: { get?: unknown };
+  urls?: { get?: unknown; cancel?: unknown };
   [key: string]: unknown;
 }
 
 /**
- * The provider takes a fixed ratio menu, not pixel dimensions, and it has no
- * portrait entry: 4:5 (0.8) lands nearer 1:1 than 9:16, so every portrait
- * request used to come back silently squared. Snapping within a bucket is
- * fine; substituting a different bucket is a failed generation, so it says so.
+ * The provider takes a fixed ratio menu, not pixel dimensions: the eleven
+ * black-forest-labs/flux-schnell documents. This table once held only three of
+ * them, so the 4:5 portrait Scenri defaults to was refused before it was ever
+ * sent. Snapping within a bucket is fine; substituting a different bucket is a
+ * failed generation, so a shape the menu cannot hold still says so.
  */
 function nearestAspectRatio(width: number, height: number): AspectRatio {
   const candidates: Array<[AspectRatio, number]> = [
     ['1:1', 1],
     ['16:9', 16 / 9],
+    ['21:9', 21 / 9],
+    ['3:2', 3 / 2],
+    ['2:3', 2 / 3],
+    ['4:5', 4 / 5],
+    ['5:4', 5 / 4],
+    ['3:4', 3 / 4],
+    ['4:3', 4 / 3],
     ['9:16', 9 / 16],
+    ['9:21', 9 / 21],
   ];
   const ratio = width / height;
   let best = candidates[0];
@@ -137,12 +158,42 @@ export function createReplicateEngine(opts: ReplicateEngineOptions): EngineAdapt
         Authorization: `Bearer ${key}`,
         'Content-Type': 'application/json',
         Prefer: 'wait',
+        // Replicate's own copy of the ceiling, measured from creation, so a
+        // prediction nobody here can cancel any more (the app quit, or a Stop
+        // landed while this request was still open and no id had come back)
+        // still stops running, and billing, on its own.
+        'Cancel-After': `${Math.max(MIN_CANCEL_AFTER_S, Math.ceil(timeoutMs / 1000))}s`,
       },
       body: JSON.stringify({ input }),
       signal,
     });
     if (!res.ok) throw await httpError(res, 'prediction create');
     return asPrediction(await res.json(), 'prediction create');
+  }
+
+  /**
+   * Asks Replicate to stop a prediction this adapter has given up on. The URL
+   * is the one the create response names, or the documented path built from
+   * its id. Never handed the caller's signal: that signal is usually why this
+   * runs, and it is already aborted.
+   */
+  async function cancelPrediction(key: string, prediction: Prediction): Promise<void> {
+    const url =
+      typeof prediction.urls?.cancel === 'string'
+        ? prediction.urls.cancel
+        : typeof prediction.id === 'string'
+          ? `${API_BASE}/predictions/${prediction.id}/cancel`
+          : null;
+    if (!url) return;
+    try {
+      await fetchImpl(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${key}` },
+        signal: AbortSignal.timeout(CANCEL_TIMEOUT_MS),
+      });
+    } catch {
+      // best effort; the error that ended the wait is the one worth reporting
+    }
   }
 
   async function waitForCompletion(key: string, initial: Prediction, signal?: AbortSignal): Promise<Prediction> {
@@ -160,27 +211,43 @@ export function createReplicateEngine(opts: ReplicateEngineOptions): EngineAdapt
 
     const getUrl = prediction.urls?.get;
     if (typeof getUrl !== 'string' || getUrl.length === 0) {
+      // Still running with nothing to poll: stop it rather than leave it to bill.
+      await cancelPrediction(key, prediction);
       throw new Error(
         `Replicate prediction did not succeed (status: ${prediction.status ?? 'unknown'}) and no polling URL was provided`,
       );
     }
 
+    /*
+     * Once this wait ends without a result, nobody will ever read one, so a
+     * prediction still running is only spending the user's money. A Stop, the
+     * caller's budget and this adapter's own ceiling all land in the catch,
+     * and each asks Replicate to cancel before the error goes up. One that
+     * already failed or was canceled has nothing left to stop.
+     */
     const deadline = Date.now() + timeoutMs;
-    for (;;) {
-      if (Date.now() >= deadline) {
-        throw new Error(`Replicate prediction timed out after ${timeoutMs}ms`);
+    try {
+      for (;;) {
+        if (Date.now() >= deadline) {
+          throw new Error(`Replicate prediction timed out after ${timeoutMs}ms`);
+        }
+        await sleep(pollIntervalMs, signal);
+        const res = await fetchImpl(getUrl, {
+          headers: { Authorization: `Bearer ${key}` },
+          signal,
+        });
+        if (!res.ok) throw await httpError(res, 'prediction poll');
+        prediction = asPrediction(await res.json(), 'prediction poll');
+        if (prediction.status === 'succeeded') return prediction;
+        if (prediction.status === 'failed' || prediction.status === 'canceled') {
+          throw failureError(prediction);
+        }
       }
-      await sleep(pollIntervalMs, signal);
-      const res = await fetchImpl(getUrl, {
-        headers: { Authorization: `Bearer ${key}` },
-        signal,
-      });
-      if (!res.ok) throw await httpError(res, 'prediction poll');
-      prediction = asPrediction(await res.json(), 'prediction poll');
-      if (prediction.status === 'succeeded') return prediction;
-      if (prediction.status === 'failed' || prediction.status === 'canceled') {
-        throw failureError(prediction);
+    } catch (err) {
+      if (prediction.status !== 'failed' && prediction.status !== 'canceled') {
+        await cancelPrediction(key, initial);
       }
+      throw err;
     }
   }
 
@@ -223,8 +290,8 @@ export function createReplicateEngine(opts: ReplicateEngineOptions): EngineAdapt
         // bria/expand-image: the picture plus the canvas it belongs in.
         supportsOutpaint: true,
         // 0, deliberately — see the same note in the fal adapter. generate()
-        // sends only prompt/num_outputs/aspect_ratio, so a declared capacity
-        // of 1 was a promise this adapter never kept.
+        // sends no reference image, only its prompt and settings, so a
+        // declared capacity of 1 was a promise this adapter never kept.
         maxReferenceImages: 0,
       };
     },
@@ -249,6 +316,12 @@ export function createReplicateEngine(opts: ReplicateEngineOptions): EngineAdapt
           prompt: req.prompt,
           num_outputs: req.count,
           aspect_ratio: nearestAspectRatio(req.width, req.height),
+          // Left alone, flux-schnell answers in webp at quality 80: a lossy
+          // frame the server then re-encodes to png anyway. A png arrives as
+          // delivered. The edit models need no such line: kontext-pro already
+          // answers in png, and bria's expander has no format field. The
+          // generate input assumes the flux-schnell schema, as aspect_ratio does.
+          output_format: 'png',
         },
         signal,
       );

@@ -9,17 +9,14 @@ import { capabilityOf, sizingOf, supportsFormat } from '../src/engines/capabilit
  * a drift shows up here rather than as a control that lies.
  */
 describe('engine capabilities', () => {
-  it('lets every engine make every shape, except the one that refuses', () => {
+  it('lets every engine make every shape', () => {
     for (const f of FORMATS) {
       expect(supportsFormat('codex-cli', f.id), `codex ${f.id}`).toBe(true);
       expect(supportsFormat('openrouter', f.id), `openrouter ${f.id}`).toBe(true);
       expect(supportsFormat('fal', f.id), `fal ${f.id}`).toBe(true);
+      // replicate's menu of eleven ratios holds 4:5 as well now
+      expect(supportsFormat('replicate', f.id), `replicate ${f.id}`).toBe(true);
     }
-    // replicate throws on a 4:5 request rather than return a square for it
-    expect(supportsFormat('replicate', 'portrait')).toBe(false);
-    expect(supportsFormat('replicate', 'square')).toBe(true);
-    expect(supportsFormat('replicate', 'story')).toBe(true);
-    expect(supportsFormat('replicate', 'landscape')).toBe(true);
   });
 
   it('knows which engines do nothing with the size they are given', () => {

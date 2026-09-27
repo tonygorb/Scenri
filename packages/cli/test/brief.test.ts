@@ -1818,6 +1818,33 @@ describe('compileBrief: a world built around a figure', () => {
       expect(one.attachments.filter((a) => a.role === 'reference').map((a) => a.hash)).toEqual([hero]);
     });
 
+    // The view a scene chip follows, attached again by hand beside it, is one
+    // picture. Sent twice, the copy took the seat a product angle needed.
+    it('a picked view attached again by hand rides once, and the seat goes back to the product', () => {
+      const hero = core.images.save(Buffer.from('anchor-view-twice'));
+      const angles = ['front', 'side', 'back'].map((n) => core.images.save(Buffer.from(`view-twice-${n}`)));
+      const brand = {
+        meta: { name: 'Acme' },
+        products: [{ id: 'p1', name: 'House Blend', shots: angles.map((h) => ({ file: `asset:${h}` })) }],
+      };
+      const r = compileBrief(
+        {
+          tokens: [
+            { t: 'product', id: 'p1' },
+            { t: 'template', id: base.id, view: hero, viewName: 'Hero' },
+            { t: 'ref', imageHash: hero },
+          ],
+        },
+        refd(
+          { ...place, examples: [{ role: 'hero', file: `asset:${hero}`, from: 'asset:x' }] },
+          { brand, engineCaps: caps(4) },
+        ),
+      );
+      expect(r.attachments.filter((a) => a.role === 'reference').map((a) => a.hash)).toEqual([hero]);
+      expect(r.attachments.filter((a) => a.role === 'product').map((a) => a.hash)).toEqual(angles);
+      expect(r.dropped).toEqual([]);
+    });
+
     it('words beside a scene-view chip are about the scene, and the picture stays the frame', () => {
       const view = core.images.save(Buffer.from('view-chip-with-words'));
       const r = compileBrief(
@@ -2432,6 +2459,120 @@ describe('directives stay truthful to what actually rides', () => {
     );
     expect(r.attachments.map((a) => a.role)).toEqual(['brand']);
     expect(r.prompt).not.toContain('attached brand mark');
+  });
+});
+
+describe('an exact copy of a picture rides once', () => {
+  // The API takes whatever tokens it is sent, and a product asked for twice
+  // is still one product. Its second copy sent the same photo again, and two
+  // copies of one photo read as two colorways to the fidelity sentence.
+  it('the same product asked for twice sends its photo once', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'text', v: ' beside ' },
+          { t: 'product', id: 'p1' },
+        ],
+      },
+      ctx(),
+    );
+    expect(r.attachments.map((a) => [a.role, a.hash])).toEqual([['product', productHash]]);
+    expect(r.prompt).toContain('It is the only view of this product in this shot.');
+  });
+
+  // A refinement's source frame always rides on its own. Attached again as a
+  // reference it was the same pixels twice, and the copy held a seat.
+  it('on a refinement, a reference that is the frame being refined is not sent again', () => {
+    const tokens = [
+      { t: 'text' as const, v: 'warmer light on ' },
+      { t: 'product' as const, id: 'p1' },
+      { t: 'ref' as const, imageHash: refHash },
+    ];
+    const r = compileBrief({ tokens }, ctx({ mode: 'edit' as const, sourceHash: refHash }));
+    expect(r.attachments.map((a) => a.role)).toEqual(['product']);
+    expect(r.prompt).not.toContain('Match the composition, lighting and treatment of the attached reference');
+    // nothing was left out, so nothing is said to have been
+    expect(r.prompt).not.toContain('not sent this time');
+    expect(r.prompt).not.toContain('not attached this time');
+    // any other picture still rides beside the frame
+    const other = compileBrief({ tokens }, ctx({ mode: 'edit' as const, sourceHash: 'f'.repeat(32) }));
+    expect(other.attachments.map((a) => a.role)).toEqual(['product', 'reference']);
+    expect(other.prompt).toContain('Match the composition, lighting and treatment of the attached reference');
+  });
+
+  it('a refine that attaches the shot it refines sends that shot once, as the source', async () => {
+    const { buildServer } = await import('../src/server.js');
+    const { createDemoEngine } = await import('@scenri/engine-demo');
+    const demo = createDemoEngine((b) => core.images.save(b));
+    const sent: (string[] | undefined)[] = [];
+    const mock = {
+      ...demo,
+      capabilities: () => caps(5),
+      edit: (r: any, s?: AbortSignal) => {
+        sent.push(r.referenceImages);
+        return demo.edit(r, s);
+      },
+    };
+    const app = track(buildServer({ core, engines: { all: () => [mock], get: () => mock } }));
+    const brand = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: { brand: { specVersion: '0.1', ...brandWith(productHash) } },
+      })
+    ).json();
+    const proj = (
+      await app.inject({ method: 'POST', url: '/api/projects', payload: { brandId: brand.id, name: 'p' } })
+    ).json();
+    const gen = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: proj.project.id,
+        kind: 'generation',
+        engineId: 'demo',
+        count: 1,
+        brief: { tokens: [{ t: 'product', id: 'p1' }] },
+      },
+    });
+    const parent = await waitDone(app, gen.json().id);
+    const frame = String(parent.images[0]);
+    const brief = {
+      tokens: [
+        { t: 'text', v: 'place a small plant beside ' },
+        { t: 'product', id: 'p1' },
+        { t: 'ref', imageHash: frame },
+      ],
+    };
+
+    // the strip the composer draws and the request the engine receives agree
+    const preview = await app.inject({
+      method: 'POST',
+      url: '/api/brief/preview',
+      payload: { brief, engineId: 'demo', brandId: brand.id, parentId: parent.id },
+    });
+    expect(preview.statusCode).toBe(200);
+    expect(preview.json().attachments.map((a: any) => a.hash)).not.toContain(frame);
+
+    const edit = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: proj.project.id,
+        parentId: parent.id,
+        kind: 'edit',
+        engineId: 'demo',
+        sourceImage: frame,
+        brief,
+      },
+    });
+    expect(edit.statusCode).toBe(202);
+    await waitDone(app, edit.json().id);
+    expect(sent).toHaveLength(1);
+    expect(sent[0] ?? []).toContain(core.images.pathFor(productHash));
+    expect(sent[0] ?? []).not.toContain(core.images.pathFor(frame));
+    await app.close();
   });
 });
 
