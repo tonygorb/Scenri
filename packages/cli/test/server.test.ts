@@ -310,6 +310,36 @@ describe('brand marks', () => {
     expect(res.json().json.meta.tagline).toBe('Fast evenings');
   });
 
+  it('adding an angle to a product deleted during the upload answers 404 and leaves it deleted', async () => {
+    const brand = await mkBrand();
+    const made = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brand.id}/products`,
+      ...filePayload(GIF_1PX, 'tin.gif', 'image/gif'),
+    });
+    const productId = made.json().json.products[0].id;
+    const boundary = '----sctest';
+    const body = new PassThrough();
+    const upload = app
+      .inject({
+        method: 'POST',
+        url: `/api/brands/${brand.id}/products/${productId}/shots`,
+        headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+        payload: body,
+      })
+      .then((r) => r);
+    body.write(
+      `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="side.gif"\r\nContent-Type: image/gif\r\n\r\n`,
+    );
+    await new Promise((r) => setTimeout(r, 50));
+    const gone = await app.inject({ method: 'DELETE', url: `/api/brands/${brand.id}/products/${productId}` });
+    expect(gone.statusCode).toBe(200);
+    body.end(Buffer.concat([GIF_1PX, Buffer.from(`\r\n--${boundary}--\r\n`)]));
+    const res = await upload;
+    expect(res.statusCode).toBe(404);
+    expect((core.store.getBrand(brand.id)!.json as any).products ?? []).toHaveLength(0);
+  });
+
   it('serves the brand as a .brand zip named after its slug', async () => {
     const brand = await mkBrand();
     await uploadLogo(brand.id);
