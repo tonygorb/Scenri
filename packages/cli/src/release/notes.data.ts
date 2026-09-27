@@ -107,20 +107,20 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.20.0',
     date: '2026-09-27',
-    title: "A What's New page, and pictures that develop where they are made",
+    title: "Pictures develop where they are made, and What's New has a page",
     announce: true,
     sections: [
       {
-        heading: "What's New",
-        body: 'Every release has a page of its own, newest first, and a headline update introduces itself in a short window. A feature that is new to you says New where it lives until you first use it.',
+        heading: 'Create',
+        body: 'A picture being made is a quiet swirl in the place it will land, and develops out of it when it arrives. Refining moves to the new step at once.',
       },
       {
-        heading: 'Create',
-        body: 'A picture being made shows a quiet dithered swirl in its own place, and develops out of it when it lands. Refining moves to the new version at once, and the picture on the stage turns into its swirl.',
+        heading: 'Presenters and scenes',
+        body: "The chats take long descriptions. Beside a reference picture your presenter stays the only person, in clothes of their own. With nothing set up to draw, an upload never becomes a face or a scene's picture.",
       },
       {
         heading: 'Fixes',
-        body: "Home's shelves sit on the wall's grid and end on Show all. On a first run, library pictures still on their way hold their place and appear without a reload, and the bell shows a presenter draw as soon as it starts.",
+        body: 'Try again never pays twice, and the send shortcut never sends from behind a dialog. Closing the terminal stops what was drawing, a cap typed as $20 is set, and the Mac icon finds Codex.',
       },
     ],
   },
