@@ -1036,18 +1036,25 @@ export function createStore(db: DB) {
                      WHERE sn.node_id = n.id
                   ) AS set_names`;
       const inBrand = 'n.project_id IN (SELECT id FROM projects WHERE brand_id = @brand)';
+      // The limit bounds the finished half only. A shot run again keeps the
+      // card it was made on, and with it its old created_at, so under one
+      // limit over both halves a re-run behind sixty newer shots was cut from
+      // the answer while it ran. Every running shot is always in the answer.
       const rows = db
         .prepare(
           `SELECT * FROM (
              SELECT ${cols} FROM nodes n
               WHERE ${inBrand} AND n.kind != 'root' AND n.status = 'running'
              UNION ALL
-             SELECT ${cols} FROM nodes n
-              WHERE ${inBrand} AND n.kind != 'root' AND n.status != 'running'
-                AND n.created_at >= datetime('now', '-2 days')
+             SELECT * FROM (
+               SELECT ${cols} FROM nodes n
+                WHERE ${inBrand} AND n.kind != 'root' AND n.status != 'running'
+                  AND n.created_at >= datetime('now', '-2 days')
+                ORDER BY n.created_at DESC, n.id DESC
+                LIMIT @limit
+             )
            )
-           ORDER BY created_at DESC, id DESC
-           LIMIT @limit`,
+           ORDER BY created_at DESC, id DESC`,
         )
         .all({ brand: brandId, limit }) as any[];
       // char(31) is the unit separator: a set may legally be called "A, B"

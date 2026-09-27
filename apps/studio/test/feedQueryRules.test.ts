@@ -3,6 +3,7 @@ import type { FeedCounts, FeedNode } from '../src/api.js';
 import {
   admits,
   appendPage,
+  asHeld,
   countsAfter,
   insertSorted,
   lensAdmits,
@@ -10,6 +11,7 @@ import {
   queryKey,
   refreshFirst,
   replaceById,
+  runningOutOfSight,
   sameRecord,
   withoutIds,
 } from '../src/views/create/feedQueryRules.js';
@@ -153,5 +155,25 @@ describe('pages', () => {
     expect(appendPage(items, [a])).toBe(items);
     const fresh = node({ id: 'd', createdAt: '2026-09-01 10:00:04.000' });
     expect(refreshFirst([a, b, c], [fresh, a]).map((n) => n.id)).toEqual(['d', 'a', 'b', 'c']);
+  });
+});
+
+describe('a running tile the poll no longer sees', () => {
+  const running = node({ id: 'r', status: 'running' });
+  const failed = node({ id: 'f', status: 'error', error: 'out of credit' });
+
+  it('names the held running tiles an answer leaves out, and nothing else', () => {
+    expect(runningOutOfSight([running, failed], [])).toEqual(['r']);
+    expect(runningOutOfSight([running, failed], [{ id: 'r' }])).toEqual([]);
+    expect(runningOutOfSight(new Map([['r', running]]).values(), [{ id: 'x' }])).toEqual(['r']);
+  });
+
+  it('takes what the read by id says in the shape the pages hold', () => {
+    const read = { ...running, status: 'error', error: 'out of credit', prompt: 'a tree node field' } as FeedNode;
+    const next = asHeld(running, read);
+    expect(next.status).toBe('error');
+    expect(next.error).toBe('out of credit');
+    expect('prompt' in next).toBe(false);
+    expect(Object.keys(next)).toEqual(Object.keys(running));
   });
 });

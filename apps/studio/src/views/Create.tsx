@@ -36,7 +36,7 @@ import { PickedBar } from './create/PickedBar.js';
 export type { ShotContext } from './create/shotContext.js';
 import type { ShotContext } from './create/shotContext.js';
 import { useFeedQuery } from './create/useFeedQuery.js';
-import type { AdmitContext } from './create/feedQueryRules.js';
+import { asHeld, runningOutOfSight, type AdmitContext } from './create/feedQueryRules.js';
 import { useNodeId } from './create/useNodeId.js';
 import { useResolvedNode } from './create/useResolvedNode.js';
 
@@ -276,6 +276,9 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     for (const n of items) seen.current.set(n.id, n);
   }, [items]);
 
+  /** Running tiles being read by id because the poll no longer lists them (see runningOutOfSight). */
+  const reading = useRef(new Set<string>());
+
   /** What assistive technology hears about generation (see liveStatus.ts). */
   const statusMap = useRef<Map<string, string> | null>(null);
   const [genLive, setGenLive] = useState('');
@@ -325,6 +328,23 @@ export function CreateView({ set }: { set: ShotSet | null }) {
         // search query means it cannot know
         if (back.length) f.insert(back, was);
         if (stranger && f.ready) void f.refresh().catch(() => {});
+        // A tile the pages hold as running that this answer leaves out has
+        // stopped out of the poll's sight (a Try again on an older card): read
+        // it once, so its swirl gives way to what really happened.
+        for (const id of runningOutOfSight(f.byId.values(), fresh)) {
+          if (reading.current.has(id)) continue;
+          reading.current.add(id);
+          api
+            .node(id)
+            .then((read) => {
+              const held = feedRef.current.byId.get(id);
+              if (held) feedRef.current.patch(asHeld(held, read));
+            })
+            .catch((err: { status?: number }) => {
+              if (err?.status === 404) feedRef.current.drop([id]);
+            })
+            .finally(() => reading.current.delete(id));
+        }
       }),
     [subscribeActivity],
   );
