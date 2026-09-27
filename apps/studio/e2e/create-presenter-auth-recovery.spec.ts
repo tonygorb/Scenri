@@ -46,10 +46,12 @@ async function setUpAndReturn(p: Page) {
   await p.unroute(CAPS);
   await answer(p, 'Set up').click();
   await p.waitForURL(/[?&]setup=/);
-  // The address moves before the dialog is there to hear a key: an Escape
-  // sent the moment the URL changed was lost on a loaded runner, and the wait
-  // below ran out at two minutes (PR #278, twice in one CI run).
-  await expect(p.locator('.sc-setup')).toBeVisible();
+  // The address moves before the dialog has mounted and taken the keyboard, and
+  // an Escape pressed in between reaches nothing: the dialog stays and the wait
+  // below runs out (CI, 2026-09-27). Its focus inside means it is listening.
+  const setup = p.locator('[role="dialog"]:has(.sc-setup)');
+  await expect(setup).toBeVisible();
+  await expect.poll(() => setup.evaluate((el) => el.contains(document.activeElement))).toBe(true);
   await p.keyboard.press('Escape');
   await p.waitForURL((u) => !u.searchParams.has('setup'));
 }
