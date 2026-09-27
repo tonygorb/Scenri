@@ -143,6 +143,46 @@ test('a refusal is on the screen, and the brief survives it', async ({ page }) =
   await expect(failed).toHaveCount(0);
 });
 
+test('Cmd+Enter in a dialog does not send the brief behind it', async ({ page }) => {
+  // Cmd+Enter runs the brief from anywhere on Create, but a dialog in front of
+  // the dock is not anywhere: a press meant for one of its fields (a set's
+  // name, a spend cap) sent a paid shot from a brief nobody could see.
+  const sent: string[] = [];
+  await page.route('**/api/nodes', (route) => {
+    if (route.request().method() !== 'POST') return route.fallback();
+    sent.push(route.request().postData() ?? '');
+    return route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'held' }) });
+  });
+  await page.keyboard.type('a brief behind a dialog');
+
+  await page.locator('.sc-org-btn').click();
+  await page.getByRole('menuitem', { name: 'Settings' }).click();
+  const settings = page.locator('.sc-newdlg-layer');
+  await expect(settings).toBeVisible();
+  await page.keyboard.press('ControlOrMeta+Enter');
+  await page.waitForTimeout(400);
+  expect(sent).toHaveLength(0);
+  await page.keyboard.press('Escape');
+  await expect(settings).toHaveCount(0);
+
+  // nor from the open shot, whose own line is not where the focus is
+  await expect(page.locator('.sc-cell').first()).toBeVisible();
+  await page.locator('.sc-cell').first().click();
+  await page.waitForURL(/\/shots\//);
+  await expect(page.locator('.sc-ovl')).toBeVisible();
+  await page.keyboard.press('ControlOrMeta+Enter');
+  await page.waitForTimeout(400);
+  expect(sent).toHaveLength(0);
+  await page.keyboard.press('Escape');
+  await page.waitForURL((u) => !u.pathname.includes('/shots/'));
+
+  // and from the page itself, with nothing in front, it still runs the brief
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.keyboard.press('ControlOrMeta+Enter');
+  await expect.poll(() => sent.length).toBe(1);
+  expect(sent[0]).toContain('a brief behind a dialog');
+});
+
 test('the settings ride along with the brief, so a shot can be run again as itself', async ({ page }) => {
   // A recipe that cannot reproduce its own shot is not a recipe: retrying a
   // four-variant run used to come back with a single frame, because the count

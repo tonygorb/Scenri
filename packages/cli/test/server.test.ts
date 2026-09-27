@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import sharp from 'sharp';
 import { mkdtempSync, rmSync } from 'node:fs';
+import { PassThrough } from 'node:stream';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -230,6 +231,113 @@ describe('brand marks', () => {
     expect(body.suggestions.palette).toEqual([{ hex: '#2a6f4e' }]);
     expect(body.json.logos).toHaveLength(1);
     await srv.close();
+  });
+
+  // A route that reads the brand, awaits (an upload, a website) and then
+  // writes the copy it read wrote back over whatever was saved meanwhile.
+  it('keeps a kit edit saved while the website is being read', async () => {
+    const html = `<html><head><title>Zen Tea Company</title></head></html>`;
+    let reading = () => {};
+    const readingStarted = new Promise<void>((r) => {
+      reading = r;
+    });
+    let answer = () => {};
+    const answered = new Promise<void>((r) => {
+      answer = r;
+    });
+    const fetchImpl = (async (input: any) => {
+      if (String(input).endsWith('/i.gif')) return new Response(GIF_1PX);
+      reading();
+      await answered;
+      return new Response(html);
+    }) as unknown as typeof fetch;
+    const srv = track(buildServer({ core, engines: registryWith(), fetchImpl }));
+    const brand = (
+      await srv.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: { brand: { specVersion: '0.1', meta: { name: 'Zen', tagline: 'Slow mornings' } } },
+      })
+    ).json();
+    const refresh = srv
+      .inject({
+        method: 'POST',
+        url: `/api/brands/${brand.id}/refresh-from-url`,
+        payload: { url: 'https://zen.example' },
+      })
+      .then((r) => r);
+    await readingStarted;
+    const edit = await srv.inject({
+      method: 'PUT',
+      url: `/api/brands/${brand.id}`,
+      payload: { brand: { ...brand.json, meta: { ...brand.json.meta, tagline: 'Fast evenings' } } },
+    });
+    expect(edit.statusCode).toBe(200);
+    answer();
+    const res = await refresh;
+    expect(res.statusCode).toBe(200);
+    expect(res.json().json.meta.tagline).toBe('Fast evenings');
+    expect((core.store.getBrand(brand.id)!.json as any).meta.tagline).toBe('Fast evenings');
+    await srv.close();
+  });
+
+  it('keeps a kit edit saved while a mark is still uploading', async () => {
+    const brand = await mkBrand();
+    const boundary = '----sctest';
+    const body = new PassThrough();
+    const upload = app
+      .inject({
+        method: 'POST',
+        url: `/api/brands/${brand.id}/logos`,
+        headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+        payload: body,
+      })
+      .then((r) => r);
+    body.write(
+      `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="logo.gif"\r\nContent-Type: image/gif\r\n\r\n`,
+    );
+    await new Promise((r) => setTimeout(r, 50));
+    const edit = await app.inject({
+      method: 'PUT',
+      url: `/api/brands/${brand.id}`,
+      payload: { brand: { ...brand.json, meta: { ...brand.json.meta, tagline: 'Fast evenings' } } },
+    });
+    expect(edit.statusCode).toBe(200);
+    body.end(Buffer.concat([GIF_1PX, Buffer.from(`\r\n--${boundary}--\r\n`)]));
+    const res = await upload;
+    expect(res.statusCode).toBe(200);
+    expect(res.json().json.logos).toHaveLength(1);
+    expect(res.json().json.meta.tagline).toBe('Fast evenings');
+  });
+
+  it('adding an angle to a product deleted during the upload answers 404 and leaves it deleted', async () => {
+    const brand = await mkBrand();
+    const made = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brand.id}/products`,
+      ...filePayload(GIF_1PX, 'tin.gif', 'image/gif'),
+    });
+    const productId = made.json().json.products[0].id;
+    const boundary = '----sctest';
+    const body = new PassThrough();
+    const upload = app
+      .inject({
+        method: 'POST',
+        url: `/api/brands/${brand.id}/products/${productId}/shots`,
+        headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+        payload: body,
+      })
+      .then((r) => r);
+    body.write(
+      `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="side.gif"\r\nContent-Type: image/gif\r\n\r\n`,
+    );
+    await new Promise((r) => setTimeout(r, 50));
+    const gone = await app.inject({ method: 'DELETE', url: `/api/brands/${brand.id}/products/${productId}` });
+    expect(gone.statusCode).toBe(200);
+    body.end(Buffer.concat([GIF_1PX, Buffer.from(`\r\n--${boundary}--\r\n`)]));
+    const res = await upload;
+    expect(res.statusCode).toBe(404);
+    expect((core.store.getBrand(brand.id)!.json as any).products ?? []).toHaveLength(0);
   });
 
   it('serves the brand as a .brand zip named after its slug', async () => {
@@ -1986,6 +2094,95 @@ describe('node watchdog', () => {
     expect(cancel.statusCode).toBe(200);
     const node = await waitDoneOn(local, gen.json().id);
     expect(node.status).toBe('cancelled');
+    await local.close();
+  });
+
+  // A take left drawing for a brand, or a shot, that is gone spends the
+  // person's plan on a picture nobody can open, and holds update and quit
+  // behind "work is still running" until the node times out.
+  const watched = () => {
+    const aborted: string[] = [];
+    const engine: EngineAdapter = {
+      ...hang(),
+      generate: (req, signal) =>
+        new Promise((_resolve, reject) => {
+          signal?.addEventListener(
+            'abort',
+            () => {
+              aborted.push(req.prompt);
+              reject(new Error('engine abort'));
+            },
+            { once: true },
+          );
+        }),
+    };
+    return { engine, aborted };
+  };
+  const startRendering = async (local: ReturnType<typeof buildServer>, name: string) => {
+    const b = await local.inject({
+      method: 'POST',
+      url: '/api/brands',
+      payload: { brand: { specVersion: '0.1', meta: { name }, palette: { primary: { hex: '#123456' } } } },
+    });
+    const proj = await local.inject({ method: 'POST', url: '/api/projects', payload: { brandId: b.json().id, name } });
+    const gen = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: proj.json().project.id,
+        parentId: proj.json().root.id,
+        kind: 'generation',
+        prompt: name,
+        engineId: 'hang',
+        width: 256,
+        height: 256,
+      },
+    });
+    expect(gen.statusCode).toBe(202);
+    return { brand: b.json().id as string, node: gen.json().id as string };
+  };
+
+  it("deleting a brand stops the shots it still has rendering, and no other brand's", async () => {
+    const { engine, aborted } = watched();
+    const local = track(buildServer({ core, engines: registryWith(engine), nodeTimeoutMs: 60_000 }));
+    const gone = await startRendering(local, 'Gone');
+    await startRendering(local, 'Stays');
+    expect((await local.inject({ method: 'DELETE', url: `/api/brands/${gone.brand}` })).statusCode).toBe(200);
+    await vi.waitFor(() => expect(aborted).toHaveLength(1));
+    expect(aborted[0]).toContain('Gone');
+    // the other brand's take is still drawing, a moment later too
+    await new Promise((r) => setTimeout(r, 50));
+    expect(aborted).toHaveLength(1);
+    await local.close();
+  });
+
+  it('deleting every generated shot stops the ones still rendering', async () => {
+    const { engine, aborted } = watched();
+    const local = track(buildServer({ core, engines: registryWith(engine), nodeTimeoutMs: 60_000 }));
+    await startRendering(local, 'One');
+    await startRendering(local, 'Two');
+    const wipe = await local.inject({
+      method: 'DELETE',
+      url: '/api/data?scope=shots',
+      headers: { host: '127.0.0.1:4747' },
+    });
+    expect(wipe.statusCode).toBe(200);
+    await vi.waitFor(() => expect(aborted).toHaveLength(2));
+    expect(aborted.some((p) => p.includes('One')) && aborted.some((p) => p.includes('Two'))).toBe(true);
+    await local.close();
+  });
+
+  it('refuses Try again on a shot whose run is still drawing, whatever its row says', async () => {
+    const { engine, aborted } = watched();
+    const local = track(buildServer({ core, engines: registryWith(engine), nodeTimeoutMs: 60_000 }));
+    const { node } = await startRendering(local, 'Swept');
+    // another process opened the library and swept the row; the run goes on
+    core.store.failNode(node, 'interrupted: server restarted mid-generation');
+    const again = await local.inject({ method: 'POST', url: `/api/nodes/${node}/retry` });
+    expect(again.statusCode).toBe(409);
+    // and the one run there is can still be stopped
+    expect((await local.inject({ method: 'POST', url: `/api/nodes/${node}/cancel` })).statusCode).toBe(200);
+    await vi.waitFor(() => expect(aborted).toHaveLength(1));
     await local.close();
   });
 

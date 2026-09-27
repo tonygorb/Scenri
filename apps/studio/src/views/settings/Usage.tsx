@@ -54,14 +54,18 @@ export function Usage({ brandId }: { brandId: string }) {
 
   const { year, quarter, total, byKind } = useMemo(() => {
     const perDay = new Map<string, number>();
+    for (const d of days ?? []) perDay.set(d.day, (perDay.get(d.day) ?? 0) + d.generations + d.edits);
+    const year = buildHeat(perDay, 53);
+    const quarter = buildHeat(perDay, 13);
+    // The parts counted over the days the year grid draws, the same days as
+    // the total: the server answers 400 days, and summing all of them made
+    // the two numbers in the sentence disagree with the total beside them.
     const kinds = { generation: 0, edit: 0 };
     for (const d of days ?? []) {
-      perDay.set(d.day, (perDay.get(d.day) ?? 0) + d.generations + d.edits);
+      if (d.day < year.from) continue;
       kinds.generation += d.generations;
       kinds.edit += d.edits;
     }
-    const year = buildHeat(perDay, 53);
-    const quarter = buildHeat(perDay, 13);
     return { year, quarter, total: year.sum, byKind: kinds };
   }, [days]);
 
