@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { canOneClick, floatState, floatVisible } from '../src/app/updateRules.js';
+import { canOneClick, floatState, floatVisible, staleAfterRestart } from '../src/app/updateRules.js';
 import type { UpdateStatus } from '../src/api.js';
 
 const status = (over: Partial<UpdateStatus>): UpdateStatus => ({
@@ -90,5 +90,21 @@ describe('floatState', () => {
       kind: 'announce',
       oneClick: true,
     });
+  });
+});
+
+describe('staleAfterRestart', () => {
+  // 2026-09-28: a tab opened on 0.20.1 kept running that code against a 0.20.3
+  // server relaunched from the icon, and never saw a failed shot end.
+  it('reloads a tab whose server came back as another version', () => {
+    expect(staleAfterRestart('0.20.1', '0.20.3')).toBe(true);
+  });
+
+  it('keeps a tab through a plain restart of the same version', () => {
+    expect(staleAfterRestart('0.20.3', '0.20.3')).toBe(false);
+  });
+
+  it('keeps a tab that never learned which version it came from', () => {
+    expect(staleAfterRestart(null, '0.20.3')).toBe(false);
   });
 });
