@@ -6,20 +6,22 @@
 </picture>
 <br><br>
 
-**The open studio for brand-consistent AI visuals.**<br>
-Define a client's brand once. Then put its products and people into scenes, art-direct each shot in plain words, and refine it step by step. Open source, running entirely on your own machine and your own AI accounts.
+**The open-source AI photo studio that remembers your products, people and places.**<br>
+Save a brand's products from real photos, the people in its shots and its places once. Then each shot is one line, and every shot keeps its recipe, so you can refine it or make the next one match. It runs on your own computer and sends your pictures to the image model you already use.
 
 [![CI](https://github.com/tonygorb/scenri/actions/workflows/ci.yml/badge.svg)](https://github.com/tonygorb/scenri/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/scenri)](https://www.npmjs.com/package/scenri)
 [![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0-blue)](https://github.com/tonygorb/scenri/blob/main/LICENSE)
 
-**Get started:** one command, no account.
+**Get started.** You need [Node.js](https://nodejs.org) 22 or newer, and a paid ChatGPT plan (used through Codex CLI, which Scenri sets up for you) or an [OpenRouter](https://openrouter.ai) API key to make pictures. Scenri itself has no account and no fees.
+
+<sub>If `npm --version` prints 12, run `npm config set allow-scripts=better-sqlite3 --location=user` once first ([why](https://github.com/tonygorb/scenri/blob/main/docs/INSTALL.md#troubleshooting)). Then:</sub>
 
 ```bash
 npx scenri
 ```
 
-<sub>Needs [Node.js](https://nodejs.org) 22 or newer. New to any of this? The [install guide](https://github.com/tonygorb/scenri/blob/main/docs/INSTALL.md) walks through every step.</sub>
+<sub>The first start downloads the Scenri library of example imagery, about 155 MB. New to any of this? The [install guide](https://github.com/tonygorb/scenri/blob/main/docs/INSTALL.md) walks through every step.</sub>
 
 <img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/demo.gif" alt="Scenri's Create page: in the composer a dollar sign picks the product Cropped Puffer, an at sign picks the presenter Kwame, a slash picks the Container Blue scene, and a line of written direction follows the three chips. Generate turns a new card into a dithered swirl where the picture is being made, the swirl develops into a man in an orange puffer jacket leaning on a cobalt shipping container, and the shot opens beside the prompt that made it" width="820">
 
@@ -33,9 +35,15 @@ npx scenri
 
 Most AI image tools give you a prompt box and a slot machine. Scenri gives you the part that actually takes the time: **art direction**.
 
-Every shot keeps its history. Open it, say what to change, and each refinement joins a trail under the picture, so the original and every step stay one click apart. Refine any step again, or use **Reuse setup** to start a new shot from the same prompt and chips.
+You save a brand's ingredients once: its products from real photos, the people who appear in its shots (Scenri calls them Presenters), its places (Scenes) and its brand kit. Then a shot is one line. In the composer, `$` picks a product (what), `@` a person (who) and `/` a scene (where), and you write the direction in the same line. Open the shot, say what to change, and **Refine** keeps every step on a trail under the picture, so the original and every step stay one click apart.
+
+Every shot also keeps its recipe: the prompt, the chips and the settings that made it. Refine any step again, or use **Reuse setup** to start a new shot from the same prompt and chips, so the next one matches.
+
+Scenri trains nothing. It sends your saved photos with each shot as reference images, and the image model draws the product and the person from them, so a shot comes close to the real thing rather than pasting it in, and small lettering can drift. When you refine one part of a finished shot, or change its shape, Scenri keeps the original picture's own pixels wherever it can.
 
 It runs as a local server on your own computer. Your brands, your images, and your keys stay on your disk. To use it from a phone or tablet on the same Wi-Fi, open Settings, Local access, and scan the QR code.
+
+The words Scenri uses are defined once in [Concepts](https://github.com/tonygorb/scenri/blob/main/docs/CONCEPTS.md), and the questions people ask first, from LoRAs to cost, are answered in the [FAQ](https://github.com/tonygorb/scenri/blob/main/docs/FAQ.md).
 
 ## What a prompt produces
 

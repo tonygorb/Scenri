@@ -21,6 +21,8 @@ const FILES = [
   'PRIVACY.md',
   'TRADEMARKS.md',
   'docs/INSTALL.md',
+  'docs/CONCEPTS.md',
+  'docs/FAQ.md',
   'docs/updates.md',
   'docs/RELEASING.md',
   'docs/ASSETS-LICENSE.md',

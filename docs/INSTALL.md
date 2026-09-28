@@ -11,6 +11,9 @@ This guide assumes nothing. If you already have Node.js 22 or newer, skip straig
 - **Node.js 22 or newer.** A free runtime from the makers of the language Scenri is written in.
   You install it once and never touch it again. Not sure whether you have it? Open a terminal
   (below) and type `node --version`. If it prints `v22` or higher, you are done with this step.
+- **A paid ChatGPT plan, or an API key from an image provider**, to make pictures. Scenri itself has
+  no account and no fees; the pictures are drawn by the service you connect, on your plan or your
+  key. [Connect image generation](#connect-image-generation) has the details.
 - **An internet connection**, for the download and for generating images later.
 - **About five minutes.**
 
@@ -114,7 +117,8 @@ the send button waits.
 and Scenri walks you through it, three steps, entirely inside the app: it installs Codex CLI, an
 official helper from OpenAI, signs you in through your browser, and checks the connection with one
 short Codex turn. Scenri never sees your password. Images then run on the ChatGPT plan you already pay for; Scenri adds nothing to the
-bill.
+bill. Scenri needs Codex CLI 0.157.1 or newer: if the one on your computer is older, that check says
+so and shows the command that updates it.
 
 **Otherwise, paste a key** from an image provider. In Scenri, open Settings, then Providers, pick
 one and paste its key. You create the key on the provider's site:
@@ -308,11 +312,14 @@ update: install the current LTS from [nodejs.org](https://nodejs.org), then run
 Providers, then **Set up**, and the in-app steps handle both. If sign-in keeps failing, the dialog
 shows the exact terminal command to run instead.
 
-**Shots fail with "Codex CLI ... is too old for the model it is set to".** Scenri runs Codex on
-`gpt-6-sol`, and a Codex CLI released before that model cannot use it (0.153.4 cannot, 0.157.1 can),
-so every shot fails until it is updated. The setup dialog names the version and the model; update with
-`npm install -g @openai/codex@latest` (or run OpenAI's standalone installer again), then press
-**Check again**.
+**"Codex CLI needs an update", or "Codex CLI ... is too old for the model it is set to".** Scenri
+needs Codex CLI 0.157.1 or newer. It runs every picture on the model `gpt-6-sol`, and a Codex CLI
+released before that model cannot use it (0.153.4 cannot, 0.157.1 can). Scenri turns away a Codex CLI
+older than 0.145.0 as soon as it looks at it. A release between 0.145.0 and 0.157.1 can look ready
+until the setup dialog's connection check or, if Codex was already signed in and you never opened
+setup, until the first shot. Either one stops before anything is drawn, names the version and the
+model, and every shot fails until Codex is updated. Update with `npm install -g @openai/codex@latest`
+(or run OpenAI's standalone installer again), then press **Check again**.
 
 **Codex on Windows.** Four things specific to Windows:
 
@@ -321,8 +328,9 @@ so every shot fails until it is updated. The setup dialog names the version and 
 - **Scenri says it could not verify Codex.** Something on the machine answered too slowly or not at
   all. Press **Check again** in the setup dialog; if it persists, check what `where.exe codex`
   prints in PowerShell and that `codex --version` answers there.
-- **Codex needs an update.** Scenri requires Codex CLI 0.145.0 or newer. Update with
-  `npm install -g @openai/codex@latest`, or if you used OpenAI's standalone installer, run it again:
+- **Codex needs an update.** Scenri needs Codex CLI 0.157.1 or newer (the entry above says why).
+  Update with `npm install -g @openai/codex@latest`, or if you used OpenAI's standalone installer, run
+  it again:
   `powershell -ExecutionPolicy ByPass -c "irm https://chatgpt.com/codex/install.ps1 | iex"`.
 - **Shots fail with "Codex could not start its tool host".** Codex runs the tools it needs through a
   helper process, and a non-default Windows setting stops that helper loading. Check it in
