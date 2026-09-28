@@ -105,6 +105,21 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.20.4',
+    date: '2026-09-28',
+    title: 'Shots made with Codex work on every ChatGPT plan',
+    sections: [
+      {
+        heading: 'Create',
+        body: 'When your ChatGPT plan does not offer the model Scenri asks Codex for, the shot now runs on the model your Codex is set to, with every reference picture still attached.',
+      },
+      {
+        heading: 'Fixes',
+        body: 'On Mac and Linux a shot keeps only the picture Codex drew, never a stray file. An open tab reloads itself when Scenri restarts on a new version.',
+      },
+    ],
+  },
+  {
     version: '0.20.3',
     date: '2026-09-27',
     title: 'A clear fix when npm 12 stops Scenri from starting',
