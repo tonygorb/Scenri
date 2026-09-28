@@ -7,7 +7,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * and one that lands while a look is still out must not leave a second loop
  * running beside the first.
  */
-const api = vi.hoisted(() => ({ activity: vi.fn(), assetBuilds: vi.fn() }));
+const api = vi.hoisted(() => ({
+  activity: vi.fn(),
+  assetBuilds: vi.fn(),
+  version: vi.fn(async () => ({ version: '0.20.3' })),
+}));
 vi.mock('../src/api.js', () => ({ api }));
 vi.mock('react-router', () => ({ useNavigate: () => () => {}, useLocation: () => ({ pathname: '/b' }) }));
 vi.mock('../src/toasts.js', () => ({ useToasts: () => ({ push: () => {} }) }));

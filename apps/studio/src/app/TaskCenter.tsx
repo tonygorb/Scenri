@@ -33,6 +33,7 @@ import {
   type Task,
   sameByValue,
 } from '../tasks.js';
+import { staleAfterRestart } from './updateRules.js';
 
 /**
  * One owner for work in flight, mounted above the screens rather than inside
@@ -147,6 +148,9 @@ export function TaskCenterProvider({
   // Which server run answered last. A restart can land between two polls
   // without either of them failing, so a new boot id says the same thing.
   const bootRef = useRef<string | null>(null);
+  // The version of the server this tab's code came from, read once on mount,
+  // so a restart onto another version can reload the tab (staleAfterRestart).
+  const loadedVersionRef = useRef<string | null>(null);
   const announcedRef = useRef<Set<string>>(new Set());
   const runningRef = useRef(0);
   // Which finished builds we have already refetched the brand for. A finished
@@ -176,6 +180,15 @@ export function TaskCenterProvider({
   pushRef.current = push;
   const onActivityRef = useRef(onActivity);
   onActivityRef.current = onActivity;
+
+  useEffect(() => {
+    api
+      .version()
+      .then(({ version }) => {
+        loadedVersionRef.current ??= version;
+      })
+      .catch(() => {});
+  }, []);
 
   // brand is in the path, so switching brands must not carry the other one's
   // history or edge state across
@@ -209,7 +222,15 @@ export function TaskCenterProvider({
       if (brandRef.current.id !== brandId) return;
       liveBuilds = bs;
       liveStudio = studio;
-      if (boot && bootRef.current && boot !== bootRef.current) unreachableRef.current = true;
+      if (boot && bootRef.current && boot !== bootRef.current) {
+        unreachableRef.current = true;
+        void api
+          .version()
+          .then(({ version }) => {
+            if (staleAfterRestart(loadedVersionRef.current, version)) location.reload();
+          })
+          .catch(() => {});
+      }
       if (boot) bootRef.current = boot;
       onActivityRef.current?.(brandId, nodes);
       // The library download is the machine's, not the brand's: it is passed
