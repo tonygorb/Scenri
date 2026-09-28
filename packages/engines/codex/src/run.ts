@@ -133,7 +133,9 @@ export async function readLeftFile(path: string, name: string): Promise<Buffer> 
  * and on 2026-09-26 eight images cost 56% of a Team plan's 5-hour window, about
  * four fifths of it the text model's own tokens. gpt-6-sol is the cheaper
  * frontier model on the same plan. A codex too old to know it refuses before
- * drawing, and the runner already turns that refusal into "update Codex".
+ * drawing, and the runner already turns that refusal into "update Codex". A
+ * ChatGPT plan that does not offer it refuses too, and the runner then runs on
+ * the machine's own default instead (see MODEL_NOT_ON_PLAN).
  */
 export const CODEX_MODEL = 'gpt-6-sol';
 
@@ -281,6 +283,24 @@ export function codexFailureDetail(stderr: string, stdout: string): string {
 const MODEL_NEEDS_NEWER_CODEX = /The '([^']+)' model requires a newer version of Codex/;
 
 /**
+ * codex's refusal when the signed-in ChatGPT plan does not offer the model an
+ * exec names. Reported by a tester on 0.20.3 (2026-09-28), exit 1, stderr:
+ *
+ *   ERROR: {"type":"error","status":400,"error":{"type":"invalid_request_error",
+ *   "message":"The 'gpt-6-sol' model is not supported when using Codex with a ChatGPT account."}}
+ *
+ * A 400 before anything is drawn, so asking costs nothing. When the model is
+ * the one Scenri named (CODEX_MODEL), the run goes again on the machine's own
+ * default, exactly what every exec did before Scenri named one: same pictures,
+ * same prompt, only the -m pair gone. When it is the user's own config model,
+ * there is nothing to fall back to, and the sentence says what to change.
+ */
+const MODEL_NOT_ON_PLAN = /The '([^']+)' model is not supported when using Codex with a ChatGPT account/;
+
+/** A model Scenri named that this plan refused; run() answers it by going again without it. */
+class ModelNotOnPlan extends Error {}
+
+/**
  * The other half of a conflict 401. Captured live on codex-cli 0.153.4
  * (2026-09-13) with a bogus CODEX_API_KEY exported and a healthy ChatGPT
  * sign-in in place:
@@ -392,6 +412,16 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
   let knownVersion: string | null = null;
   let tooOldFor: { version: string | null; model: string } | null = null;
 
+  // Models this plan refused when Scenri named them. Every later exec leaves
+  // the -m pair out and runs on the machine's own default. Memory only: a
+  // restart asks again, so an upgraded plan gets the named model back.
+  const offPlan = new Set<string>();
+  /** `rest` without a `-m <model>` pair whose model this plan refused. */
+  const withoutOffPlan = (rest: string[]) => {
+    const i = rest.indexOf('-m');
+    return i >= 0 && offPlan.has(rest[i + 1]) ? [...rest.slice(0, i), ...rest.slice(i + 2)] : rest;
+  };
+
   // On Windows, npm installs codex as codex.cmd, and a .cmd only runs through
   // a shell (CVE-2024-27980 made Node refuse it otherwise). The prompt can
   // quote imported library text, so the line has to be injection-safe:
@@ -421,20 +451,37 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
     // point of the connection check is that codex cannot tell it apart from a
     // real shot. Built per spawn so a repair lands on the next run.
     const env = buildChildEnv(parentEnv, [...ignoreEnvKeys(), ...SIBLING_PROVIDER_KEYS]);
-    if (args[0] === 'exec') args = ['exec', ...extensionsOffArgs(parentEnv), ...args.slice(1)];
+    if (args[0] === 'exec') args = ['exec', ...extensionsOffArgs(parentEnv), ...withoutOffPlan(args.slice(1))];
     return exe.direct
       ? spawnImpl(exe.command, args, { stdio, env, ...(platform !== 'win32' ? { detached: true } : {}) })
       : spawnImpl([exe.command, ...args.map(winArg)].join(' '), [], { stdio, env, shell: true });
   };
 
-  /** Run `codex <args>`, resolving on exit 0; kill + reject on a blown budget. */
+  /**
+   * Run `codex <args>`, resolving on exit 0; kill + reject on a blown budget.
+   * A plan that refuses the model Scenri named gets the same run once more,
+   * on its own default: the refusal came before anything was drawn.
+   */
   async function run(args: string[], signal?: AbortSignal, io?: RunIo): Promise<void> {
+    try {
+      await runOnce(args, signal, io);
+    } catch (err) {
+      if (!(err instanceof ModelNotOnPlan)) throw err;
+      await runOnce(args, signal, io);
+    }
+  }
+
+  async function runOnce(args: string[], signal?: AbortSignal, io?: RunIo): Promise<void> {
     const exe = await resolution();
     const timeoutMs = io?.timeoutMs ?? defaultTimeoutMs;
     // The world this exec was launched into, as the connection check names it.
     // A proof from its exit counts only if that world still stands when it ends.
     const launchedAs = args[0] === 'exec' ? fingerprintFor(exe, knownVersion) : null;
     return new Promise<void>((resolve, reject) => {
+      // The model this exec is sent with, read at the moment it is spawned: a
+      // sibling take can learn the plan's refusal while this one runs.
+      const sent = withoutOffPlan(args.slice(1));
+      const sentModel = sent.includes('-m') ? sent[sent.indexOf('-m') + 1] : null;
       let child: ReturnType<typeof nodeSpawn>;
       try {
         child = spawnCodex(exe, args, io?.stdin != null);
@@ -581,6 +628,27 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
           invalidateProbe();
           finish(`exit-${code ?? 'unknown'}`, () =>
             reject(new Error(`${tooOldForModel(knownVersion, model)} Update Codex CLI, then run this again.`)),
+          );
+          return;
+        }
+        // The plan does not offer the model. When Scenri named it, run() goes
+        // again without it; when the user's own config named it, say so.
+        const refused = MODEL_NOT_ON_PLAN.exec(stderr);
+        if (refused) {
+          const model = refused[1];
+          if (sentModel === model) {
+            if (!offPlan.has(model))
+              console.warn(`codex: ${model} is not on this ChatGPT plan, running on the Codex default`);
+            offPlan.add(model);
+            finish('model-not-on-plan', () => reject(new ModelNotOnPlan(`${model} is not on this ChatGPT plan`)));
+            return;
+          }
+          finish(`exit-${code ?? 'unknown'}`, () =>
+            reject(
+              new Error(
+                `Your ChatGPT plan cannot run ${model} in Codex. Choose another model in Codex, then run this again.`,
+              ),
+            ),
           );
           return;
         }
