@@ -53,9 +53,10 @@ Scenri charges nothing and sells no credits. You pay the provider directly.
   spend caps do not apply to it, and Scenri records Codex shots at no cost.
 - **OpenRouter** bills you itself. For each image Scenri records the cost OpenRouter reports, and
   about $0.04 an image when it reports none.
-- **Replicate** is recorded at about $0.003 an image and $0.04 an edit; **fal** at about $0.003 an
-  image and $0.025 an edit. fal bills per megapixel, so its own bill can differ from Scenri's
-  figure.
+- **Replicate** is about $0.003 an image and $0.04 an edit.
+- **fal** bills per megapixel: about $0.006 an image at Scenri's sizes, and $0.025 an edit. Scenri's
+  cost ledger currently records fal images at $0.003, so fal's own bill runs higher than the figure
+  Scenri shows.
 
 Set a monthly cap for each paid engine in Settings, Providers. Generation stops before a cap is
 crossed.
