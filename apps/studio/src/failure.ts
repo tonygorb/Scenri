@@ -285,6 +285,15 @@ const RULES: Rule[] = [
     retryable: false,
   },
   {
+    // run.ts says this only for a model the user's own Codex config names;
+    // one Scenri named is run again on the Codex default instead.
+    re: /ChatGPT plan cannot run .+ in Codex/i,
+    kind: 'setup',
+    title: () => 'Your ChatGPT plan cannot run this Codex model.',
+    fix: 'Choose another model in Codex, then run this again.',
+    retryable: false,
+  },
+  {
     re: /\brun aborted\b/i,
     kind: 'cancelled',
     title: () => 'You stopped this shot.',

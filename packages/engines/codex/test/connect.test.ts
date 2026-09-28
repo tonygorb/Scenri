@@ -115,6 +115,22 @@ describe('the connection check', () => {
     expect(exec.child.stdin.written).toBe(CONNECT_PROMPT);
   });
 
+  it('proves a plan that does not offer gpt-6-sol on the Codex default', async () => {
+    // A tester on 0.20.3 (2026-09-28): the check ran the shot's own -m and
+    // failed with the same 400 every shot did.
+    const { spawnImpl, calls } = machine((call) => {
+      if (!call.args.includes('-m')) return healthyExec(call);
+      call.child.stderr.emit(
+        'data',
+        `ERROR: {"type":"error","status":400,"error":{"type":"invalid_request_error","message":"The 'gpt-6-sol' model is not supported when using Codex with a ChatGPT account."}}\n`,
+      );
+      call.child.emit('exit', 1, null);
+    });
+    const runner = createRunner({ ...base, spawnImpl, env: { PATH: '/usr/bin' } });
+    await expect(runner.connect()).resolves.toMatchObject({ outcome: 'proven' });
+    expect(execCalls(calls)).toHaveLength(2);
+  });
+
   it('asks nothing of a machine that is not signed in, and spends no plan doing it', async () => {
     const { spawnImpl, calls } = machine(healthyExec, 1);
     const runner = createRunner({ ...base, spawnImpl });

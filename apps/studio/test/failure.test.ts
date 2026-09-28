@@ -27,6 +27,8 @@ const REAL = {
   codexTooOld: 'Codex CLI 0.140.0 is too old. Scenri needs 0.145.0 or newer.',
   codexTooOldForModel:
     'Codex CLI 0.145.0 is too old for the model it is set to, gpt-6-astra. Update Codex CLI, then run this again.',
+  codexModelNotOnPlan:
+    'Your ChatGPT plan cannot run gpt-5.6-terra in Codex. Choose another model in Codex, then run this again.',
   codexSilent: 'Codex CLI produced no output for 120s, treating it as stuck',
   codexCodeMode: 'codex exited with code 1: ERROR: code-mode host exited during handshake',
   codexNeverStarted: 'Codex CLI produced no output for 60s after launch, treating it as stuck',
@@ -229,6 +231,13 @@ describe('describeFailure', () => {
     expect(f.kind).toBe('setup');
     expect(f.title).toBe('Codex CLI needs an update.');
     expect(f.remedy).toEqual({ label: 'Update Codex', opens: 'setup' });
+    expect(f.retryable).toBe(false);
+  });
+
+  it("reads a plan that cannot run the user's own Codex model as a setup step", () => {
+    const f = describeFailure(REAL.codexModelNotOnPlan, 'Codex');
+    expect(f.kind).toBe('setup');
+    expect(f.title).toBe('Your ChatGPT plan cannot run this Codex model.');
     expect(f.retryable).toBe(false);
   });
 

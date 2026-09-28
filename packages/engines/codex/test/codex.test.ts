@@ -875,3 +875,97 @@ describe('generate reports each variant as it lands', () => {
     for (const [slot, hash] of landed) expect(result.images[slot]).toBe(hash);
   });
 });
+
+describe('a ChatGPT plan that does not offer gpt-6-sol', () => {
+  // Real stderr, reported by a tester on 0.20.3 (2026-09-28). Scenri passes
+  // -m gpt-6-sol on every exec, and this plan answers with a 400 before
+  // anything is drawn.
+  const offPlanStderr = (model: string) =>
+    'OpenAI Codex v0.157.1\n--------\nworkdir: /tmp/scenri-codex-x\nmodel: ' +
+    `${model}\nprovider: openai\napproval: never\nsandbox: workspace-write [workdir, /tmp]\n--------\nuser\n...\n` +
+    `ERROR: {"type":"error","status":400,"error":{"type":"invalid_request_error","message":"The '${model}' model is not supported when using Codex with a ChatGPT account."}}\n`;
+
+  /** A plan without sol: refuses any exec that names it, draws otherwise. */
+  const planWithoutSol = (userModel?: string) =>
+    fakeSpawn(({ args, child }) => {
+      const named = args.includes('-m') ? args[args.indexOf('-m') + 1] : userModel;
+      if (named === 'gpt-6-sol' || (userModel && named === userModel)) {
+        child.stderr.emit('data', Buffer.from(offPlanStderr(named)));
+        child.emit('exit', 1, null);
+        return;
+      }
+      writeFileSync(join(dirFromArgs(args), 'out-1.png'), PNG_2);
+      child.emit('exit', 0, null);
+    });
+
+  const withoutModel = (args: string[]) => {
+    const i = args.indexOf('-m');
+    return i < 0 ? args : [...args.slice(0, i), ...args.slice(i + 2)];
+  };
+
+  function references(): string[] {
+    const src = mkdtempSync(join(tmpdir(), 'codex-offplan-refs-'));
+    return ['p.png', 'c.png', 's.png'].map((name) => {
+      const path = join(src, name);
+      writeFileSync(path, PNG_1);
+      return path;
+    });
+  }
+
+  it('runs the same shot on the Codex default, with every reference still attached', async () => {
+    const { spawnImpl, calls } = planWithoutSol();
+    const saveImage = newSaveImage();
+    const engine = createCodexEngine({ platform: 'linux', saveImage, spawnImpl });
+    const result = await engine.generate({
+      ...genReq,
+      count: 1,
+      referenceImages: references(),
+      referenceRoles: ['product', 'character', 'scene'],
+    });
+
+    expect(result.images).toEqual(['hash-1']);
+    expect(calls).toHaveLength(2);
+    const [refused, retried] = calls;
+    expect(refused.args).toContain('gpt-6-sol');
+    // One thing changes: the model flag goes. Every picture, in the same
+    // order, the same workdir and the same prompt ride the second run.
+    expect(retried.args).toEqual(withoutModel(refused.args));
+    expect(retried.args.filter((a) => a.startsWith('--image='))).toHaveLength(3);
+    expect(retried.child.stdin.written).toBe(refused.child.stdin.written);
+  });
+
+  it('asks the plan once: the next shot goes straight to the Codex default', async () => {
+    const { spawnImpl, calls } = planWithoutSol();
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
+    await engine.generate({ ...genReq, count: 1 });
+    await engine.generate({ ...genReq, count: 1 });
+    expect(calls).toHaveLength(3);
+    expect(calls[2].args).not.toContain('-m');
+  });
+
+  it('keeps the source and every reference on an edit', async () => {
+    const [sourceImage, ...refs] = references();
+    const { spawnImpl, calls } = planWithoutSol();
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
+    const result = await engine.edit({
+      instruction: 'make it warmer',
+      sourceImage,
+      brand,
+      referenceImages: refs,
+      referenceRoles: ['product', 'character'],
+    });
+    expect(result.images).toEqual(['hash-1']);
+    expect(calls).toHaveLength(2);
+    expect(calls[1].args).toEqual(withoutModel(calls[0].args));
+    expect(calls[1].args.filter((a) => a.startsWith('--image='))).toHaveLength(3);
+  });
+
+  it("names the user's own model when the plan refuses that one too, and stops there", async () => {
+    const { spawnImpl, calls } = planWithoutSol('gpt-5.6-terra');
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
+    await expect(engine.generate({ ...genReq, count: 1 })).rejects.toThrow(
+      'Your ChatGPT plan cannot run gpt-5.6-terra in Codex. Choose another model in Codex, then run this again.',
+    );
+    expect(calls).toHaveLength(2);
+  });
+});

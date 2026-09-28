@@ -309,7 +309,8 @@ Providers, then **Set up**, and the in-app steps handle both. If sign-in keeps f
 shows the exact terminal command to run instead.
 
 **Shots fail with "Codex CLI ... is too old for the model it is set to".** Scenri runs Codex on
-`gpt-6-sol`, and a Codex CLI released before that model cannot use it (0.153.4 cannot, 0.157.1 can),
+`gpt-6-sol` where your ChatGPT plan offers it, and on Codex's own default model where it does not.
+A Codex CLI released before that model cannot use it (0.153.4 cannot, 0.157.1 can),
 so every shot fails until it is updated. The setup dialog names the version and the model; update with
 `npm install -g @openai/codex@latest` (or run OpenAI's standalone installer again), then press
 **Check again**.

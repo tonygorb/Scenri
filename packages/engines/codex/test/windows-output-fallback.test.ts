@@ -124,3 +124,57 @@ describe('posix keeps the strict workdir contract', () => {
     expect(saveImage).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * The picture is the one codex's image tool drew. On 2026-09-28 the tool drew
+ * the right portrait into generated_images/<session>/, and the agent then
+ * copied an unrelated PNG it found elsewhere on the disk (a screenshot in
+ * another program's temp folder) to out-1.png. Scenri stored it; only the
+ * aspect check kept it from becoming the shot.
+ */
+describe('out-1.png must be what the image tool drew', () => {
+  const STRAY = Buffer.from('a screenshot from somewhere else on the disk');
+
+  it("takes the tool's own picture, and never stores the stray file", async () => {
+    const saveImage = newSaveImage();
+    const { spawnImpl } = scriptedSpawn((call) => {
+      mkdirSync(join(generated, 'session-a'), { recursive: true });
+      writeFileSync(join(generated, 'session-a', 'exec-1.png'), PNG_NEW);
+      const dir = call.args[call.args.indexOf('-C') + 1];
+      writeFileSync(join(dir, 'out-1.png'), STRAY);
+      call.child.emit('exit', 0, null);
+    });
+    const engine = createCodexEngine({ spawnImpl, platform: 'linux', probeTtlMs: 0, saveImage });
+    const res = await engine.generate(req);
+    expect(res.images).toEqual(['hash-1']);
+    expect(saveImage.saved).toHaveLength(1);
+    expect(saveImage.saved[0].equals(PNG_NEW)).toBe(true);
+  });
+
+  it('keeps out-1.png when it is a copy of the drawn picture', async () => {
+    const saveImage = newSaveImage();
+    const { spawnImpl } = scriptedSpawn((call) => {
+      mkdirSync(join(generated, 'session-b'), { recursive: true });
+      writeFileSync(join(generated, 'session-b', 'exec-1.png'), PNG_NEW);
+      const dir = call.args[call.args.indexOf('-C') + 1];
+      writeFileSync(join(dir, 'out-1.png'), PNG_NEW);
+      call.child.emit('exit', 0, null);
+    });
+    const engine = createCodexEngine({ spawnImpl, platform: 'linux', probeTtlMs: 0, saveImage });
+    await expect(engine.generate(req)).resolves.toMatchObject({ images: ['hash-1'] });
+    expect(saveImage.saved[0].equals(PNG_NEW)).toBe(true);
+  });
+
+  it('reads the session folder codex really writes on win32 too', async () => {
+    const saveImage = newSaveImage();
+    const { spawnImpl } = scriptedSpawn((call) => {
+      if (call.cmd === 'where.exe') return void call.child.emit('exit', 1, null);
+      mkdirSync(join(generated, 'session-c'), { recursive: true });
+      writeFileSync(join(generated, 'session-c', 'exec-1.png'), PNG_NEW);
+      call.child.emit('exit', 0, null);
+    });
+    const engine = createCodexEngine({ spawnImpl, platform: 'win32', probeTtlMs: 0, saveImage });
+    await expect(engine.generate(req)).resolves.toMatchObject({ images: ['hash-1'] });
+    expect(saveImage.saved[0].equals(PNG_NEW)).toBe(true);
+  });
+});
