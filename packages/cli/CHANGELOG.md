@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.20.4](https://github.com/tonygorb/Scenri/compare/v0.20.3...v0.20.4) (2026-09-28)
+
+
+### Bug Fixes
+
+* **codex:** run on the Codex default when the plan lacks gpt-6-sol ([e7dc36d](https://github.com/tonygorb/Scenri/commit/e7dc36df2698e4ce22de66c8a997252af04c42f0))
+* **codex:** run on the Codex default when the plan lacks gpt-6-sol, keep only drawn pictures ([7851c59](https://github.com/tonygorb/Scenri/commit/7851c5944c5e4cbfd17ef7ac12cd6068f57e84b7))
+* **codex:** store only a picture the image tool drew ([4573de7](https://github.com/tonygorb/Scenri/commit/4573de7944a479b0585af1fe62ec9cd9bce470b2))
+* **studio:** reload a tab whose server came back as another version ([22c5b6d](https://github.com/tonygorb/Scenri/commit/22c5b6d7f730d37e8435923feec1266fb3fe11ca))
+* **studio:** reload a tab whose server came back as another version ([06629f0](https://github.com/tonygorb/Scenri/commit/06629f09dcb5b47551ae18ce2a88ed3985e3579d))
+
 ## [0.20.3](https://github.com/tonygorb/Scenri/compare/v0.20.2...v0.20.3) (2026-09-27)
 
 

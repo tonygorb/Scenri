@@ -13,7 +13,7 @@
  */
 import { lstat, readdir, readFile, rmdir, stat, unlink } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import {
   BUDGET_EXHAUSTED,
   budgetSize,
@@ -152,15 +152,17 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
   const withWorkDir = runner.withWorkDir;
 
   /**
-   * Where codex's built-in image tool saves first, before the agent moves the
-   * file into the workdir. That move is what the native Windows sandbox breaks
-   * (openai/codex#34961), so on win32 this directory is the recovery source.
+   * Where codex's built-in image tool saves every picture it draws, one folder
+   * per session (generated_images/<session>/exec-*.png), before the agent
+   * copies it into the workdir. It is the record of what was actually drawn;
+   * the workdir only holds what the agent chose to put there. On win32 it is
+   * also the recovery source, because the native sandbox breaks the copy
+   * (openai/codex#34961).
    */
   const generatedImagesDir = () => join(process.env.CODEX_HOME || join(homedir(), '.codex'), 'generated_images');
 
-  /** What generated_images held before a job ran; null on posix (no fallback). */
-  async function snapshotGenerated(): Promise<Set<string> | null> {
-    if (platform !== 'win32') return null;
+  /** What generated_images held before a job ran. */
+  async function snapshotGenerated(): Promise<Set<string>> {
     try {
       return new Set(await readdir(generatedImagesDir()));
     } catch {
@@ -168,12 +170,81 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
     }
   }
 
-  /** Read out-*.png from dir (numerically sorted), save each, return hashes. */
-  async function collectImages(
-    dir: string,
-    before: Set<string> | null = null,
-    claimed?: Set<string>,
-  ): Promise<string[]> {
+  /**
+   * The pictures that appeared in generated_images since `before`, newest
+   * first, less any this run's takes have already taken: a new file at the
+   * top, or a file inside a new session folder, which is how codex lays them
+   * out. The top level alone used to be read, so a win32 recovery found the
+   * session folder and refused it as "not a plain file".
+   */
+  async function drawnSince(before: Set<string>, claimed: Set<string>): Promise<string[]> {
+    const home = generatedImagesDir();
+    let names: string[];
+    try {
+      names = await readdir(home);
+    } catch {
+      return [];
+    }
+    const found: { path: string; mtime: number }[] = [];
+    const consider = async (path: string) => {
+      const st = await lstat(path);
+      if (st.isFile() && /\.png$/i.test(path) && !claimed.has(path)) found.push({ path, mtime: st.mtimeMs });
+    };
+    for (const name of names) {
+      if (before.has(name)) continue;
+      const at = join(home, name);
+      try {
+        const st = await lstat(at);
+        if (st.isDirectory()) for (const file of await readdir(at)) await consider(join(at, file));
+        else await consider(at);
+      } catch {
+        // another run's folder can change under this read; its files are its own
+      }
+    }
+    return found.sort((a, b) => b.mtime - a.mtime).map((f) => f.path);
+  }
+
+  /** Claim the drawn picture `buf` is a byte-for-byte copy of, if it is one. */
+  async function claimCopy(drawn: string[], buf: Buffer, claimed: Set<string>): Promise<boolean> {
+    for (const path of drawn) {
+      try {
+        if ((await stat(path)).size !== buf.length || !(await readFile(path)).equals(buf)) continue;
+      } catch {
+        continue;
+      }
+      claimed.add(path);
+      return true;
+    }
+    return false;
+  }
+
+  /** Store a drawn picture straight from generated_images. */
+  async function takeDrawn(path: string, claimed: Set<string>): Promise<string> {
+    claimed.add(path);
+    const buf = await readLeftFile(path, basename(path));
+    const hash = saveImage(buf);
+    await forgetGenerated(buf);
+    return hash;
+  }
+
+  /**
+   * Read out-*.png from dir (numerically sorted), save each, return hashes.
+   *
+   * An out file is taken as a copy of a picture the image tool drew in this
+   * run. On 2026-09-28 the tool drew the right portrait and the agent then
+   * copied an unrelated PNG from another program's temp folder to out-1.png;
+   * Scenri stored it, and only the aspect check kept it from becoming the
+   * shot. So when the tool drew and the out file is none of it, the tool's own
+   * picture is taken and the stray file is never stored. That reading needs
+   * the agent to copy, not move: on macOS it copies (measured: not one of the
+   * 30 session folders since 2026-09-26 was left empty), and a move leaves
+   * nothing to compare, so its out file is taken as before. On win32 nobody
+   * has measured it, and a moved picture beside a sibling's fresh one would
+   * read as a stray, so win32 keeps taking the out file. Two shots drawing at
+   * once can cross such a recovery, the imperfection the win32 path already
+   * accepts; a copy the agent really made is never crossed.
+   */
+  async function collectImages(dir: string, before: Set<string>, claimed = new Set<string>()): Promise<string[]> {
     const entries = await readdir(dir);
     const outFiles = entries
       .filter((name) => /^out-.*\.png$/.test(name))
@@ -185,14 +256,14 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
       });
     if (outFiles.length === 0) {
       // win32 recovery: the exec succeeded but nothing reached the workdir.
-      // Claim the newest file that appeared in generated_images during this
-      // job — one job, one image, newest first. Known imperfection: two nodes
-      // generating at the same moment could cross-attribute a recovered image;
-      // accepted for a single-user local app over forking CODEX_HOME per job,
-      // which would break auth.
-      if (before) {
-        const recovered = await recoverFromGenerated(before, claimed);
-        if (recovered) return [recovered];
+      // Claim the newest picture that appeared in generated_images during
+      // this job. POSIX keeps the strict contract: no out file, no picture.
+      if (platform === 'win32') {
+        const [newest] = await drawnSince(before, claimed);
+        if (newest) {
+          console.warn(`codex: workdir empty, recovered ${newest}`);
+          return [await takeDrawn(newest, claimed)];
+        }
       }
       throw new Error('Codex finished but produced no images');
     }
@@ -203,6 +274,12 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
       // fail far away from here. Real decode validation is the server's
       // (normalizePngs) - this package stays sharp-free.
       if (buf.length === 0) throw new Error(`codex: ${name} is empty`);
+      const drawn = platform === 'win32' ? [] : await drawnSince(before, claimed);
+      if (drawn.length > 0 && !(await claimCopy(drawn, buf, claimed))) {
+        console.warn(`codex: ${name} is not a picture the image tool drew, taking the tool's own file`);
+        hashes.push(await takeDrawn(drawn[0], claimed));
+        continue;
+      }
       hashes.push(saveImage(buf));
       await forgetGenerated(buf);
     }
@@ -251,29 +328,6 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
         // another run's folder can change under this read; its files are its own
       }
     }
-  }
-
-  async function recoverFromGenerated(before: Set<string>, claimed?: Set<string>): Promise<string | null> {
-    const home = generatedImagesDir();
-    let names: string[];
-    try {
-      // `claimed` is this run's own ledger. The takes of one batch run
-      // concurrently against a single shared generated_images, and each takes
-      // its `before` snapshot at its own moment, so an early take's snapshot
-      // does not know about a later take's file. Without the ledger two takes
-      // recovering at once could pick the SAME picture and the run would ship
-      // a duplicate as if it were a second variation.
-      names = (await readdir(home)).filter((n) => !before.has(n) && !claimed?.has(n));
-    } catch {
-      return null;
-    }
-    if (!names.length) return null;
-    const stamped = await Promise.all(names.map(async (n) => ({ n, mtime: (await stat(join(home, n))).mtimeMs })));
-    stamped.sort((a, b) => b.mtime - a.mtime);
-    const pick = stamped[0].n;
-    claimed?.add(pick);
-    console.warn(`codex: workdir empty, recovered ${pick} from ${home}`);
-    return saveImage(await readLeftFile(join(home, pick), pick));
   }
 
   return {
@@ -351,7 +405,7 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
       // signed out, binary gone) stops the batch at once instead of letting
       // every remaining variant run the same doomed five minutes.
       const inner = new AbortController();
-      /** win32 only: which recovered files this run's takes have already taken. */
+      /** Which drawn pictures this run's takes have already taken. */
       const claimed = new Set<string>();
       // The reason travels with the abort: a budget abort and a cancel look the
       // same to a signal that was re-raised without one.

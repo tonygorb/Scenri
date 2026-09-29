@@ -313,13 +313,15 @@ Providers, then **Set up**, and the in-app steps handle both. If sign-in keeps f
 shows the exact terminal command to run instead.
 
 **"Codex CLI needs an update", or "Codex CLI ... is too old for the model it is set to".** Scenri
-needs Codex CLI 0.157.1 or newer. It runs every picture on the model `gpt-6-sol`, and a Codex CLI
-released before that model cannot use it (0.153.4 cannot, 0.157.1 can). Scenri turns away a Codex CLI
-older than 0.145.0 as soon as it looks at it. A release between 0.145.0 and 0.157.1 can look ready
-until the setup dialog's connection check or, if Codex was already signed in and you never opened
-setup, until the first shot. Either one stops before anything is drawn, names the version and the
-model, and every shot fails until Codex is updated. Update with `npm install -g @openai/codex@latest`
-(or run OpenAI's standalone installer again), then press **Check again**.
+needs Codex CLI 0.157.1 or newer. It runs Codex on `gpt-6-sol` where your ChatGPT plan offers it,
+and on Codex's own default model where it does not, and a Codex CLI released before `gpt-6-sol`
+cannot use it (0.153.4 cannot, 0.157.1 can). Scenri turns away a Codex CLI older than 0.145.0 as
+soon as it looks at it. A release between 0.145.0 and 0.157.1 can look ready until the setup
+dialog's connection check or, if Codex was already signed in and you never opened setup, until the
+first shot. That is where the message appears, before anything is drawn: it names the version and
+the model, and every shot fails until Codex is updated. Update with
+`npm install -g @openai/codex@latest` (or run OpenAI's standalone installer again), then press
+**Check again**.
 
 **Codex on Windows.** Four things specific to Windows:
 

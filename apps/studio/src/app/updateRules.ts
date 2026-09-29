@@ -45,3 +45,17 @@ export function floatState(s: UpdateStatus): FloatState {
   if (s.phase === 'error' && s.available) return { kind: 'stage-error' };
   return { kind: 'announce', oneClick: canOneClick(s) };
 }
+
+/**
+ * Whether an open tab must reload once the server under it has restarted. The
+ * tab's code came from the server it loaded against, and a different version
+ * answering now means that code and the API no longer match: on 2026-09-28 a
+ * tab opened on 0.20.1 ran on against a 0.20.3 relaunched from the desktop
+ * icon, and a failed shot kept its swirl until a manual reload. The in-app
+ * update reloads the tab that pressed it; this covers every other tab. A plain
+ * restart of the same version, or a tab that never learned its version,
+ * changes nothing.
+ */
+export function staleAfterRestart(loaded: string | null, now: string): boolean {
+  return loaded !== null && now !== loaded;
+}
