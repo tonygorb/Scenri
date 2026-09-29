@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.20.5](https://github.com/tonygorb/Scenri/compare/v0.20.4...v0.20.5) (2026-09-29)
+
+
+### Bug Fixes
+
+* **deps:** lift undici to 7.30.0 for the WebSocket inflate DoS ([7a819c5](https://github.com/tonygorb/Scenri/commit/7a819c544ab486ac22565547da6b54e1efea4099))
+* **deps:** lift undici to 7.30.0 for the WebSocket inflate DoS ([b93f415](https://github.com/tonygorb/Scenri/commit/b93f415d8272a3184e6aa50d7f3579d95a48cd70))
+
 ## [0.20.4](https://github.com/tonygorb/Scenri/compare/v0.20.3...v0.20.4) (2026-09-28)
 
 

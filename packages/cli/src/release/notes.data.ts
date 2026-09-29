@@ -105,6 +105,17 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.20.5',
+    date: '2026-09-29',
+    title: 'One dependency is on its patched release',
+    sections: [
+      {
+        heading: 'Security',
+        body: 'The network library under the page reader Scenri reads websites with is on its patched release, for a WebSocket advisory Scenri never reached. Nothing about how Scenri works changes.',
+      },
+    ],
+  },
+  {
     version: '0.20.4',
     date: '2026-09-28',
     title: 'Shots made with Codex work on every ChatGPT plan',
