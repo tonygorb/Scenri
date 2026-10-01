@@ -329,6 +329,8 @@ async function pressAt(page: Page, el: Locator): Promise<void> {
 
 /** Each picture scrolled to (the ones below the fold load lazily) and decoded. */
 async function expectDecoded(imgs: Locator): Promise<void> {
+  // the notes arrive after the page does: counted any sooner, there is nothing yet to scroll to
+  await expect(imgs.first()).toBeAttached();
   const n = await imgs.count();
   for (let i = 0; i < n; i++) {
     await imgs.nth(i).scrollIntoViewIfNeeded();
