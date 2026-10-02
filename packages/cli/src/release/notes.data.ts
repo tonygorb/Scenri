@@ -105,6 +105,17 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.20.6',
+    date: '2026-10-02',
+    title: 'Two dependencies are on their patched releases',
+    sections: [
+      {
+        heading: 'Security',
+        body: 'The address parser and the file pattern matcher under the local server are on their patched releases, for five published advisories. Nothing about how Scenri works changes.',
+      },
+    ],
+  },
+  {
     version: '0.20.5',
     date: '2026-09-29',
     title: 'One dependency is on its patched release',
