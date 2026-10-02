@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.20.6](https://github.com/tonygorb/Scenri/compare/v0.20.5...v0.20.6) (2026-10-02)
+
+
+### Bug Fixes
+
+* **deps:** lift brace-expansion to 5.0.12 and fast-uri 3.x to 3.1.8 ([382c048](https://github.com/tonygorb/Scenri/commit/382c048581cbb01bfa35865518e63e9cec6f843c))
+* **deps:** lift brace-expansion to 5.0.12 and fast-uri 3.x to 3.1.8 ([b91e09d](https://github.com/tonygorb/Scenri/commit/b91e09d144a655d61da756c01696d74cf7bc1bec))
+
 ## [0.20.5](https://github.com/tonygorb/Scenri/compare/v0.20.4...v0.20.5) (2026-09-29)
 
 
