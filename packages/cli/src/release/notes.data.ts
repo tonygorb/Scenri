@@ -105,6 +105,17 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.20.7',
+    date: '2026-10-03',
+    title: 'A refinement keeps the shot, not the reference',
+    sections: [
+      {
+        heading: 'Refine',
+        body: 'A shot made with a reference picture keeps its own person, product and brand when you refine it. The reference shaped the first picture, and it is not sent again.',
+      },
+    ],
+  },
+  {
     version: '0.20.6',
     date: '2026-10-02',
     title: 'Two dependencies are on their patched releases',
