@@ -62,7 +62,6 @@ import { identityTokenKey, inheritedIdentityTokens } from './editIdentity.js';
 import {
   characterEditIdentityDirective,
   characterFactDirectives,
-  inheritedRefDirective,
   markEditDirective,
   personSkinDirective,
   productEditFidelityDirective,
@@ -928,7 +927,6 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
      */
     const inheritedDirectives: string[] = [];
     let inheritedMark = false;
-    let inheritedRef = false;
     const inheritedProduct = inheritedTokens.some((t) => t.t === 'product');
     const inheritedPerson = inheritedTokens.some((t) => t.t === 'character');
     for (const tok of inheritedTokens) {
@@ -949,12 +947,6 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       } else if (tok.t === 'mark' && !inheritedMark) {
         inheritedMark = true;
         inheritedDirectives.push(markEditDirective());
-      } else if (tok.t === 'ref' && !inheritedRef) {
-        // The one inherited kind that had no scoping sentence: the generic
-        // identity claim called a carried mood image "the same person" while
-        // the adapter called it composition-only. Say what it is for, once.
-        inheritedRef = true;
-        inheritedDirectives.push(inheritedRefDirective());
       }
     }
     // The skin floor is gated on a character TOKEN inside compileBrief, and a
@@ -982,9 +974,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       editScope: verdict.scope,
       editRemoval: verdict.removal ?? false,
       // Kinds, not a count: the identity claim speaks only about the kinds
-      // that actually ride. A mark-only or ref-only inheritance emits no
-      // generic claim - markEditDirective and inheritedRefDirective speak
-      // for themselves.
+      // that actually ride. A mark-only inheritance emits no generic claim.
+      // markEditDirective speaks for the mark. A carried reference photograph
+      // is recorded and not attached, so it emits nothing either.
       inheritedIdentity:
         inheritedProduct || inheritedPerson ? { product: inheritedProduct, person: inheritedPerson } : false,
       inheritedDirectives,
@@ -1011,15 +1003,18 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       // missing from the store. Discarding these meant a refine could shed the
       // brand mark the detail view still lists, with nothing said to anyone.
       identityWarnings = identity.warnings;
-      // Essentials carry the subject; a brand mark or a reference is one image
-      // each and IS the identity being carried — the old essential-only filter
-      // silently dropped an inherited logo while the prompt claimed identity
-      // was preserved. A product borrows one corroboration angle beyond its
-      // essential: a label edit needs the face the frame does not show, and
-      // the allocator only seats the extra angle after every distinct identity
-      // has a seat, so a full frame on a tight budget is unchanged. A
-      // presenter stays at one view — the face in play is already in the
-      // frame, and their second reference competes with the product's label.
+      // Essentials carry the subject; a brand mark is one image and IS the
+      // identity being carried. The old essential-only filter silently dropped
+      // an inherited logo while the prompt claimed identity was preserved. A
+      // reference photograph is not seated: the source frame already holds the
+      // composition it lent, and resending the file copied its subject and
+      // brand (2026-10-03). The token stays on the inherited record. A product
+      // borrows one corroboration angle beyond its essential: a label edit
+      // needs the face the frame does not show, and the allocator only seats
+      // the extra angle after every distinct identity has a seat, so a full
+      // frame on a tight budget is unchanged. A presenter stays at one view.
+      // The face in play is already in the frame, and their second reference
+      // competes with the product's label.
       const productAngles = new Map<string, number>();
       inheritedAttachments = identity.attachments
         .filter((a) => {
@@ -1028,7 +1023,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
             productAngles.set(String(a.id ?? a.hash), n);
             return n <= 2;
           }
-          return a.essential || a.role === 'brand' || a.role === 'reference';
+          return a.essential || a.role === 'brand';
         })
         .map((a) => ({ ...a, inherited: true }));
     }
