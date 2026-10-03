@@ -2342,8 +2342,11 @@ describe('node watchdog', () => {
 });
 
 // The reported contract failure: a refinement claimed identity was preserved
-// while the inherited brand mark and reference never reached the engine, and
-// the record showed none of what was carried.
+// while the inherited brand mark never reached the engine, and the record
+// showed none of what was carried. A reference photo is recorded with that
+// identity, and it is not sent again: the source frame already holds the
+// composition it lent, and resending the photograph copied its subject and
+// brand (2026-10-03).
 describe('a refinement carries marks and references, not just subjects', () => {
   const capture = (maxReferenceImages: number) => {
     const edits: EditRequest[] = [];
@@ -2450,7 +2453,7 @@ describe('a refinement carries marks and references, not just subjects', () => {
     expect(editNode.prompt).not.toContain('The carried reference is attached');
   });
 
-  it('an inherited mark and reference reach the engine, and the record says so', async () => {
+  it('an inherited mark reaches the engine, and a carried reference is recorded but not sent', async () => {
     const { engine, edits } = capture(6);
     const local = track(buildServer({ core, engines: registryWith(engine) }));
     const { brand, projectId, genNode, productHash, logoHash, refHash } = await seed(local);
@@ -2471,24 +2474,29 @@ describe('a refinement carries marks and references, not just subjects', () => {
     const editNode = await waitDoneOn(local, edit.json().id);
     expect(editNode.status).toBe('done');
 
-    // the engine received all three carried images, with their real roles
+    // the product and the mark ride; the reference photograph does not
     const req = edits[0];
+    const refPath = core.images.pathFor(refHash);
     expect(req.referenceImages).toContain(core.images.pathFor(productHash));
     expect(req.referenceImages).toContain(core.images.pathFor(logoHash));
-    expect(req.referenceImages).toContain(core.images.pathFor(refHash));
-    expect(req.referenceRoles).toEqual(expect.arrayContaining(['product', 'brand', 'reference']));
+    expect(req.referenceImages).not.toContain(refPath);
+    expect(req.referenceRoles).toEqual(expect.arrayContaining(['product', 'brand']));
+    expect(req.referenceRoles).not.toContain('reference');
+    expect((req.referenceImages ?? []).some((p, i) => p === refPath || req.referenceRoles?.[i] === 'reference')).toBe(
+      false,
+    );
 
-    // the record keeps what was carried apart from what was asked
+    // the record keeps what was carried apart from what was asked, including
+    // the reference the original shot used
     const brief = editNode.brief as any;
     expect(brief.tokens).toEqual([{ t: 'text', v: 'warmer light' }]);
     expect((brief.inherited ?? []).map((t: any) => t.t).sort()).toEqual(['mark', 'product', 'ref']);
 
-    // the carried mood image is scoped, not claimed as the subject: the
-    // identity sentence names only the product (no person rode), and the ref
-    // gets its own composition-only sentence
+    // the identity sentence names only the product (no person rode), and the
+    // prompt does not claim a reference photograph is attached
     expect(editNode.prompt).toContain('the same product that is already in this picture');
     expect(editNode.prompt).not.toContain('and the same person');
-    expect(editNode.prompt).toContain('The carried reference is attached for composition, lighting and treatment only');
+    expect(editNode.prompt).not.toContain('The carried reference is attached');
 
     // and the preview with a parent tells the same story before sending
     const preview = await local.inject({
@@ -2508,7 +2516,30 @@ describe('a refinement carries marks and references, not just subjects', () => {
         .filter((a) => a.inherited)
         .map((a) => a.role)
         .sort(),
-    ).toEqual(['brand', 'product', 'reference']);
+    ).toEqual(['brand', 'product']);
+
+    // the token sitting on the first refine cannot put the file back
+    const again = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        parentId: editNode.id,
+        kind: 'edit',
+        engineId: 'cap-spy',
+        sourceImage: editNode.images[0],
+        brief: { tokens: [{ t: 'text', v: 'cooler light' }] },
+      },
+    });
+    expect(again.statusCode).toBe(202);
+    const againNode = await waitDoneOn(local, again.json().id);
+    expect(againNode.status).toBe('done');
+    const againReq = edits[1];
+    expect(againReq.referenceImages).toContain(core.images.pathFor(productHash));
+    expect(againReq.referenceImages).toContain(core.images.pathFor(logoHash));
+    expect(againReq.referenceImages).not.toContain(refPath);
+    expect(againReq.referenceRoles).not.toContain('reference');
+    expect((againNode.brief as any).inherited.map((t: any) => t.t).sort()).toEqual(['mark', 'product', 'ref']);
 
     // without a parent the preview is exactly what it always was
     const bare = await local.inject({
@@ -2977,17 +3008,18 @@ describe('a refinement chain keeps the whole identity record', () => {
   });
 
   it('a full frame on a tight budget degrades the extra angle quietly', { timeout: 20_000 }, async () => {
-    // Four images total, the source frame keeps one: product essential, mark
-    // and reference are seated, the corroboration angle is not - and the
-    // warning must not read as though the product itself was left out.
-    const { engine, edits } = capture(4);
+    // The source frame keeps one seat. Product and mark take the two that
+    // remain; the corroboration angle does not. A carried reference
+    // photograph is not a candidate for a seat. The warning must not read
+    // as though the product itself was left out.
+    const { engine, edits } = capture(3);
     const local = track(buildServer({ core, engines: registryWith(engine) }));
     try {
       const { projectId, genNode, productHash, angleHash, logoHash, refHash } = await seedChain(local, 2, true);
       const { warnings } = await refineOf(local, projectId, genNode, 'a more editorial and cinematic feel');
       expect(edits[0].referenceImages).toContain(core.images.pathFor(productHash));
       expect(edits[0].referenceImages).toContain(core.images.pathFor(logoHash));
-      expect(edits[0].referenceImages).toContain(core.images.pathFor(refHash));
+      expect(edits[0].referenceImages).not.toContain(core.images.pathFor(refHash));
       expect(edits[0].referenceImages).not.toContain(core.images.pathFor(angleHash));
       expect(warnings.join(' ')).not.toContain('House Blend');
     } finally {

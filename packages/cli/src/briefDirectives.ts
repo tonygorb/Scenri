@@ -183,24 +183,6 @@ export function inheritedIdentityDirective(kinds?: { product?: boolean; person?:
 }
 
 /**
- * What a carried mood reference is for on a refinement.
- *
- * A ref token inherited from the original generation rides the edit
- * (editIdentity.ts), but the per-identity loop had no branch for it: the
- * generic inherited-identity sentence called it "the same person" while the
- * adapter called it composition-only - two claims about one image that may
- * contain a stranger's face. This states the scope once, in the compiler's
- * own voice, after the identity claim so it wins positionally.
- */
-export function inheritedRefDirective(): string {
-  return (
-    'The carried reference is attached for composition, lighting and treatment only. Any person or product ' +
-    'visible in it lends mood, never identity — nobody and nothing in this photograph takes a face, a body or ' +
-    'a design from it.'
-  );
-}
-
-/**
  * The facts a product record states about itself, byte for byte as the
  * compiler has always emitted them — lifted out of the token loop so a
  * refinement can state the same facts about an identity it inherited. The

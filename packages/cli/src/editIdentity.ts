@@ -63,11 +63,12 @@ export interface InheritedIdentity {
  * ancestor that has any — where "has any" reads the node's own tokens AND the
  * `inherited` record its brief carries, deduped, own tokens first.
  *
- * References ride too: a mood image the user attached on the first
- * generation is as much a part of the thread's identity as the product is,
- * and a refine that silently forgot it was the reported contract failure.
- * The attachment budget still decides what actually fits an engine's cap;
- * this only decides what the refinement KNOWS about.
+ * A reference token stays on this list. A mood image the user attached on
+ * the first generation is part of what the thread knows, and reuse setup
+ * still rebuilds it for a new generation. The pixels are not sent again on
+ * a refinement: the source frame already holds the composition, and
+ * resending the photograph copied its subject and brand (2026-10-03).
+ * This only decides what the refinement KNOWS about.
  *
  * Returns an empty list rather than throwing when the thread has none, which
  * is the ordinary case for a shot made from a bare sentence.
