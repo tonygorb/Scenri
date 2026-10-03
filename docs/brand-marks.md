@@ -1,6 +1,7 @@
 # Brand marks in generation
 
-What Scenri promises about a brand logo, stated once.
+The generation contract. How to add a logo, an alternate, or a colour is in
+[Brand kit](BRAND.md). What Scenri promises about a logo, stated once:
 
 A brand mark reaches a model exactly one way: the user places a mark chip in the brief, and the
 compiler attaches the original stored PNG (content-addressed, full resolution, never a thumbnail)

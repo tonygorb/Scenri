@@ -41,3 +41,5 @@ Code reads `.claude/skills/`, Codex and Cursor read `.agents/skills/`, and in a 
 the primary's copy.
 
 Everything else, from setup to what CI runs, is in `CONTRIBUTING.md`.
+
+A change a person using Scenri would notice is a docs change too. `docs/impact.md` names the pages, `node packages/cli/scripts/docs-impact.mjs` prints the areas a diff might touch, and the `public-docs` skill is the workflow. A release with nothing for readers records `No public docs impact: <reason>`.

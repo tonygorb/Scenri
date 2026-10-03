@@ -42,7 +42,7 @@ drawing a product or a face that only looks right: the refusal says the engine c
 reference images and asks you to choose another engine or remove that chip. A logo on those engines
 rides as words only, and the composer says so before you send.
 
-Scenri needs Codex CLI 0.157.1 or newer; the [install guide](INSTALL.md#troubleshooting) covers
+Scenri needs Codex CLI 0.157.1 or newer; [troubleshooting](TROUBLESHOOTING.md) covers
 updating it.
 
 ## What does it cost?
@@ -67,7 +67,7 @@ No, and Scenri does not pretend it is. A new shot is generative reproduction: Sc
 product's own photos (and your logo, when its chip is in the prompt) as reference images, and the
 model redraws them. Scenri guarantees the right pictures reach the model, not that the model's
 rendering is pixel-faithful, so a product can come out slightly different from its photos and
-lettering can change shape. The full statement for logos is in [brand-marks.md](brand-marks.md).
+lettering can change shape. The full statement for logos is in [Brand kit](BRAND.md).
 
 Two operations do keep original pixels, restored on your computer rather than redrawn by the
 engine. Refining one part of a finished shot (adding a prop, removing an object) keeps everything
