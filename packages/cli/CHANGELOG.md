@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.20.7](https://github.com/tonygorb/Scenri/compare/v0.20.6...v0.20.7) (2026-10-03)
+
+
+### Bug Fixes
+
+* keep a parent's reference photo off a refinement ([6d74815](https://github.com/tonygorb/Scenri/commit/6d74815fdcdb246ef7c7038a639a20a63042ea29))
+* keep a parent's reference photo off a refinement ([0acd180](https://github.com/tonygorb/Scenri/commit/0acd18031c72c9aeabd971fd72e140a88006accb))
+
 ## [0.20.6](https://github.com/tonygorb/Scenri/compare/v0.20.5...v0.20.6) (2026-10-02)
 
 
