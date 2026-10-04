@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.21.1](https://github.com/tonygorb/Scenri/compare/v0.21.0...v0.21.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* let the new example packshots through the package check ([45a0174](https://github.com/tonygorb/Scenri/commit/45a017453fed5d5a206e27d9e585a0d0b31ace95))
+* let the new example packshots through the package check ([6eef8f8](https://github.com/tonygorb/Scenri/commit/6eef8f8b44c06bd53db3052f4423475f2befc394))
+
 ## [0.21.0](https://github.com/tonygorb/Scenri/compare/v0.20.7...v0.21.0) (2026-10-04)
 
 
