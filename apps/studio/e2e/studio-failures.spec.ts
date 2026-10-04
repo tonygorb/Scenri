@@ -56,10 +56,14 @@ async function drawn(p: Page, slug: string, name: string) {
 }
 
 test('a change that fails on the page says why, keeps the picture it had, and every way on stays', async ({ page }) => {
+  // The suite's own limit is 20s. Rewriting the place, then the refused edit,
+  // has used that up on a loaded runner and the run went red while the refusal
+  // was still on its way. The out-of-sight case below already allows 75s.
+  test.setTimeout(75_000);
   const slug = await brandSlug(page);
   await drawn(page, slug, 'Refused Cyc');
   await say(page, 'make the floor darker');
-  await expect(studio(page)).toContainText('refused', { timeout: 20_000 });
+  await expect(studio(page)).toContainText('refused', { timeout: 45_000 });
   // the words it read stand, with nothing drawn for them yet, and drawing is one press
   await expect(openQ(page)).toHaveAttribute('data-turn', /^q:(agree|decide)-/);
   await expect(line(page)).toBeEnabled();
