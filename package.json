@@ -30,7 +30,8 @@
   },
   "pnpm": {
     "overrides": {
-      "tsup>esbuild": ">=0.28.1"
+      "tsup>esbuild": ">=0.28.1",
+      "@fastify/busboy": "3.2.1"
     }
   },
   "devDependencies": {
