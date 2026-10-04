@@ -105,6 +105,25 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.21.0',
+    date: '2026-10-04',
+    title: 'New examples on Home, and Refine has its own look',
+    sections: [
+      {
+        heading: 'Examples',
+        body: 'Eighteen new examples sit on Home, each a real product in a real place. Wet Ribs joins the scenes: wet orange ribbed rubber under a hard sun.',
+      },
+      {
+        heading: 'Refine',
+        body: 'While a shot is being refined, the button is the light pill. Closing that state on the composer clears only the refinement, and the shot stays.',
+      },
+      {
+        heading: 'Security',
+        body: 'The reader that takes uploaded files on the local server is on its patched release, for two denial-of-service advisories. Nothing about how Scenri works changes.',
+      },
+    ],
+  },
+  {
     version: '0.20.7',
     date: '2026-10-03',
     title: 'A refinement keeps the shot, not the reference',
