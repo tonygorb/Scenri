@@ -6,6 +6,7 @@ settings:
 
 overrides:
   tsup>esbuild: '>=0.28.1'
+  '@fastify/busboy': 3.2.1
 
 importers:
 
@@ -880,8 +881,8 @@ packages:
   '@fastify/ajv-compiler@4.0.6':
     resolution: {integrity: sha512-NtuzM0SfaMJbGlnjr9LWQUN5LzgSrbB8tf/wRZNas+4E1O/Nmzl53e7ruT61HDZyRCJGC6FxIogmNZO1c5ETBA==}
 
-  '@fastify/busboy@3.2.0':
-    resolution: {integrity: sha512-m9FVDXU3GT2ITSe0UaMA5rU3QkfC/UXtCU8y0gSN/GugTqtVldOBWIB5V6V3sbmenVZUIpU6f+mPEO2+m5iTaA==}
+  '@fastify/busboy@3.2.1':
+    resolution: {integrity: sha512-tgK4O+57iz5ycYNGXE5ZWj1ES03lD2XnnBYWSbU/3wYZRMQzCUq7Ycds/RdyBZQeL5MU4fxBt6lzbIWf/Bickw==}
 
   '@fastify/deepmerge@3.2.1':
     resolution: {integrity: sha512-N5Oqvltoa2r9z1tbx4xjky0oRR60v+T47Ic4J1ukoVQcptLOrIdRnCSdTGmOmajZuHVKlTnfcmrjyqsGEW1ztA==}
@@ -3717,7 +3718,7 @@ snapshots:
       ajv-formats: 3.0.1(ajv@8.20.0)
       fast-uri: 4.2.1
 
-  '@fastify/busboy@3.2.0': {}
+  '@fastify/busboy@3.2.1': {}
 
   '@fastify/deepmerge@3.2.1': {}
 
@@ -3735,7 +3736,7 @@ snapshots:
 
   '@fastify/multipart@9.4.0':
     dependencies:
-      '@fastify/busboy': 3.2.0
+      '@fastify/busboy': 3.2.1
       '@fastify/deepmerge': 3.2.1
       '@fastify/error': 4.2.0
       fastify-plugin: 5.1.0
