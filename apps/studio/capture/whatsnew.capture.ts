@@ -210,6 +210,26 @@ test('0.20.0-made-in-place', async ({ page, request }) => {
   await shootIsolated(page, '0.20.0-made-in-place', ids.map(tile), { room });
 });
 
+test('0.21.0-home-examples', async ({ page, request }) => {
+  // window: Home at the examples, the new ones in the first row of the wall.
+  const { slug } = await brand(request);
+  await page.setViewportSize(WINDOW);
+  await prep(page, 'dark');
+  await page.goto(`/${slug}`);
+  await expect(page.locator('.sc-masonry[data-wall] img').first()).toBeVisible();
+  const tabs = page.getByRole('tablist', { name: 'Categories' });
+  await expect(tabs.getByText('All examples', { exact: true })).toBeVisible();
+  await scrollBy(page, tabs, (await box(tabs, 'the row of kinds')).y - ((await topBarBottom(page)) + 12));
+  const row = await railOf(tabs);
+  expect(row.tabs.map((t) => t.label)[0]).toMatch(/^All examples/);
+  for (const t of row.tabs) expect(t.right <= row.right - 8 || t.left >= row.right, `${t.label} is cut`).toBe(true);
+  const at = await box(tabs, 'the row of kinds');
+  expect(at.y).toBeGreaterThanOrEqual(await topBarBottom(page));
+  expect(row.left).toBeGreaterThanOrEqual(0);
+  await expect(page.getByText('Olea Hand Cream from the tote')).toBeVisible();
+  await shootWindow(page, '0.21.0-home-examples');
+});
+
 test('0.19.0-home-examples', async ({ page, request }) => {
   // window: Home scrolled to the examples, their kinds just under the top bar, the wall below and
   // the composer floating at the bottom, as the window shows them.

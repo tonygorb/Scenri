@@ -112,6 +112,10 @@ export const RELEASES: ReleaseEntry[] = [
       {
         heading: 'Examples',
         body: 'Eighteen new examples sit on Home, each a real product in a real place. Wet Ribs joins the scenes: wet orange ribbed rubber under a hard sun.',
+        image: {
+          file: '0.21.0-home-examples.webp',
+          alt: 'Home open on All examples, the wall showing Oléa Hand Cream and Halvard 12 among the shots.',
+        },
       },
       {
         heading: 'Refine',
