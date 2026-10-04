@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.21.0](https://github.com/tonygorb/Scenri/compare/v0.20.7...v0.21.0) (2026-10-04)
+
+
+### Features
+
+* bring the website examples and Wet Ribs into the studio ([a859481](https://github.com/tonygorb/Scenri/commit/a859481cf33f1a0f2cd724c0adca23a68ba9c5ca))
+* bring the website examples and Wet Ribs into the studio ([013aead](https://github.com/tonygorb/Scenri/commit/013aeadc4e1aca23ee1bef816ba743dbab001ade))
+
+
+### Bug Fixes
+
+* patch the multipart reader against two denial-of-service advisories ([adbf2d3](https://github.com/tonygorb/Scenri/commit/adbf2d30ff8d7e582f0d43d49820e3732194b1d7))
+* patch the multipart reader against two denial-of-service advisories ([b854c58](https://github.com/tonygorb/Scenri/commit/b854c58529fdb84a1e922ffbfca70fe32bf4c071))
+
 ## [0.20.7](https://github.com/tonygorb/Scenri/compare/v0.20.6...v0.20.7) (2026-10-03)
 
 
