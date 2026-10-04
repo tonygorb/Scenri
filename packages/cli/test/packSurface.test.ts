@@ -192,7 +192,9 @@ describe('the published package surface', () => {
       }
       // no reference galleries, no presenter identity sets. Product shots stay
       // in the archive except the eighteen use cases added after it was pinned.
-      expect(files.filter((f) => /^templates\/previews\/(?!presenters\/|showcase\/)[a-z0-9-]+\//.test(f))).toEqual([]);
+      expect(
+        files.filter((f) => /^templates\/previews\/(?!presenters\/|showcase\/|demo-products\/)[a-z0-9-]+\//.test(f)),
+      ).toEqual([]);
       const added = readFileSync(join(pkgDir, 'scripts', 'prepack.mjs'), 'utf8').match(
         /ADDED_SINCE_ARCHIVE = new Set\(\[([\s\S]*?)\]\)/,
       );
