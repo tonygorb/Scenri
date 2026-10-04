@@ -105,6 +105,17 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.21.1',
+    date: '2026-10-04',
+    title: "The new examples' product photos ship with the app",
+    sections: [
+      {
+        heading: 'Examples',
+        body: 'Each of the eighteen new examples brings its own product photo, so a shot that uses one starts from that photo.',
+      },
+    ],
+  },
+  {
     version: '0.21.0',
     date: '2026-10-04',
     title: 'New examples on Home, and Refine has its own look',
