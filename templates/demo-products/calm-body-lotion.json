@@ -1,0 +1,13 @@
+{
+  "id": "calm-body-lotion",
+  "name": "Calm Body Lotion",
+  "promptName": "Sage green bottle of Havn body lotion",
+  "brand": "Havn",
+  "format": "body lotion bottle",
+  "legacyNames": ["Sage green bottle of Havn body lotion"],
+  "keywords": ["lotion", "body lotion", "bottle", "skincare", "beauty", "sage"],
+  "category": "beauty",
+  "description": "A sage green bottle of body lotion.",
+  "width": 1024,
+  "height": 1280
+}

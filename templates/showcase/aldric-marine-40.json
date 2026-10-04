@@ -1,0 +1,29 @@
+{
+  "id": "aldric-marine-40",
+  "title": "Aldric Marine 40 against the sky",
+  "category": "catalog",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "aldric-marine-40"
+      },
+      {
+        "t": "text",
+        "v": " Aldric Marine 40 lying on its side on the edge of a sun-bleached white plaster ledge, the bracelet curled naturally behind it, seen from a low angle at ledge height against a bright blue sky with soft white clouds, hard summer sun with a crisp shadow and a bright glint on the steel, the dial sharp to the lens, 100mm macro, a watch campaign photograph."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 81,
+  "family": "place"
+}

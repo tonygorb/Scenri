@@ -1,0 +1,15 @@
+{
+  "id": "wet-ribs",
+  "name": "Wet Ribs",
+  "promptName": "Wet Ribs",
+  "keywords": ["wet", "ribs", "rubber", "droplets", "orange", "hard light", "overhead", "studio"],
+  "description": "Wet orange ribbed rubber under a hard sun, water droplets sitting in the grooves.",
+  "lighting": "Hard direct sun, crisp shadows in the grooves",
+  "subject": "product",
+  "collections": ["Colored backgrounds", "Studio"],
+  "verticals": ["Beauty", "Home", "Food & drink"],
+  "prompt": "A bright orange ribbed rubber surface, deep rounded ribs running in bold diagonal curves, covered in beads of water droplets. Seen from directly above, the whole surface filling the frame.",
+  "width": 1024,
+  "height": 1280,
+  "cover": "hero"
+}

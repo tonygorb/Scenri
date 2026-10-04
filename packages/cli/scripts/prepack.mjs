@@ -80,6 +80,30 @@ const STARTER_SHOWCASE = new Set([
 // corrected picture ships here until an archive carries it, then leaves this list.
 const REDRAWN_SINCE_ARCHIVE = new Set(['court-72-checker-sit']);
 
+// Use cases added after the pinned archive. The npm package carries their
+// heroes and the one real packshot until a content archive includes them.
+// A bundled file wins over the download (src/content/overlay.ts).
+const ADDED_SINCE_ARCHIVE = new Set([
+  'halvard-12',
+  'kultur-kefir',
+  'ondine-serum',
+  'brume-08',
+  'nuit-cream',
+  'nami-sparkling',
+  'barrier-balm',
+  'velin-silk-wash',
+  'melo-peach-tea',
+  'calm-body-lotion',
+  'aldric-marine-40',
+  'soleado-lemon',
+  'sora-sandal',
+  'pli-bag',
+  'verdo-greens',
+  'dune-candle',
+  'clairfont-rose',
+  'olea-hand-cream',
+]);
+
 const scenesSrc = join(repo, 'templates');
 if (!existsSync(scenesSrc)) fail('templates/ is missing');
 const scenesDest = join(pkg, 'templates');
@@ -117,12 +141,21 @@ copyInto(
   jpgsOf(join(scenesSrc, 'previews', 'presenters')),
 );
 // the starter wall heroes, and any hero redrawn since the archive
-const bundledHero = (id) => STARTER_SHOWCASE.has(id) || REDRAWN_SINCE_ARCHIVE.has(id);
+const bundledHero = (id) => STARTER_SHOWCASE.has(id) || REDRAWN_SINCE_ARCHIVE.has(id) || ADDED_SINCE_ARCHIVE.has(id);
 copyInto(
   join(scenesSrc, 'previews', 'showcase'),
   join(scenesDest, 'previews', 'showcase'),
   jpgsOf(join(scenesSrc, 'previews', 'showcase')).filter((f) => bundledHero(f.replace(/\.jpg$/, ''))),
 );
+// The new products' one real reference. The rest of the product library stays
+// in the archive; these eighteen are not in it yet.
+for (const id of ADDED_SINCE_ARCHIVE) {
+  const shot = join(scenesSrc, 'previews', 'demo-products', id, 'three-quarter.jpg');
+  if (!existsSync(shot)) fail(`added product is missing its packshot: ${id}`);
+  const dest = join(scenesDest, 'previews', 'demo-products', id);
+  mkdirSync(dest, { recursive: true });
+  cpSync(shot, join(dest, 'three-quarter.jpg'));
+}
 console.log('prepack: copied the catalog and starter imagery');
 
 // 4. legal files, which `files` also cannot reach above the package root for.

@@ -1,0 +1,13 @@
+{
+  "id": "nuit-cream",
+  "name": "Nuit Cream",
+  "promptName": "Jar of Klère Nuit night cream",
+  "brand": "Klère",
+  "format": "night cream jar",
+  "legacyNames": ["Jar of Klère Nuit night cream"],
+  "keywords": ["cream", "night cream", "jar", "skincare", "beauty", "moisturizer"],
+  "category": "beauty",
+  "description": "A jar of night cream.",
+  "width": 1024,
+  "height": 1280
+}

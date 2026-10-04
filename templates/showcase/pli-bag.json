@@ -1,0 +1,33 @@
+{
+  "id": "pli-bag",
+  "title": "Pli Bag in blind-striped sun",
+  "category": "editorial",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "pli-bag"
+      },
+      {
+        "t": "character",
+        "id": "anaya"
+      },
+      {
+        "t": "text",
+        "v": " Anaya's hands holding the Pli Bag up against a warm plaster wall, only her hands, forearms and the bag in frame, hard afternoon sun through window blinds striping the wall and the leather, the bag razor sharp, 50mm, a leather goods campaign photograph."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 100,
+  "family": "human"
+}

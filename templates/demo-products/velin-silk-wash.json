@@ -1,0 +1,13 @@
+{
+  "id": "velin-silk-wash",
+  "name": "Velin Silk Wash",
+  "promptName": "Pink ribbed bottle of Velin body wash",
+  "brand": "Velin",
+  "format": "body wash bottle",
+  "legacyNames": ["Pink ribbed bottle of Velin body wash"],
+  "keywords": ["body wash", "wash", "bottle", "skincare", "beauty", "ribbed"],
+  "category": "beauty",
+  "description": "A pink ribbed bottle of body wash.",
+  "width": 1024,
+  "height": 1280
+}

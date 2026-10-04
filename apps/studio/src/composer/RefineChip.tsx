@@ -15,6 +15,9 @@ import { Rendering } from '../layout/Rendering.js';
  * A leaf on purpose. The hover peek used to be state on the composer itself,
  * so resting the pointer on this chip re-rendered the whole composer, its
  * brief line, its settings and its source cards, twice per hover.
+ *
+ * The open control and the remove control are sibling buttons. A button
+ * cannot hold another button, and the X must not also open the picture.
  */
 export function RefineChip({
   target,
@@ -46,56 +49,45 @@ export function RefineChip({
   }, [image, hover.closeNow, onOpenImage]);
   return (
     <>
-      {/* biome-ignore lint/a11y/useSemanticElements: a <button> cannot hold the remove <button> the chip pattern floats over its right edge; the sentence's own chips are the same span-as-button */}
-      <span
-        className="sc-token sc-target-chip"
-        role="button"
-        tabIndex={0}
-        aria-haspopup="dialog"
-        aria-label={
-          onClear
-            ? `Version being refined: ${name}. Open the image, or remove to make a new shot.`
-            : `Version being refined: ${name}. Open the image.`
-        }
-        onPointerEnter={(e) => {
-          if (e.pointerType === 'mouse' && image) hover.open({ anchor: e.currentTarget });
-        }}
-        onPointerLeave={(e) => e.pointerType === 'mouse' && hover.close()}
-        onClick={open}
-        onKeyDown={(e) => {
-          // the X inside bubbles its keys up here; only the chip's own
-          if (e.target !== e.currentTarget) return;
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            open();
-          }
-        }}
-      >
-        {/* a version that has just been asked for has no picture yet, and
-            the same swirl the feed uses says so without a second word, inside
-            a box of its own so it never crosses the whole chip */}
-        {image ? (
-          <img src={thumbUrl(image, 'micro')} alt="" />
-        ) : (
-          <span className="sc-target-thumb">
-            <Rendering />
-          </span>
-        )}
-        Refining
+      <div className="sc-token sc-target-chip">
+        <button
+          type="button"
+          className="sc-target-open"
+          aria-haspopup="dialog"
+          aria-label={`Version being refined: ${name}. Open the image.`}
+          onPointerEnter={(e) => {
+            if (e.pointerType === 'mouse' && image) hover.open({ anchor: e.currentTarget });
+          }}
+          onPointerLeave={(e) => e.pointerType === 'mouse' && hover.close()}
+          onClick={open}
+        >
+          {/* a version that has just been asked for has no picture yet, and
+              the same swirl the feed uses says so without a second word, inside
+              a box of its own so it never crosses the whole chip */}
+          {image ? (
+            <img src={thumbUrl(image, 'micro')} alt="" />
+          ) : (
+            <span className="sc-target-thumb">
+              <Rendering />
+            </span>
+          )}
+          Refining
+        </button>
         {onClear && (
           <button
             type="button"
+            className="sc-target-x"
+            aria-label="Make a new shot instead"
             onClick={(e) => {
               e.stopPropagation();
               hover.closeNow();
               onClear();
             }}
-            aria-label="Make a new shot instead"
           >
             <X size={12} />
           </button>
         )}
-      </span>
+      </div>
       {/* The chip's hover peek: the same card a sentence chip gets. */}
       {hover.shown && image && (
         <ChipPreview

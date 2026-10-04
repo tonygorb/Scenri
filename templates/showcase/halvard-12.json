@@ -1,0 +1,29 @@
+{
+  "id": "halvard-12",
+  "title": "Halvard 12 bound in hemp",
+  "category": "food-drink",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "halvard-12"
+      },
+      {
+        "t": "text",
+        "v": " Halvard 12 upright and bound tight in heavy coils of hemp rope crossing in front of the bottle, against a smooth warm brown backdrop, one soft overhead light, the label readable between the ropes, at bottle height, 85mm."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 4,
+  "family": "material"
+}

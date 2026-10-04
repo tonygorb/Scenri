@@ -133,7 +133,10 @@ test("the strip is the root's whole history, whichever version is on the stage",
   // here to refine)
   const refining = page.locator('.sc-ovl-edit .sc-target-chip');
   await expect(refining.locator('img')).toHaveAttribute('src', thumbOf(shots.b1));
-  await expect(refining.locator('button')).toHaveCount(0);
+  // The open control is a button. The remove control is not: inside the
+  // shot there is nothing else to refine, so the chip has no X.
+  await expect(refining.locator('button[aria-label="Make a new shot instead"]')).toHaveCount(0);
+  await expect(refining.locator('button[aria-label^="Version being refined"]')).toHaveCount(1);
 
   // the keys walk the trail from the ringed tile; a step made from an earlier
   // one than the tile before it says so on its card (B2 was made from B, not B1)

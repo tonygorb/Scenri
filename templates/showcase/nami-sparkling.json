@@ -1,0 +1,33 @@
+{
+  "id": "nami-sparkling",
+  "title": "Odette and Nami Sparkling",
+  "category": "social",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "nami-sparkling"
+      },
+      {
+        "t": "character",
+        "id": "odette"
+      },
+      {
+        "t": "text",
+        "v": " Odette in a pink bomber jacket and white sunglasses reaches one hand toward the lens in a bright sky-blue tiled room, Nami Sparkling standing large and sharp on the tiled floor in the foreground, label to the lens, a wide-angle low view, hard clean studio light, 24mm, a playful drinks social story."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 45,
+  "family": "human"
+}

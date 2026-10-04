@@ -1,0 +1,33 @@
+{
+  "id": "sora-sandal",
+  "title": "Liv in the orange armchair",
+  "category": "editorial",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "sora-sandal"
+      },
+      {
+        "t": "character",
+        "id": "liv"
+      },
+      {
+        "t": "text",
+        "v": " Liv lounging sideways in a low orange leather armchair on a bare white studio floor, full length, legs crossed toward the lens, cream linen trousers and Sora Sandal, a calm unposed look, soft window light, wide empty white space around her, 35mm."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 94,
+  "family": "human"
+}

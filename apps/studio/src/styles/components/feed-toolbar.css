@@ -472,24 +472,28 @@
   font-size: var(--sc-text-body);
   font-weight: 600;
   line-height: 1.3;
-  cursor: pointer;
   /* centred, not on the sentence's baseline: this chip is not in a line of
      text, and its label, its 18px still and its X share one middle */
   align-items: center;
-  gap: var(--sc-space-2);
+  gap: 0;
   padding: var(--sc-space-1);
   border-radius: var(--sc-radius-md);
   background: var(--sc-refine-bg);
   box-shadow: none;
   color: var(--sc-refine-fg);
+  /* the sentence chip caps itself at 24ch and clips; this label is one word
+     and the focus ring has to clear the box */
+  max-width: none;
+  overflow: visible;
 }
 /* Without an X the label is the chip's right edge, and it needs the room the
    X used to take: inside an open shot the chip has none. */
-.sc-target-chip:not(:has(> button)) {
+.sc-target-chip:not(:has(.sc-target-x)) {
   padding-inline-end: var(--sc-space-4);
 }
-.sc-target-chip:hover,
-:where(:root:not([data-input="pointer"])) .sc-target-chip:focus-visible {
+/* The open control and the X are siblings, so resting on the X does not
+   light the whole chip. */
+.sc-target-chip:hover:not(:has(.sc-target-x:hover)) {
   background: color-mix(in srgb, var(--sc-refine-fg) 8%, var(--sc-refine-bg));
 }
 .sc-target-chip img {
@@ -498,27 +502,50 @@
   border-radius: var(--sc-radius-sm);
   object-fit: cover;
 }
-/* The X is part of the chip's own anatomy here, in flow and always visible,
-   never the floating fade the sentence chips use. */
+/* The sentence chip's X is an absolutely positioned fade. These two buttons
+   are not that: both stay in flow, and the remove control is always visible. */
 .sc-target-chip > button {
   position: static;
-  width: 16px;
-  height: 16px;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  align-self: center;
+  inset: auto;
+  width: auto;
+  height: auto;
   opacity: 1;
+  border: none;
   background: none;
-  color: var(--sc-refine-fg);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+  pointer-events: auto;
 }
 .sc-target-chip > button::before {
   content: none;
 }
-.sc-target-chip > button:hover {
+.sc-target-open {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  min-width: 0;
+}
+/* The glyph stays 12px. The button is the hit target. */
+.sc-target-chip > .sc-target-x {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  flex: none;
+  color: var(--sc-refine-fg);
+}
+.sc-target-chip > .sc-target-x:hover {
   color: var(--sc-refine-fg);
   opacity: 0.6;
+}
+:where(:root:not([data-input="pointer"])) .sc-target-open:focus-visible,
+:where(:root:not([data-input="pointer"])) .sc-target-x:focus-visible {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
 }
 
 .sc-target-thumb {

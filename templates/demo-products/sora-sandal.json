@@ -1,0 +1,13 @@
+{
+  "id": "sora-sandal",
+  "name": "Sora Sandal",
+  "promptName": "Blush suede heeled sandal",
+  "brand": "Sora",
+  "format": "suede sandal",
+  "legacyNames": ["Blush suede heeled sandal"],
+  "keywords": ["sandal", "suede", "footwear", "heel", "shoe", "blush"],
+  "category": "footwear",
+  "description": "A blush suede sandal.",
+  "width": 1024,
+  "height": 1280
+}

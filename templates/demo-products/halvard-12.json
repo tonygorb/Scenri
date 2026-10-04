@@ -1,0 +1,13 @@
+{
+  "id": "halvard-12",
+  "name": "Halvard 12",
+  "promptName": "Clear glass bottle of Halvard 12 single malt",
+  "brand": "Halvard",
+  "format": "single malt bottle",
+  "legacyNames": ["Clear glass bottle of Halvard 12 single malt"],
+  "keywords": ["whisky", "single malt", "bottle", "spirits", "glass", "scotch"],
+  "category": "beverage",
+  "description": "A clear glass bottle of single malt whisky.",
+  "width": 1024,
+  "height": 1280
+}

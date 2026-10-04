@@ -1,0 +1,29 @@
+{
+  "id": "soleado-lemon",
+  "title": "Soleado Lemon in a net of lemons",
+  "category": "food-drink",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "soleado-lemon"
+      },
+      {
+        "t": "text",
+        "v": " Seen from directly above, Soleado Lemon lying in a yellow string net bag full of lemons, a few lemons spilling out onto a green surface, hard midday sun and crisp shadows, the label sharp, 50mm, a drinks campaign photograph."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 87,
+  "family": "botanical"
+}

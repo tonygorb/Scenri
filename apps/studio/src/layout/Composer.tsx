@@ -1876,6 +1876,7 @@ export const Composer = forwardRef<
             <button
               type="button"
               className="sc-send"
+              data-refine={mode === 'edit' ? '' : undefined}
               data-guide={guided ? 'compose.send' : undefined}
               // aria-disabled: a native disabled button drops out of the tab
               // order, taking its title — often the one thing explaining why

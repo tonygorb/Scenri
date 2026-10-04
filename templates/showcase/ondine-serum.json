@@ -1,0 +1,29 @@
+{
+  "id": "ondine-serum",
+  "title": "Ondine Serum in a glowing niche",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "ondine-serum"
+      },
+      {
+        "t": "text",
+        "v": " Ondine Serum standing in a glowing arched wall niche, coral light pouring through the frosted glass from behind, the plaster wall around it in deep shadow, a thin highlight down the bottle, at product height, 85mm, a skincare campaign photograph."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 23,
+  "family": "studio"
+}

@@ -1,0 +1,13 @@
+{
+  "id": "brume-08",
+  "name": "Brume 08",
+  "promptName": "Glass bottle of Brume 08 fragrance",
+  "brand": "Brume",
+  "format": "fragrance bottle",
+  "legacyNames": ["Glass bottle of Brume 08 fragrance"],
+  "keywords": ["fragrance", "perfume", "bottle", "glass", "campaign", "meadow"],
+  "category": "fragrance",
+  "description": "A bottle of fragrance.",
+  "width": 1024,
+  "height": 1280
+}

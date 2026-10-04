@@ -32,7 +32,7 @@ describe('shipped demo product catalog', () => {
   it('every shipped product carries a frozen promptName', () => {
     const { demoProducts, warnings } = loadDemoProducts();
     expect(warnings).toEqual([]);
-    expect(demoProducts).toHaveLength(30);
+    expect(demoProducts).toHaveLength(48);
     for (const p of demoProducts) {
       expect(p.promptName, `${p.id} has no promptName`).toBeTruthy();
     }

@@ -449,7 +449,7 @@ test('scenes sit out while a refine is armed, and come back when it ends', async
 
   // X on the refine chip ends it (the click outside also closes the panel);
   // reopened, the catalog is back in business with no hint
-  await page.locator('.sc-target-chip button').click();
+  await page.locator('.sc-target-chip button[aria-label="Make a new shot instead"]').click();
   await expect(page.locator('.sc-target')).toHaveCount(0);
   await page.locator('.sc-attach-toggle').first().click();
   await page.locator('.sc-ap-tabs button', { hasText: /scenes/i }).click();

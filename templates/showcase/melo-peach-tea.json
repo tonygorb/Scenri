@@ -1,0 +1,29 @@
+{
+  "id": "melo-peach-tea",
+  "title": "Melo Peach Tea among peaches",
+  "category": "social",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "melo-peach-tea"
+      },
+      {
+        "t": "text",
+        "v": " Melo Peach Tea standing among a heap of ripe peaches, some halved to show their red stones, beads of condensation on the glass, soft warm daylight on a white background, the bottle sharp and label to the lens, at bottle height, 85mm, a drinks social story."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 66,
+  "family": "botanical"
+}
