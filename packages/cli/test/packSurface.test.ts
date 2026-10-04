@@ -110,6 +110,21 @@ describe('the published package surface', () => {
     }
   });
 
+  // Use cases added after the pinned archive: the package carries the hero and
+  // the one packshot until the archive does.
+  it('every added-since-archive id resolves to a catalog entry, its hero and its packshot', () => {
+    const script = readFileSync(join(pkgDir, 'scripts', 'prepack.mjs'), 'utf8');
+    const block = script.match(/ADDED_SINCE_ARCHIVE = new Set\(\[([\s\S]*?)\]\)/);
+    expect(block).not.toBeNull();
+    const templates = join(pkgDir, '..', '..', 'templates');
+    for (const [, id] of (block as RegExpMatchArray)[1].matchAll(/'([a-z0-9-]+)'/g)) {
+      expect(existsSync(join(templates, 'showcase', `${id}.json`)), id).toBe(true);
+      expect(existsSync(join(templates, 'previews', 'showcase', `${id}.jpg`)), id).toBe(true);
+      expect(existsSync(join(templates, 'demo-products', `${id}.json`)), id).toBe(true);
+      expect(existsSync(join(templates, 'previews', 'demo-products', id, 'three-quarter.jpg')), id).toBe(true);
+    }
+  });
+
   // The same binding for heroes bundled because they were redrawn after the archive.
   it('every redrawn-since-archive id resolves to a catalog entry and its picture', () => {
     const script = readFileSync(join(pkgDir, 'scripts', 'prepack.mjs'), 'utf8');
@@ -175,15 +190,26 @@ describe('the published package surface', () => {
         expect(files).toContain(`templates/${f}`);
         expect(files).toContain(`templates/previews/${f.replace(/\.json$/, '.jpg')}`);
       }
-      // no reference galleries, no product shots, no presenter identity sets
+      // no reference galleries, no presenter identity sets. Product shots stay
+      // in the archive except the eighteen use cases added after it was pinned.
       expect(files.filter((f) => /^templates\/previews\/(?!presenters\/|showcase\/)[a-z0-9-]+\//.test(f))).toEqual([]);
-      expect(files.filter((f) => f.startsWith('templates/previews/demo-products/'))).toEqual([]);
+      const added = readFileSync(join(pkgDir, 'scripts', 'prepack.mjs'), 'utf8').match(
+        /ADDED_SINCE_ARCHIVE = new Set\(\[([\s\S]*?)\]\)/,
+      );
+      expect(added).not.toBeNull();
+      const addedIds = [...(added as RegExpMatchArray)[1].matchAll(/'([a-z0-9-]+)'/g)].map((m) => m[1]);
+      expect(files.filter((f) => f.startsWith('templates/previews/demo-products/')).sort()).toEqual(
+        addedIds.map((id) => `templates/previews/demo-products/${id}/three-quarter.jpg`).sort(),
+      );
       expect(files.filter((f) => /^templates\/previews\/presenters\/[a-z0-9-]+\/.+/.test(f))).toEqual([]);
-      // the starter wall: a real but bounded set of showcase heroes
+      // the starter wall, the one redraw, and the use cases added since the archive
       const heroes = files.filter((f) => f.startsWith('templates/previews/showcase/'));
       expect(heroes.length).toBeGreaterThanOrEqual(10);
-      expect(heroes.length).toBeLessThanOrEqual(20);
-      expect(packed().size).toBeLessThan(18 * 1024 * 1024);
+      expect(heroes.length).toBeLessThanOrEqual(20 + addedIds.length);
+      // The eighteen heroes and their packshots ride in the package until the
+      // next content archive. Measured after they landed; the previous 18 MB
+      // line was the catalog before them.
+      expect(packed().size).toBeLessThan(22 * 1024 * 1024);
     },
     30_000,
   );

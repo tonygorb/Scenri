@@ -1,0 +1,29 @@
+{
+  "id": "dune-candle",
+  "title": "Dune Candle in sand",
+  "category": "seasonal",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "dune-candle"
+      },
+      {
+        "t": "text",
+        "v": " Dune Candle sitting low in a small mound of fine sand, a single dried wild-grass stem and a thin straight rod leaning across the frame on a diagonal, a deep ochre-yellow to black gradient backdrop, one hard warm light, a long shadow, at candle height, 85mm."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 115,
+  "family": "place"
+}

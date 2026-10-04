@@ -1,0 +1,13 @@
+{
+  "id": "clairfont-rose",
+  "name": "Clairfont Rosé",
+  "promptName": "Glass bottle of Clairfont rosé",
+  "brand": "Clairfont",
+  "format": "rosé bottle",
+  "legacyNames": ["Glass bottle of Clairfont rosé"],
+  "keywords": ["rosé", "wine", "bottle", "glass", "drink", "beverage"],
+  "category": "beverage",
+  "description": "A bottle of rosé.",
+  "width": 1024,
+  "height": 1280
+}

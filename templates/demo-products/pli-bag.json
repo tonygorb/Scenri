@@ -1,0 +1,13 @@
+{
+  "id": "pli-bag",
+  "name": "Pli Bag",
+  "promptName": "Caramel leather top-handle bag",
+  "brand": "Pli",
+  "format": "top-handle bag",
+  "legacyNames": ["Caramel leather top-handle bag"],
+  "keywords": ["bag", "leather", "handbag", "accessories", "top-handle", "caramel"],
+  "category": "accessories",
+  "description": "A caramel top-handle bag.",
+  "width": 1024,
+  "height": 1280
+}

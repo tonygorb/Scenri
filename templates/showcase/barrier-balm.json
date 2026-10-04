@@ -1,0 +1,29 @@
+{
+  "id": "barrier-balm",
+  "title": "Barrier Balm on the bath edge",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "barrier-balm"
+      },
+      {
+        "t": "text",
+        "v": " Barrier Balm open on the edge of a travertine bath, a swirl in the cream, rippling water light dancing across the stone, a sprig of eucalyptus, seen from above, soft morning sun, 85mm, a skincare campaign photograph."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 52,
+  "family": "place"
+}

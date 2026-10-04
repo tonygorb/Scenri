@@ -1,0 +1,13 @@
+{
+  "id": "ondine-serum",
+  "name": "Ondine Serum",
+  "promptName": "Frosted coral glass bottle of Ondine Serum",
+  "brand": "Ondine",
+  "format": "serum bottle",
+  "legacyNames": ["Frosted coral glass bottle of Ondine Serum"],
+  "keywords": ["serum", "skincare", "bottle", "dropper", "beauty", "glass"],
+  "category": "beauty",
+  "description": "A frosted coral serum bottle.",
+  "width": 1024,
+  "height": 1280
+}

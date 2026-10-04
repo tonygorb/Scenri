@@ -45,7 +45,6 @@ markup is already correct and the rule cannot model the situation.
 | `apps/studio/src/layout/DensityControl.tsx` | `useSemanticElements` | `role="radio"` on a `<button>`. An `<input type="radio">` cannot carry the sliding pill; a button inside a radiogroup is the idiomatic ARIA pattern. |
 | `apps/studio/src/composer/BriefInput.tsx` | `useSemanticElements` | It cannot be a `<textarea>`: the prompt renders product and scene chips inline. |
 | `apps/studio/src/composer/BriefInput.tsx` | `useAriaPropsSupportedByRole` | A textbox plus a listbox is the caret-menu pattern; switching to `combobox` drops `aria-multiline`. |
-| `apps/studio/src/composer/RefineChip.tsx` | `useSemanticElements` | A `<button>` cannot hold the remove `<button>` the chip pattern floats over its right edge; the sentence's own chips are the same span-as-button. |
 | `apps/studio/src/composer/IngredientPicker.tsx` | `noStaticElementInteractions` | A key router, not a control. |
 | `apps/studio/src/composer/ColorChipMenu.tsx` | `noStaticElementInteractions` | A key router, not a control. |
 | `apps/studio/src/composer/attach/AttachBody.tsx` | `noStaticElementInteractions` | A key router, not a control. |

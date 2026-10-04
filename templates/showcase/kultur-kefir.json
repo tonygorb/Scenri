@@ -1,0 +1,33 @@
+{
+  "id": "kultur-kefir",
+  "title": "Luz with Kultur Kefir",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "kultur-kefir"
+      },
+      {
+        "t": "character",
+        "id": "luz"
+      },
+      {
+        "t": "text",
+        "v": " Luz laughing out loud with her eyes crinkled, holding Kultur Kefir sideways across one eye, the label large and sharp to the lens, tight head-and-hand crop, a flat lilac backdrop, bright clean daylight, a genuine candid moment, 50mm."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 16,
+  "family": "human"
+}

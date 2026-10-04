@@ -141,7 +141,7 @@ afterAll(() => {
 
 describe('showcase compiled prompts', () => {
   it('compiles every shipped showcase recipe', () => {
-    expect(rows.length).toBe(110);
+    expect(rows.length).toBe(128);
     for (const r of rows) expect(r.prompt.length).toBeGreaterThan(0);
   });
 

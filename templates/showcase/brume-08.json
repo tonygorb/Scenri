@@ -1,0 +1,29 @@
+{
+  "id": "brume-08",
+  "title": "Brume 08 on a wildflower boulder",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "brume-08"
+      },
+      {
+        "t": "text",
+        "v": " Brume 08 standing on a sun-bleached white boulder among wild meadow flowers and ferns, a bright blue sky with soft white clouds behind, seen from a low angle, hard clear sunlight and a crisp shadow on the rock, the bottle sharp and label to the lens, 50mm, a fragrance campaign photograph."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 29,
+  "family": "botanical"
+}

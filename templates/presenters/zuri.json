@@ -9,7 +9,7 @@
   "hair": "a big rounded natural coily afro, dark brown with a soft sheen",
   "build": "tall and long-legged with a lean dancer's build",
   "wardrobeDefault": "a cropped white tee and straight-leg light-wash jeans cuffed above the ankle, white socks",
-  "suitableCategories": ["Footwear", "Apparel", "Food & drink", "Electronics", "Accessories"],
+  "suitableCategories": ["Footwear", "Apparel", "Food & drink", "Electronics", "Accessories", "Beauty"],
   "suitableStyles": ["Lifestyle"],
   "identityNotes": "the big rounded natural afro, the wide radiant smile and the long legs must survive every generation",
   "negativeConstraints": ["no straightened hair", "no braids", "no slicked-back hair"],

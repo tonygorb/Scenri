@@ -1,0 +1,29 @@
+{
+  "id": "olea-hand-cream",
+  "title": "Olea Hand Cream from the tote",
+  "category": "lifestyle",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "olea-hand-cream"
+      },
+      {
+        "t": "text",
+        "v": " A hand lifting Olea Hand Cream out of an open tan leather tote, seen from inside the bag looking out, sunglasses and keys soft in the foreground, warm daylight pouring in from above, the tube sharp and label to the lens, 35mm, an everyday skincare campaign photograph."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 2,
+  "family": "place"
+}

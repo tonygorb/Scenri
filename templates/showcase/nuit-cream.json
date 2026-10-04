@@ -1,0 +1,33 @@
+{
+  "id": "nuit-cream",
+  "title": "Nuit Cream on a bare shoulder",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "nuit-cream"
+      },
+      {
+        "t": "character",
+        "id": "zuri"
+      },
+      {
+        "t": "text",
+        "v": " Nuit Cream balanced on the top of the bare shoulder of Zuri, her own hand resting lightly over it from the other side, cropped to shoulder, arm and hand only, no face, soft cream background, gentle daylight, 85mm."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 38,
+  "family": "human"
+}

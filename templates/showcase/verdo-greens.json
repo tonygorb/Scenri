@@ -1,0 +1,29 @@
+{
+  "id": "verdo-greens",
+  "title": "Verdo Greens on candy pink",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "verdo-greens"
+      },
+      {
+        "t": "text",
+        "v": " Verdo Greens tilted at an angle in mid-frame against a flat candy-pink backdrop, bold and graphic, the green tub filling most of the frame, crisp studio light and a soft shadow, the wordmark sharp, 85mm, a supplements campaign photograph."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 108,
+  "family": "studio"
+}

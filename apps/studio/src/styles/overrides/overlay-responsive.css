@@ -63,6 +63,19 @@
   color: var(--sc-fg2);
   cursor: not-allowed;
 }
+/* Refine is the light pill, the inverse of Generate. Disabled, it keeps that
+   fill and fades, instead of turning into the grey Generate uses. */
+.sc-send[data-refine] {
+  background: var(--sc-refine-bg);
+  color: var(--sc-refine-fg);
+}
+.sc-send[data-refine]:disabled,
+.sc-send[data-refine][aria-disabled="true"] {
+  background: var(--sc-refine-bg);
+  color: var(--sc-refine-fg);
+  opacity: var(--sc-disabled);
+  cursor: default;
+}
 :where(:root:not([data-input="pointer"])) .sc-send:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);

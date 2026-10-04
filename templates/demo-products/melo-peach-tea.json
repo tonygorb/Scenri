@@ -1,0 +1,13 @@
+{
+  "id": "melo-peach-tea",
+  "name": "Melo Peach Tea",
+  "promptName": "Glass bottle of Melo white peach iced tea",
+  "brand": "Melo",
+  "format": "iced tea bottle",
+  "legacyNames": ["Glass bottle of Melo white peach iced tea"],
+  "keywords": ["tea", "iced tea", "peach", "bottle", "drink", "beverage"],
+  "category": "beverage",
+  "description": "A bottle of white peach iced tea.",
+  "width": 1024,
+  "height": 1280
+}

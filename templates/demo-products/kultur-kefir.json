@@ -1,0 +1,13 @@
+{
+  "id": "kultur-kefir",
+  "name": "Kultur Kefir",
+  "promptName": "Bottle of Kultur sparkling kefir",
+  "brand": "Kultur",
+  "format": "sparkling kefir",
+  "legacyNames": ["Bottle of Kultur sparkling kefir"],
+  "keywords": ["kefir", "sparkling", "bottle", "drink", "beverage", "campaign"],
+  "category": "beverage",
+  "description": "A bottle of sparkling kefir.",
+  "width": 1024,
+  "height": 1280
+}

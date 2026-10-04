@@ -1,0 +1,13 @@
+{
+  "id": "verdo-greens",
+  "name": "Verdo Greens",
+  "promptName": "Green tub of Verdo greens",
+  "brand": "Verdo",
+  "format": "greens tub",
+  "legacyNames": ["Green tub of Verdo greens"],
+  "keywords": ["greens", "supplement", "tub", "food", "powder", "wellness"],
+  "category": "food",
+  "description": "A bright green tub of greens.",
+  "width": 1024,
+  "height": 1280
+}

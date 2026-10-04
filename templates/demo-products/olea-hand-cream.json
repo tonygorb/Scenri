@@ -1,0 +1,13 @@
+{
+  "id": "olea-hand-cream",
+  "name": "Olea Hand Cream",
+  "promptName": "Tube of Oléa hand cream",
+  "brand": "Oléa",
+  "format": "hand cream tube",
+  "legacyNames": ["Tube of Oléa hand cream"],
+  "keywords": ["hand cream", "cream", "tube", "skincare", "beauty", "lotion"],
+  "category": "beauty",
+  "description": "A tube of hand cream.",
+  "width": 1024,
+  "height": 1280
+}

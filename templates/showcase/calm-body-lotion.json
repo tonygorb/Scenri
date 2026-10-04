@@ -1,0 +1,29 @@
+{
+  "id": "calm-body-lotion",
+  "title": "Calm Body Lotion in two hands",
+  "category": "lifestyle",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "calm-body-lotion"
+      },
+      {
+        "t": "text",
+        "v": " A real woman's hand from below holding Calm Body Lotion upright in a loose natural grip, thumb in front, a second hand cupped beneath it, a few drops of water on the bottle, flat cool grey background, soft studio light, 85mm."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 74,
+  "family": "human"
+}

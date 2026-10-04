@@ -1,0 +1,13 @@
+{
+  "id": "soleado-lemon",
+  "name": "Soleado Lemon",
+  "promptName": "Bottle of Soleado lemonade",
+  "brand": "Soleado",
+  "format": "lemonade bottle",
+  "legacyNames": ["Bottle of Soleado lemonade"],
+  "keywords": ["lemonade", "lemon", "bottle", "drink", "beverage", "citrus"],
+  "category": "beverage",
+  "description": "A bottle of lemonade.",
+  "width": 1024,
+  "height": 1280
+}

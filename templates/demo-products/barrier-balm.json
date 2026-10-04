@@ -1,0 +1,13 @@
+{
+  "id": "barrier-balm",
+  "name": "Barrier Balm",
+  "promptName": "Amber jar of barrier balm",
+  "brand": "Barrier Balm",
+  "format": "balm jar",
+  "legacyNames": ["Amber jar of barrier balm"],
+  "keywords": ["balm", "jar", "skincare", "cream", "beauty", "amber"],
+  "category": "beauty",
+  "description": "An amber jar of barrier balm.",
+  "width": 1024,
+  "height": 1280
+}

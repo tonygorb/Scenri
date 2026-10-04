@@ -1,0 +1,29 @@
+{
+  "id": "velin-silk-wash",
+  "title": "Velin Silk Wash on wet rubber",
+  "category": "catalog",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "velin-silk-wash"
+      },
+      {
+        "t": "text",
+        "v": " Seen from directly above, Velin Silk Wash lying on its side on a deep red ribbed rubber surface covered in water droplets, the ribs running in bold diagonal curves, hard sun from one side and crisp shadows, the label sharp, 50mm, a body care campaign photograph."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 58,
+  "family": "material"
+}

@@ -1,0 +1,13 @@
+{
+  "id": "nami-sparkling",
+  "name": "Nami Sparkling",
+  "promptName": "Can of Nami sparkling drink",
+  "brand": "Nami",
+  "format": "sparkling can",
+  "legacyNames": ["Can of Nami sparkling drink"],
+  "keywords": ["sparkling", "can", "drink", "beverage", "social", "yuzu"],
+  "category": "beverage",
+  "description": "A can of sparkling drink.",
+  "width": 1024,
+  "height": 1280
+}

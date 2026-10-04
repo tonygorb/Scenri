@@ -9,7 +9,7 @@
   "hair": "long glossy straight black hair with a centre part",
   "build": "average, softly toned",
   "wardrobeDefault": "a fitted ivory knit top, small gold studs",
-  "suitableCategories": ["Food & drink", "Home", "Furniture", "Beauty"],
+  "suitableCategories": ["Food & drink", "Home", "Furniture", "Beauty", "Accessories"],
   "suitableStyles": ["Lifestyle", "Editorial"],
   "identityNotes": "the freckles across the nose and cheeks, the thick dark brows and the centre-parted glossy black hair must survive every generation, with real skin texture in close-up",
   "negativeConstraints": ["no airbrushed or poreless skin", "no freckles removed", "no side part"],

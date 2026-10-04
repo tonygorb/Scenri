@@ -1,0 +1,29 @@
+{
+  "id": "clairfont-rose",
+  "title": "Clairfont Rosé on ice",
+  "category": "food-drink",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "clairfont-rose"
+      },
+      {
+        "t": "text",
+        "v": " Clairfont Rosé standing on a block of clear ice on a pale pink plaster ledge in hard afternoon sun, beads of condensation on the glass, a crisp long shadow, tonal pink, at bottle height, 85mm, a wine campaign photograph."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 122,
+  "family": "material"
+}

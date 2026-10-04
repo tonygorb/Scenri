@@ -1,0 +1,13 @@
+{
+  "id": "dune-candle",
+  "name": "Dune Candle",
+  "promptName": "Ochre ceramic candle from Dune & Fire",
+  "brand": "Dune & Fire",
+  "format": "scented candle",
+  "legacyNames": ["Ochre ceramic candle from Dune & Fire"],
+  "keywords": ["candle", "scented candle", "home fragrance", "ochre", "ceramic", "sand"],
+  "category": "other",
+  "description": "An ochre scented candle.",
+  "width": 1024,
+  "height": 1280
+}

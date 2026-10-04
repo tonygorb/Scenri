@@ -197,3 +197,7 @@
 :where(:root:not([data-input="pointer"])) .sc-send:focus-visible {
   background: var(--sc-send-bg);
 }
+:where(:root:not([data-input="pointer"])) .sc-send[data-refine]:focus-visible {
+  background: var(--sc-refine-bg);
+  color: var(--sc-refine-fg);
+}
