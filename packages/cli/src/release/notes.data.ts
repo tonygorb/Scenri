@@ -105,6 +105,17 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.21.2',
+    date: '2026-10-05',
+    title: 'Halvard 12 has a full-size product photo',
+    sections: [
+      {
+        heading: 'Examples',
+        body: 'The whisky bottle now has a photo as large as the other products, so its label stays readable, and a shot made from it is told every word on that label.',
+      },
+    ],
+  },
+  {
     version: '0.21.1',
     date: '2026-10-04',
     title: "The new examples' product photos ship with the app",
