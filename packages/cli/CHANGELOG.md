@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.21.2](https://github.com/tonygorb/Scenri/compare/v0.21.1...v0.21.2) (2026-10-05)
+
+
+### Bug Fixes
+
+* declare the docs-impact script's types so its test typechecks ([f484a2d](https://github.com/tonygorb/Scenri/commit/f484a2daaca5e1d1fae65112d5066c6402a270a4))
+* **library:** replace the Halvard 12 product photo ([2a2172d](https://github.com/tonygorb/Scenri/commit/2a2172da4358935c2faf43f646a163d976fa4db1))
+* **library:** replace the Halvard 12 product photo ([1d06193](https://github.com/tonygorb/Scenri/commit/1d0619397bbf5a39c4b982db5cde1c7d9b8bbf3b))
+
 ## [0.21.1](https://github.com/tonygorb/Scenri/compare/v0.21.0...v0.21.1) (2026-10-04)
 
 
