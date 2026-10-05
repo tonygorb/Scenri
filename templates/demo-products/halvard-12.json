@@ -9,5 +9,7 @@
   "category": "beverage",
   "description": "A clear glass bottle of single malt whisky.",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "negativeConstraints": "Never invent any text, logo, wordmark or mark beyond the ones this record names, never misspell or rearrange those, and never add a second label.",
+  "preservationNotes": "Keep the label exactly: cream paper, ESTD 2012 in small black spaced capitals with a normal capital D, HALVARD in large black serif capitals, a thin rule, 12 in gold numerals, YEAR, SINGLE MALT SCOTCH WHISKY, the engraved mountains and loch, DISTILLED IN SCOTLAND, and 70cl e 43% vol. Every letter stays complete."
 }
