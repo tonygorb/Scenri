@@ -1,5 +1,8 @@
 # How Scenri updates itself
 
+This page is for people working on Scenri. If you installed it with `npx scenri`,
+the short version is in [Install](INSTALL.md#update).
+
 `npx scenri` starts a small supervising launcher. The launcher looks in
 `~/.scenri/app/versions/` for a newer staged copy of Scenri, runs the newest
 one it finds (or the copy it shipped with), and restarts it when an update

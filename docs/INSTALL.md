@@ -1,389 +1,110 @@
 # Install Scenri
 
-Scenri is a local app. It runs on your own computer, keeps everything on your own disk, and opens
-in your browser. Getting it running takes two things: Node.js once, then one command.
-
-This guide assumes nothing. If you already have Node.js 22 or newer, skip straight to
-[Run Scenri](#run-scenri).
+Scenri is a local app. You install Node.js once, then start Scenri with one command. It opens in your browser and keeps your work on this computer.
 
 ## What you need
 
-- **Node.js 22 or newer.** A free runtime from the makers of the language Scenri is written in.
-  You install it once and never touch it again. Not sure whether you have it? Open a terminal
-  (below) and type `node --version`. If it prints `v22` or higher, you are done with this step.
-- **A paid ChatGPT plan, or an API key from an image provider**, to make pictures. Scenri itself has
-  no account and no fees; the pictures are drawn by the service you connect, on your plan or your
-  key. [Connect image generation](#connect-image-generation) has the details.
-- **An internet connection**, for the download and for generating images later.
-- **About five minutes.**
+- **Node.js 22 or newer.** Check with `node --version`. Scenri does not run on Node 18 or 20.
+- **A paid ChatGPT plan, or an API key**, when you want to make pictures. Scenri itself has no account and no fee. [Connect image generation](CONNECT.md) is a separate step, after the app is open.
+- **A network connection** for the download, and later for generation.
 
-Scenri itself never asks for an administrator password. The Node.js installer asks for one once,
-the way any installer does.
+Scenri does not ask for an administrator password. The Node.js installer may.
 
 ## Install Node.js
 
-Always download Node.js from the official site: **[nodejs.org](https://nodejs.org)**. Pick the
-version marked **LTS**, which is the stable one.
+Download it from [nodejs.org](https://nodejs.org). Use the version marked LTS.
 
-### macOS
+**macOS.** Download the macOS installer. It works on Apple silicon and Intel. Open Terminal with Command-Space, type `terminal`, and press Return.
 
-1. On [nodejs.org](https://nodejs.org), download the macOS installer (a `.pkg` file). It works on
-   both Apple Silicon and Intel Macs.
-2. Open the downloaded file and click through the installer. It asks for your Mac password once.
-3. Open **Terminal**: press Command and Space together, type `terminal`, press Return.
+**Windows.** Download the Windows installer and accept the defaults. Open PowerShell from the Start menu. If PowerShell was already open before you installed Node, close it and open a new window. A window from before the install cannot see Node yet.
 
-That white or black window is where the one Scenri command goes.
+If PowerShell says `running scripts is disabled on this system`, that is a Windows default. Use `npx.cmd scenri`, or Command Prompt. [Troubleshooting](TROUBLESHOOTING.md) has the detail.
 
-### Windows
-
-1. On [nodejs.org](https://nodejs.org), download the Windows installer (a `.msi` file).
-2. Open it and click through. The defaults are right.
-3. Open **PowerShell**: press the Windows key, type `powershell`, press Enter.
-   **If PowerShell was already open before you installed Node, close it and open a new one.**
-   A window opened before the install cannot see Node yet.
-
-If the next step answers `running scripts is disabled on this system`, that is a stock Windows
-setting and not a fault. Type `npx.cmd scenri` instead, or use Command Prompt rather than
-PowerShell. You do not need an administrator; the [troubleshooting section](#troubleshooting) has
-the detail.
-
-### Linux
-
-Install Node.js 22 or newer from [nodejs.org](https://nodejs.org/en/download) or your
-distribution's packages. Check the version first: distribution repositories sometimes carry an
-older Node, and Scenri needs 22 or newer. Then continue below; everything else is identical.
+**Linux.** Install Node.js 22 or newer from [nodejs.org](https://nodejs.org/en/download) or from your distribution, then check `node --version`. Distribution packages are sometimes older than 22. There is no desktop icon on Linux. You start Scenri from the terminal.
 
 ## Run Scenri
-
-Paste this into the terminal and press Enter:
 
 ```bash
 npx scenri
 ```
 
-What happens next, in order:
+What happens:
 
-1. **npm asks permission once.** It names the `scenri` package and asks `Ok to proceed? (y)`.
-   Type `y` and press Enter. The question is normal and appears only on the first run. npm may
-   also print a few `npm warn deprecated` lines about packages Scenri depends on; they are
-   harmless.
-2. **It downloads.** The first run fetches Scenri and takes a minute or two. Later starts are
-   fast.
-3. **The terminal shows Scenri is running**, with its address and where your data lives:
+1. npm asks `Ok to proceed? (y)` the first time. Type `y`. A few `npm warn deprecated` lines are harmless.
+2. The first run downloads Scenri. Later starts are faster.
+3. The terminal prints the address and where your data lives:
 
    ```
    Scenri Studio → http://127.0.0.1:4747
-   on your phone → http://192.168.1.42:4747  code 482 913
    data dir      → /Users/you/.scenri
    Keep this window open while Scenri is running.
    ```
 
-   The phone line is how a phone or tablet on the same Wi-Fi opens it; Settings, Local access
-   shows the same address as a QR code. It is missing when this computer is not on a network.
+   On Windows the data folder is `C:\Users\you\.scenri`.
 
-   On Windows the data dir reads `C:\Users\you\.scenri`: same folder, same idea.
+4. Your browser opens that address. If it does not, paste it in yourself.
 
-4. **Your browser opens Scenri by itself.** If it does not, copy the address from the terminal
-   into your browser.
+A second line may show a phone address and a six-digit code. That is [Local access](FILES.md#a-phone-on-the-same-network): a phone on the same Wi-Fi can open Scenri. It is absent when the computer is not on a network.
 
-Two things worth knowing from day one:
+Keep the terminal window open. Closing it stops Scenri. Nothing you made is lost. The same command starts it again.
 
-- **Keep the terminal window open.** That window is Scenri running. Closing it stops Scenri;
-  nothing is lost, and the same command starts it again.
-- **The first launch downloads the Scenri library** of example imagery in the background, about
-  155 MB. On a slow connection the home wall fills in as it arrives. A later update downloads it
-  again only when that update brings new imagery.
+The first launch also downloads the example library in the background. Home fills in as it arrives.
 
 ## First launch
 
-Scenri opens on one small step: point it at a brand.
+Scenri asks you to point it at a Brand.
 
-- **Paste a website address** and Scenri reads the public pages and drafts the brand kit: name,
-  logo, palette. If the site sells things, it looks for the products and offers to add them to
-  your library.
-- Or choose **Start from scratch** and just name the brand.
+- Paste a website. Scenri reads the public page and drafts a name, a logo, and colours. If the site sells things, it can look for Products next. [Brand kit](BRAND.md) says what that read does and does not do.
+- Or choose **Start from scratch** and name the Brand.
 
-Everything else, products, presenters, scenes, is already there to explore. The home wall is full
-of finished example shots; open any of them and it loads back into the composer as the exact prompt
-that made it.
-
-## Connect image generation
-
-Running Scenri and generating images are two separate steps. Scenri is the studio; the images are
-made by a generation engine you connect once. Until you do, the composer shows a short notice and
-the send button waits.
-
-**If you have a ChatGPT plan** (any paid plan): use Codex. Click **Set up** in the composer notice
-and Scenri walks you through it, three steps, entirely inside the app: it installs Codex CLI, an
-official helper from OpenAI, signs you in through your browser, and checks the connection with one
-short Codex turn. Scenri never sees your password. Images then run on the ChatGPT plan you already pay for; Scenri adds nothing to the
-bill. Scenri needs Codex CLI 0.157.1 or newer: if the one on your computer is older, that check says
-so and shows the command that updates it.
-
-**Otherwise, paste a key** from an image provider. In Scenri, open Settings, then Providers, pick
-one and paste its key. You create the key on the provider's site:
-
-| Provider | Get a key at | Rough cost |
-|---|---|---|
-| OpenRouter | [openrouter.ai/keys](https://openrouter.ai/keys) | about $0.04 an image |
-| fal | [fal.ai/dashboard/keys](https://fal.ai/dashboard/keys) | about $0.006 an image (billed per megapixel) |
-| Replicate | [replicate.com/account/api-tokens](https://replicate.com/account/api-tokens) | about $0.003 an image |
-
-Pick OpenRouter if your shots feature a specific product or presenter; it is the key-based engine
-that carries reference images. You pay the provider directly, per image. A monthly spend cap per
-engine lives in Settings.
-
-One sentence on privacy: Scenri runs on your computer and your images and brands stay there. When
-you generate, the prompt and its reference images are sent to the one engine you connected, and
-nowhere else. The full statement is in [PRIVACY.md](../PRIVACY.md).
+Then [make a Shot](QUICKSTART.md).
 
 ## Open it again
 
-The first time Scenri runs on macOS or Windows, it asks in the terminal, once Scenri is already open:
+On macOS and Windows, the first run asks once, after Scenri is already open:
 
 ```
 Add Scenri to your desktop? Then you can open it without a terminal. [Y/n]
 ```
 
-Say yes and a **Scenri** icon lands on your desktop. From then on, double-click it: Scenri starts
-if it is not running (a "Starting Scenri" page holds the browser for the few seconds that takes),
-or the browser simply opens on the Scenri that is already running. No terminal, and it works
-without an internet connection. Said no, or deleted the icon? Settings, then Local access, then
-**Add to desktop** puts it back, and so does this in a terminal:
+Say yes and a Scenri icon lands on your desktop. Double-click it later. If Scenri is not running, a "Starting Scenri" page holds the browser for a few seconds, then the studio opens. If it is already running, the browser opens on it. The icon does not need a network of its own. Generation still does.
+
+Said no, or deleted the icon? Settings, then **Local access**, then **Add to desktop**. Or:
 
 ```bash
 npx scenri desktop
 ```
 
-Without the icon, tomorrow, next week, whenever: open the terminal and run the same command.
+Linux does not offer the icon. Open a terminal and run `npx scenri`.
 
-```bash
-npx scenri
-```
+Without the icon, the terminal command is how you start it. Your Brands and Shots are still in `.scenri`.
 
-Your brands, shots and settings are exactly where you left them. They live in a folder named
-`.scenri` in your home folder (`%USERPROFILE%\.scenri` on Windows), as plain files you can
-back up like anything else.
-
-To stop Scenri, close the terminal window, or press Control and C in it. Started from the desktop
-icon, there is no window: open the brand menu at the top right and choose **Shut down Scenri**. A Scenri you forget to shut down
-is harmless; the next double-click finds it, and shutting down the computer ends it.
+To stop a Scenri you started from the terminal, close the window or press Control-C. Started from the icon, there is no window: open the brand menu and choose **Shut down Scenri**.
 
 ## Update
 
-Scenri checks npm every six hours for a newer version, and only for the version number. When there is
-one, Scenri downloads it quietly in the background, and a small notice appears with an
-**Update** button; one click and Scenri restarts into the new version. You can also update
-from the terminal with `npx scenri update`.
-
-If you first ran Scenri before version 0.4.1, run this once; it fetches the current release and
-makes in-app updates work from then on:
+Scenri checks npm every six hours, and only for the version number. When a newer version exists, it downloads in the background and a notice offers **Update**. One click restarts into it. From the terminal:
 
 ```bash
-npx scenri@latest
+npx scenri update
 ```
 
-The same command is the fix whenever a start behaves oddly after an update.
+If a start behaves oddly after an update, run `npx scenri@latest` once.
 
-The desktop icon needs no attention across updates: it always starts the newest version Scenri
-has installed, and each start quietly refreshes the icon's own files when a release changes them.
+The desktop icon starts the newest installed copy. You do not replace the icon by hand.
 
-## Prefer a coding assistant?
+Settings, then **Updates**, can turn the check off. `SCENRI_NO_UPDATE_CHECK=1` does the same.
 
-If you use a coding assistant that can run terminal commands, you can hand it the setup instead of
-doing it by hand.
-
-**Never paste API keys or passwords into an assistant chat. Scenri asks for keys only inside the
-app.**
-
-<details>
-<summary>Copy this prompt into your assistant</summary>
-
-> You are helping me install Scenri, a local app published on npm as the package `scenri`.
-> Work step by step and tell me what you find before you change anything.
->
-> 1. Determine my operating system.
-> 2. Check whether Node.js 22 or newer, npm, and npx are already installed (`node --version`).
-> 3. If Node is missing or older than 22, install the current LTS release using the official
->    installer from nodejs.org. Explain what you are about to do first, and do not use
->    administrator rights beyond what that installer itself asks for. Do not install any other
->    software, package manager, or build tool, and do not edit my shell configuration files.
-> 4. When Node 22 or newer is available, run `npx scenri@latest`. Approve npm's confirmation
->    prompt for the `scenri` package only.
-> 5. Confirm it started: the terminal prints a local address, `http://127.0.0.1:4747`, and a
->    browser tab should open. If the browser did not open, give me the address to click.
-> 6. Stop there. Scenri's own window handles everything after this point, including connecting an
->    image provider. Do not ask me for API keys and do not configure any keys in the terminal.
-> 7. Tell me in one sentence: keep the terminal window open while I use Scenri, and run the same
->    command to open it again another day.
->
-> If any step fails, show me the exact error and the smallest fix, and ask before changing
-> anything on my system.
-
-</details>
-
-This depends on what your assistant is allowed to do on your machine, so it is offered as a
-convenience, not a guarantee.
-
-## Troubleshooting
-
-The short list, from real failures. Each one ends in a working Scenri.
-
-**`npm: command not found` or `'npx' is not recognized`.** Node.js is not installed, or the
-terminal window is older than the installation. Install Node.js from
-[nodejs.org](https://nodejs.org), then open a new terminal window and try again.
-
-**`node --version` prints v18, v20, or anything under v22.** Your Node is too old. Install the
-current LTS from [nodejs.org](https://nodejs.org); it replaces the old one. Open a new terminal
-window afterwards.
-
-**`npx.ps1 cannot be loaded because running scripts is disabled on this system.`** Windows ships
-PowerShell with script files switched off, and npm installs its commands as script files. Nothing
-is wrong with your computer or with Scenri, and you do not need an administrator. Either:
-
-- run `npx.cmd scenri` instead of `npx scenri`, which uses the other copy of the same command; or
-- use **Command Prompt** rather than PowerShell: press the Windows key, type `cmd`, press Enter,
-  then `npx scenri`.
-
-To fix it once for every tool, run `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser` in
-PowerShell. That scope changes the setting for your account only and does not ask for an
-administrator. Leave the machine-wide setting alone.
-
-**`npm error EACCES: permission denied`** (or `EPERM` on Windows)**.** npm could not write into its
-global folder, so the Codex CLI install was refused.
-
-- On macOS or Linux: run `sudo npm install -g @openai/codex` in the terminal and type your
-  computer's password when asked (it stays invisible while you type). This is npm's folder, not
-  Scenri's; Scenri never asks for your password.
-- On Windows: this is usually not a permissions problem at all. npm's global folder is inside your
-  own account, and an administrator changes nothing. Close Codex and any terminal window using it,
-  then try again. If it keeps failing, use OpenAI's own installer, which does not go through npm:
-  `powershell -ExecutionPolicy ByPass -c "irm https://chatgpt.com/codex/install.ps1 | iex"`.
-
-Then reopen the setup window in Scenri.
-
-**The desktop icon could not be added.** Scenri says so in one sentence and keeps running; nothing
-else is affected. Try again later from Settings, then Local access, then **Add to desktop**, or run
-`npx scenri desktop` in a terminal. Scenri only ever writes the icon to your own Desktop folder and
-never needs an administrator to do it, so a failure here is usually a folder that moved (OneDrive
-taking over your Desktop mid-install) or security software holding the file open.
-
-**`Port 4747 is in use by another app.`** Some other program on your computer answers on Scenri's
-port. The message shows the fix: run the command it prints, which starts Scenri on the next port
-over.
-
-**`Scenri is already running`.** Not an error. Scenri was already open in another terminal, and
-this one just brought you to it. Use the browser tab it opened.
-
-**A phone cannot open Scenri.** Open Settings, Local access on the computer. If the
-computer's firewall would stop a phone, it says so right there with an **Allow Scenri** button:
-press it and answer your computer's own prompt (your Mac password, or Yes in Windows). If no phone
-arrives within half a minute, the help under the code opens by itself. The usual causes, most likely
-first:
-
-- The phone is on another network. Both have to be on the same Wi-Fi, and a guest network keeps
-  devices apart on purpose.
-- The computer's firewall. The first time Scenri starts, macOS or Windows may ask whether Node
-  may accept incoming connections; allow it. If you pressed Cancel or Deny, or Windows treats this
-  Wi-Fi as a public network, Allow Scenri fixes it.
-- The phone's browser asked to find devices on your local network. Allow it.
-
-**The browser did not open.** Copy the address the terminal printed, `http://127.0.0.1:4747`, into
-any browser on the same computer.
-
-**`Scenri could not start: a native component failed to load.`** Two causes. If
-`npm --version` prints 12, npm skipped the install script of Scenri's database component
-(`better-sqlite3`), which npm 12 does until you allow it, and npx keeps the unbuilt copy. Allow the
-script once, clear that copy, and start again:
-
-```bash
-npm config set allow-scripts=better-sqlite3 --location=user
-npm cache npx rm --force
-npx scenri
-```
-
-The second line empties npx's download cache, which npm refills as needed. The setting also lets
-Scenri's in-app updates install under npm 12. The npm that ships with current Node releases, npm
-11, needs none of this. Otherwise Node changed since Scenri was installed, usually after a Node
-update: install the current LTS from [nodejs.org](https://nodejs.org), then run
-`npx scenri@latest`.
-
-**Codex is not installed, or not signed in.** Open the composer notice or Settings, then
-Providers, then **Set up**, and the in-app steps handle both. If sign-in keeps failing, the dialog
-shows the exact terminal command to run instead.
-
-**"Codex CLI needs an update", or "Codex CLI ... is too old for the model it is set to".** Scenri
-needs Codex CLI 0.157.1 or newer. It runs Codex on `gpt-6-sol` where your ChatGPT plan offers it,
-and on Codex's own default model where it does not, and a Codex CLI released before `gpt-6-sol`
-cannot use it (0.153.4 cannot, 0.157.1 can). Scenri turns away a Codex CLI older than 0.145.0 as
-soon as it looks at it. A release between 0.145.0 and 0.157.1 can look ready until the setup
-dialog's connection check or, if Codex was already signed in and you never opened setup, until the
-first shot. That is where the message appears, before anything is drawn: it names the version and
-the model, and every shot fails until Codex is updated. Update with
-`npm install -g @openai/codex@latest` (or run OpenAI's standalone installer again), then press
-**Check again**.
-
-**Codex on Windows.** Four things specific to Windows:
-
-- **Installed Codex while Scenri was running?** Quit Scenri (close its terminal window) and run
-  `npx scenri` again. A running program cannot always see a command installed after it started.
-- **Scenri says it could not verify Codex.** Something on the machine answered too slowly or not at
-  all. Press **Check again** in the setup dialog; if it persists, check what `where.exe codex`
-  prints in PowerShell and that `codex --version` answers there.
-- **Codex needs an update.** Scenri needs Codex CLI 0.157.1 or newer (the entry above says why).
-  Update with `npm install -g @openai/codex@latest`, or if you used OpenAI's standalone installer, run
-  it again:
-  `powershell -ExecutionPolicy ByPass -c "irm https://chatgpt.com/codex/install.ps1 | iex"`.
-- **Shots fail with "Codex could not start its tool host".** Codex runs the tools it needs through a
-  helper process, and a non-default Windows setting stops that helper loading. Check it in
-  PowerShell:
-
-  ```powershell
-  reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager" /v SafeDllSearchMode
-  ```
-
-  If it reports `0`, set it to `1` (the Windows default) and restart the computer.
-
-A generation that Codex cannot finish now fails with a plain reason instead of running forever, and
-Cancel stops the Codex process for real.
-
-**A provider did not accept your API key.** Keys expire and get revoked. Create a fresh key on the
-provider's site (links above), open Settings, then Providers, and paste it again.
-
-**You closed the terminal by accident.** Nothing is lost. Open a new terminal and run `npx scenri`
-again.
-
-**The desktop icon does nothing, or says Scenri's app files are missing.** The icon starts the copy
-of Scenri kept in `~/.scenri/app`. If that folder was removed, run `npx scenri` once in a
-terminal; it puts a copy back and the icon works again. The same one terminal start is the fix
-after Node.js was upgraded to a new major version: the copy is rebuilt for the new Node on that
-start. Every double-click writes what it did to `~/.scenri/logs/launcher.log`
-(`%USERPROFILE%\.scenri\logs\launcher.log` on Windows), and a server started from the icon writes
-to `scenri.log` beside it; those two files are what to send with a report. The "Starting Scenri"
-page and the studio both open in your default browser.
-
-**The icon says Node.js was not found.** The icon remembers the Node.js that installed it. If that
-copy of Node was removed (a version manager switched, an uninstall), install Node.js again or run
-`npx scenri` once from a terminal where Node works; that start repairs the icon.
-
-**macOS asks whether Terminal may access your Desktop.** Creating the icon writes one file into your
-Desktop folder, which macOS guards. Allow it. If you refused, System Settings, then Privacy &
-Security, then Files and Folders, then turn Desktop Folder on for your terminal app, and add the icon
-again.
-
-Anything else: [open an issue](https://github.com/tonygorb/scenri/issues) with the exact text the
-terminal printed.
+People working on Scenri from a git checkout are on a different path. That is written up in [updates.md](updates.md), and a source checkout never offers to overwrite itself.
 
 ## Remove Scenri
 
-Scenri installs nothing global. Without the terminal window or the desktop icon having started it,
-it is not running.
+Scenri installs nothing global. It is not running unless a terminal or the desktop icon started it.
 
-- The downloaded copy lives in npm's cache and gets reused or replaced; there is nothing to
-  uninstall.
-- The desktop icon, if you added one, is a small launcher on your Desktop (`Scenri.app` on macOS,
-  `Scenri.lnk` on Windows) plus its support files in `~/.scenri/launcher`. Drag the icon to the
-  bin, or run `npx scenri desktop --remove` to take both away; nothing else is touched.
-- Your library, the folder `.scenri` in your home folder (`%USERPROFILE%\.scenri` on Windows),
-  holds your brands, images and keys. It is never deleted by Scenri. Delete that folder only if you want all of that gone, and export
-  anything you care about first (Settings, then Library, then Export everything).
+- The download lives in npm's cache. There is no uninstaller.
+- The icon, if you added one, is `Scenri.app` on macOS or `Scenri.lnk` on Windows, plus files in `~/.scenri/launcher`. Drag the icon to the bin, or run `npx scenri desktop --remove`.
+- Your library, `.scenri` in your home folder, holds Brands, images, and keys. Scenri does not delete it. Delete that folder only when you want all of that gone. Export first: Settings, then **Library**, then **Export everything**.
+
+## When something fails
+
+[Troubleshooting](TROUBLESHOOTING.md) covers Node, Windows PowerShell, npm 12, a busy port, Codex, and a desktop icon that does nothing.

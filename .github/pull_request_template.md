@@ -14,6 +14,10 @@
 - [ ] Commits follow Conventional Commits (`feat:`, `fix:`, `docs:`, …). The version bump is generated from these, so the prefix matters.
 - [ ] I have signed the CLA (a bot will comment on the first PR)
 
+## Docs impact
+
+<!-- required, maybe, or none. If none, give the reason. Name the pages when you updated any. -->
+
 ## If this touches the UI
 
 - [ ] Checked in a browser, not only in tests

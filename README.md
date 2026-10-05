@@ -15,7 +15,7 @@ Save a brand's products from real photos, the people in its shots and its places
 
 **Get started.** You need [Node.js](https://nodejs.org) 22 or newer, and a paid ChatGPT plan (used through Codex CLI, which Scenri sets up for you) or an [OpenRouter](https://openrouter.ai) API key to make pictures. Scenri itself has no account and no fees.
 
-<sub>If `npm --version` prints 12, run `npm config set allow-scripts=better-sqlite3 --location=user` once first ([why](https://github.com/tonygorb/scenri/blob/main/docs/INSTALL.md#troubleshooting)). Then:</sub>
+<sub>If `npm --version` prints 12, run `npm config set allow-scripts=better-sqlite3 --location=user` once first ([why](https://github.com/tonygorb/scenri/blob/main/docs/TROUBLESHOOTING.md)). Then:</sub>
 
 ```bash
 npx scenri
@@ -65,21 +65,13 @@ The brand kit lives in Settings and is the part that keeps output consistent. Na
 
 ## Run it
 
-Scenri runs on [Node.js](https://nodejs.org), version 22 or newer. If you are not sure you have it, or terminals are not part of your day, the **[install guide](https://github.com/tonygorb/scenri/blob/main/docs/INSTALL.md)** covers every step for macOS, Windows and Linux. With Node in place:
+Node.js 22 or newer, then:
 
 ```bash
 npx scenri
 ```
 
-That is the whole install. npm asks once whether to proceed, downloads the current release, and opens `http://127.0.0.1:4747`. Keep the terminal window open while you work; closing it stops Scenri. Tomorrow the same command opens it again, with everything where you left it. Nothing here needs an administrator.
-
-On Windows, if PowerShell answers `npx.ps1 cannot be loaded because running scripts is disabled on this system`, that is a stock Windows setting, not a fault: type `npx.cmd scenri` instead, or use Command Prompt. Still no administrator required.
-
-On macOS and Windows, Scenri then asks once whether to put a **Scenri icon on your desktop**. Say yes and from then on a double-click starts Scenri and opens it in your browser, no terminal needed; the icon works offline and keeps working across updates. Said no? Settings, then Local access, then **Add to desktop**, or `npx scenri desktop` in a terminal. Scenri stays what it is, a local server and your browser: the icon is a launcher, not an app.
-
-Generation runs on **Codex CLI**, an official helper from OpenAI that draws on your own paid ChatGPT plan (Codex image generation is not part of the Free plan). No API key to paste, and Scenri never charges you. Each image spends some of your plan's Codex usage. You do not have to set it up by hand: if it is missing, Scenri offers to install it and to sign you in, both from the app. No ChatGPT plan? Add your own key from an image provider in Settings instead, see [Engines](#engines).
-
-One dependency, `better-sqlite3`, runs an install script that fetches its native binary. The npm that ships with current Node releases (npm 11) runs it without asking. npm 12 blocks dependency install scripts by default, so if `npm --version` prints 12, allow this one once with `npm config set allow-scripts=better-sqlite3 --location=user` before you run `npx scenri`. Something not starting? See [troubleshooting](https://github.com/tonygorb/scenri/blob/main/docs/INSTALL.md#troubleshooting).
+The [install guide](https://github.com/tonygorb/scenri/blob/main/docs/INSTALL.md) covers macOS, Windows, and Linux, including the desktop icon and the PowerShell case. The [quick start](https://github.com/tonygorb/scenri/blob/main/docs/QUICKSTART.md) is the shortest path to one Shot. Generation is a separate step: [connect Codex or a provider key](https://github.com/tonygorb/scenri/blob/main/docs/CONNECT.md). If `npm --version` prints 12, see [troubleshooting](https://github.com/tonygorb/scenri/blob/main/docs/TROUBLESHOOTING.md) before the first run.
 
 <details>
 <summary>Run from source</summary>
@@ -94,41 +86,14 @@ pnpm dev          # starts the server on 127.0.0.1:4747
 
 </details>
 
-## First five minutes
-
-Scenri offers to walk you through your first shot, one step at a time, and Learn holds the rest. The short version:
-
-1. **Paste a website URL.** Scenri reads the public pages and drafts the kit: name, logo, palette. If the site sells things, it offers to add the products too.
-2. **Describe a shot.** In the composer, `$` reaches for a product, `@` for a presenter, `/` for a scene, and `#` for a colour. Everything between them is your own words.
-3. **Generate on Codex CLI.** Runs on your own paid ChatGPT plan, so there is no key and no per-image charge from us.
-4. **Refine it.** Open the shot and say what to change. Each refinement joins the trail under the picture.
-5. **Add your own key** in Settings, Providers to run on OpenRouter, Replicate or fal instead.
-
 ## Why it is built this way
 
-- **Iteration is the product.** Not a prompt box: every shot keeps its trail of refinements, and the ones you star collect in Keepers.
+- **Iteration is the product.** Not a prompt box: every shot keeps its trail of refinements, and the ones you mark collect in Keepers.
 - **Your brands are files, not hostages.** `.brand` is an open, documented format under a permissive license. Email one to a client. Any tool can adopt it.
 - **Your AI, your cost.** Bring your own ChatGPT plan through Codex CLI, or an API key. You pay the provider directly, at its own price. Scenri sells no credits and adds no markup.
 - **Local first, and it means it.** No account, no telemetry, nothing uploaded to us. Scenri runs on this computer, and answers other devices on your own network only when they bring its six-digit code (Settings, Local access). It makes exactly two requests on its own behalf: a version-number check against npm every six hours so updates can announce themselves (and, when one is found, the download of that release from npm, staged locally until you choose to restart), and the download of the library imagery archive from GitHub, once for each library version a release pins. Nothing about you or your work is sent in either, and both turn off: in Settings or `SCENRI_NO_UPDATE_CHECK=1` for the first, `SCENRI_NO_CONTENT_FETCH=1` for the second ([how updates work](https://github.com/tonygorb/scenri/blob/main/docs/updates.md), [what goes where](https://github.com/tonygorb/scenri/blob/main/PRIVACY.md)).
 
-## Engines
-
-| Engine | What it costs you | Needs | Carries a Product or Presenter |
-|---|---|---|---|
-| **Codex CLI** | your ChatGPT plan's Codex usage | a paid ChatGPT plan; the app installs Codex and signs you in | yes, up to 5 references |
-| OpenRouter | about $0.04 an image | API key | yes, up to 4 references |
-| Replicate | about $0.003 an image | API token | no |
-| fal | about $0.006 an image (fal bills per megapixel) | API key | no |
-
-Codex CLI is the default because it needs no key and because it carries the most reference images: a shot that has to keep both a product and a person accurate needs the room.
-
-It is not free. Paid ChatGPT plans include Codex usage, and each image spends some of it: OpenAI says image generation uses it three to five times faster than a plain turn. OpenAI meters that, not Scenri, so spend caps do not apply to this engine.
-
-**Without a paid ChatGPT plan**, use your own provider key. OpenRouter is the one to pick if your shots name a Product or a Presenter. Replicate and fal take no reference images, so Scenri refuses those shots on them rather than generating something that only looks right. Edits on Replicate and fal cost more than a new image.
-
-Keys are stored in your local library folder, sent only to that provider, and never returned by the API. Set a monthly spend cap per engine in Settings, Providers.
-
-Your Codex session is yours: Scenri runs the official `codex` commands on your machine and never reads, copies or stores the credential. That is also why Scenri never pools user plans: a plan is licensed to the person who pays for it, not to a service reselling it to other people. Any hosted version of Scenri, if one ever exists, would run API-priced engines only.
+Providers, costs, and what each one can carry are in [Connect image generation](https://github.com/tonygorb/scenri/blob/main/docs/CONNECT.md).
 
 ## Configuration
 
