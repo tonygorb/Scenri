@@ -273,7 +273,7 @@ export function taskFromContent(c: ContentState, since: string): Task | null {
       ...base,
       state: 'running',
       title: 'Downloading the Scenri library',
-      subtitle: total ? `${c.landed ?? 0} of ${total} pictures` : 'Pictures for the examples, products and presenters',
+      subtitle: total ? `${c.landed ?? 0} of ${total} pictures` : 'Pictures for the examples, products and people',
       percent: c.totalBytes ? Math.min(99, Math.floor(((c.bytes ?? 0) / c.totalBytes) * 100)) : null,
     };
   }
@@ -282,7 +282,7 @@ export function taskFromContent(c: ContentState, since: string): Task | null {
       ...base,
       state: 'done',
       title: 'Scenri library downloaded',
-      subtitle: total ? `${total} pictures for the examples, products and presenters` : 'Pictures for the examples',
+      subtitle: total ? `${total} pictures for the examples, products and people` : 'Pictures for the examples',
       percent: 100,
     };
   }
@@ -453,7 +453,7 @@ export function studioSubtitle(w: StudioWork): string {
           : 'Drawing the picture';
     // Words added before anything was drawn change the words and draw nothing.
     if (w.job === 'change' && !w.thumb) return 'The words are changed';
-    return w.attachTo ? 'On its scene now' : 'The picture is drawn';
+    return w.attachTo ? 'On its place now' : 'The picture is drawn';
   }
   const view = w.step && w.step in VIEW_NAME ? VIEW_NAME[w.step as StudioView] : null;
   if (w.status === 'running') return view ? `Drawing the ${view}` : 'Reading the photos';
@@ -495,7 +495,7 @@ export function taskFromStudioWork(w: StudioWork, brand: { slug: string }): Task
     // a scene's examples are the scene's work: its row, its icon
     kind: w.kind === 'examples' ? 'scene' : w.kind,
     state,
-    title: w.name.trim() || (w.kind === 'presenter' ? 'New presenter' : 'New scene'),
+    title: w.name.trim() || (w.kind === 'presenter' ? 'New person' : 'New place'),
     subtitle: studioSubtitle(w),
     thumb: w.thumb,
     // real counters for a presenter's set and a scene's examples; a scene is one picture, so the shimmer
@@ -532,9 +532,9 @@ export function examplesInItsStudio(
 ): boolean {
   if (!t.id.startsWith('examples:') || !t.href) return false;
   const sceneId = t.href.split('?')[0].split('/').pop();
-  const edit = pathname.match(/\/scenes\/([^/]+)\/edit(?:\/|$)/);
+  const edit = pathname.match(/\/places\/([^/]+)\/edit(?:\/|$)/);
   if (edit) return edit[1] === sceneId;
-  const fresh = pathname.match(/\/scenes\/new\/([^/]+)/);
+  const fresh = pathname.match(/\/places\/new\/([^/]+)/);
   if (!fresh) return false;
   try {
     return JSON.parse(local.get(`scenri:scene-studio:${brandId}:${fresh[1]}`) ?? 'null')?.sceneId === sceneId;

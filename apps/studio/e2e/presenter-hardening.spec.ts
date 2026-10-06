@@ -139,7 +139,7 @@ test.describe('the creation flow on its own', () => {
   test('a sentence after Start over, before any draft, still starts the draft (PC-H1)', async ({ page }) => {
     test.setTimeout(40_000);
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await answer(page, 'Describe someone').click();
     await expect(log(page)).toContainText('Who are they?');
     // no draft yet: the head's Start over is a plain button, no dialog
@@ -147,20 +147,20 @@ test.describe('the creation flow on its own', () => {
     await expect(answer(page, 'Describe someone')).toBeVisible();
     await send(page, SENTENCE);
     await answer(page, 'Nothing else').click();
-    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/\/people\/new\/pd-/, { timeout: 20_000 });
   });
 
   test('tapped rows after Start over, before any draft, draw the face (PC-H1)', async ({ page }) => {
     test.setTimeout(60_000);
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await answer(page, 'Describe someone').click();
     await expect(log(page)).toContainText('Who are they?');
     await page.getByRole('button', { name: 'Start over', exact: true }).click();
     await tapThrough(page);
     await answer(page, 'Nothing else').click();
-    await answer(page, 'Draw the presenter').click();
-    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 20_000 });
+    await answer(page, 'Draw the person').click();
+    await expect(page).toHaveURL(/\/people\/new\/pd-/, { timeout: 20_000 });
     await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 20_000 });
   });
 
@@ -171,10 +171,10 @@ test.describe('the creation flow on its own', () => {
   test('sends a failed sync again before the face is redrawn (PC-H6)', async ({ page }) => {
     test.setTimeout(90_000);
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await tapThrough(page);
     await answer(page, 'Nothing else').click();
-    await answer(page, 'Draw the presenter').click();
+    await answer(page, 'Draw the person').click();
     await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 30_000 });
     const id = here(page);
     // in order: each direction patch with its status, and each draw of the face
@@ -213,15 +213,15 @@ test.describe('the creation flow on its own', () => {
     test.setTimeout(90_000);
     const brand = await currentBrand(page);
     const calls = draftCalls(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await tapThrough(page);
     // a last detail whose 200-character cut lands on a space: the client keeps the space, the server trims it
     const keep = `${'a small silver hoop in the left ear '.repeat(6).slice(0, 199)} and more words after the cut here`;
     expect(keep[199]).toBe(' ');
     await send(page, keep);
-    await expect(log(page)).toContainText('Here is the presenter, in full. Ready to draw?');
-    await answer(page, 'Draw the presenter').click();
-    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 20_000 });
+    await expect(log(page)).toContainText('Here is the person, in full. Ready to draw?');
+    await answer(page, 'Draw the person').click();
+    await expect(page).toHaveURL(/\/people\/new\/pd-/, { timeout: 20_000 });
     const id = here(page);
     await settledView(page.request, brand.id, id, 'portrait', 'candidate');
     // the full body's first draw fails once, so a Retry is offered after the face is used
@@ -252,10 +252,10 @@ test.describe('the creation flow on its own', () => {
 test.describe('navigation while a request is on its way', () => {
   test('Back while the draft is being created does not pull the studio back open (PC-H3)', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters`);
+    await page.goto(`/${brand.slug}/people`);
     // the bar's New opens the studio whether or not the wall is empty
     await page.locator('.sc-new-go').click();
-    await expect(page).toHaveURL(/\/presenters\/new$/);
+    await expect(page).toHaveURL(/\/people\/new$/);
     await expect(answer(page, 'Describe someone')).toBeVisible();
     await send(page, SENTENCE);
     const held = await holdNext(page, /\/presenter-drafts$/, 'POST');
@@ -263,12 +263,12 @@ test.describe('navigation while a request is on its way', () => {
     await held.caught;
     // the person leaves before the draft answers
     await page.goBack();
-    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters$`));
+    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/people$`));
     await expect(page.locator('.sc-pstudio')).toHaveCount(0);
     held.release();
     // the late answer must not reopen the studio the person just left
     await page.waitForTimeout(2500);
-    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters$`));
+    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/people$`));
     await expect(page.locator('.sc-pstudio')).toHaveCount(0);
   });
 
@@ -276,11 +276,11 @@ test.describe('navigation while a request is on its way', () => {
     test.setTimeout(90_000);
     const brand = await currentBrand(page);
     const base = `/api/brands/${brand.id}/presenter-drafts`;
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     // conversation A: the rows, tapped to the read-back, nothing drawn yet
     await tapThrough(page);
     await answer(page, 'Nothing else').click();
-    await expect(log(page)).toContainText('Here is the presenter, in full. Ready to draw?');
+    await expect(log(page)).toContainText('Here is the person, in full. Ready to draw?');
 
     // draft B finishes its face in the background
     const b = await (
@@ -298,7 +298,7 @@ test.describe('navigation while a request is on its way', () => {
         toB.push(`${r.method()} ${path.split(b.id)[1] || '/'} ${r.postData() ?? ''}`.slice(0, 160));
     });
     await toast.getByRole('button', { name: 'Open' }).click();
-    await expect(page).toHaveURL(new RegExp(`/presenters/new/${b.id}$`));
+    await expect(page).toHaveURL(new RegExp(`/people/new/${b.id}$`));
     await page.waitForTimeout(4000);
 
     const after = await draftOf(page.request, brand.id, b.id);
@@ -315,23 +315,23 @@ test.describe('navigation while a request is on its way', () => {
     test.setTimeout(60_000);
     const brand = await currentBrand(page);
     const id = await seedPresenter(page.request, brand.id, 'Maren');
-    await page.goto(`/${brand.slug}/presenters/${id}`);
-    await page.getByRole('link', { name: 'Edit presenter' }).click();
-    await expect(page).toHaveURL(new RegExp(`/presenters/${id}/edit$`));
+    await page.goto(`/${brand.slug}/people/${id}`);
+    await page.getByRole('link', { name: 'Edit person' }).click();
+    await expect(page).toHaveURL(new RegExp(`/people/${id}/edit$`));
     await expect(page.locator('.sc-pstudio-slot')).toHaveCount(3, { timeout: 20_000 });
     const reread = page.waitForResponse((r) => /\/presenter-drafts$/.test(new URL(r.url()).pathname));
     await page.keyboard.press('Escape');
-    await expect(page).toHaveURL(new RegExp(`/presenters/${id}$`));
+    await expect(page).toHaveURL(new RegExp(`/people/${id}$`));
     await reread;
     await expect(page.getByRole('link', { name: 'Continue editing' })).toHaveCount(0);
-    await expect(page.getByRole('link', { name: 'Edit presenter' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Edit person' })).toBeVisible();
   });
 
   test('a save that lands after the editor was closed does not pull the person back (PC-H11)', async ({ page }) => {
     test.setTimeout(90_000);
     const brand = await currentBrand(page);
     const id = await seedPresenter(page.request, brand.id, 'Noa');
-    await page.goto(`/${brand.slug}/presenters/${id}/edit`);
+    await page.goto(`/${brand.slug}/people/${id}/edit`);
     await page.locator('.sc-pstudio-slot[data-view="front"]').click();
     await send(page, 'turn slightly more to camera');
     await expect(log(page)).toContainText('Redrew the full body.', { timeout: 20_000 });
@@ -342,7 +342,7 @@ test.describe('navigation while a request is on its way', () => {
     await answer(page, 'Save changes').click();
     await held.caught;
     await page.keyboard.press('Escape');
-    await expect(page).toHaveURL(new RegExp(`/presenters/${id}$`));
+    await expect(page).toHaveURL(new RegExp(`/people/${id}$`));
     await goNav(page, 'Products');
     held.release();
     await page.waitForTimeout(1500);
@@ -354,7 +354,7 @@ test.describe('navigation while a request is on its way', () => {
     const brand = await currentBrand(page);
     const one = await seedPresenter(page.request, brand.id, 'Lior');
     const two = await seedPresenter(page.request, brand.id, 'Dana');
-    await page.goto(`/${brand.slug}/presenters/${one}/edit`);
+    await page.goto(`/${brand.slug}/people/${one}/edit`);
     await expect(page.locator('.sc-pstudio-slot')).toHaveCount(3, { timeout: 20_000 });
     // what a task toast's Open does: an in-app navigation, the same mount
     const opened = page.waitForRequest(
@@ -364,10 +364,10 @@ test.describe('navigation while a request is on its way', () => {
     await page.evaluate((to) => {
       history.pushState(null, '', to);
       window.dispatchEvent(new PopStateEvent('popstate', { state: null }));
-    }, `/${brand.slug}/presenters/${two}/edit`);
+    }, `/${brand.slug}/people/${two}/edit`);
     await opened;
     await page.waitForTimeout(1000);
-    await expect(page).toHaveURL(new RegExp(`/presenters/${two}/edit$`));
+    await expect(page).toHaveURL(new RegExp(`/people/${two}/edit$`));
   });
 });
 
@@ -376,7 +376,7 @@ test.describe('what Enter answers', () => {
     test.setTimeout(60_000);
     const brand = await currentBrand(page);
     const draftId = await coreDraft(page.request, brand.id, 'Ari');
-    await page.goto(`/${brand.slug}/presenters/new/${draftId}`);
+    await page.goto(`/${brand.slug}/people/new/${draftId}`);
     await expect(answer(page, 'Add them')).toBeVisible({ timeout: 20_000 });
     await log(page).getByText('Add back and profile views?').click();
     await page.keyboard.press('Enter');
@@ -395,7 +395,7 @@ test.describe('what Enter answers', () => {
     ).json();
     await page.request.post(`${base}/${draft.id}/views/portrait/generate`, { data: {} });
     await settledView(page.request, brand.id, draft.id, 'portrait', 'candidate');
-    await page.goto(`/${brand.slug}/presenters/new/${draft.id}`);
+    await page.goto(`/${brand.slug}/people/new/${draft.id}`);
     await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 20_000 });
 
     await page.getByRole('button', { name: 'Start over', exact: true }).click();
@@ -412,7 +412,7 @@ test.describe('what Enter answers', () => {
 test.describe('pictures on their way in', () => {
   test('a photo pasted at a describe-someone question is never uploaded (PC-H10)', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await answer(page, 'Describe someone').click();
     await expect(log(page)).toContainText('Who are they?');
     const uploads = posts(page, /^\/api\/images$/);
@@ -423,7 +423,7 @@ test.describe('pictures on their way in', () => {
 
   test('two quick paste batches past four photos keep four and say what was not added (PC-H10)', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await answer(page, 'Add photos').click();
     await expect(page.locator('input[type="file"]')).toBeAttached();
     const uploads = posts(page, /^\/api\/images$/);
@@ -438,7 +438,7 @@ test.describe('pictures on their way in', () => {
 
   test('a detail picture taken off while it uploads does not come back (PC-H4)', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await tapThrough(page);
     await answer(page, 'Glasses').click();
     await answer(page, 'Continue').click();
@@ -467,7 +467,7 @@ test.describe('pictures on their way in', () => {
   test('a detail upload that fails after the draft exists does not stall the face (PC-H4)', async ({ page }) => {
     test.setTimeout(90_000);
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await tapThrough(page);
     await answer(page, 'Glasses').click();
     await answer(page, 'Continue').click();
@@ -495,8 +495,8 @@ test.describe('pictures on their way in', () => {
     await answer(page, 'Thin black').click();
     // the draft's first read is held, so the failure lands before the face is asked for
     const read = await holdNext(page, /\/presenter-drafts\/pd-[a-z0-9]+$/, 'GET');
-    await answer(page, 'Draw the presenter').click();
-    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 20_000 });
+    await answer(page, 'Draw the person').click();
+    await expect(page).toHaveURL(/\/people\/new\/pd-/, { timeout: 20_000 });
     await read.caught;
     const failedUpload = page.waitForResponse((r) => /\/api\/images$/.test(r.url()) && r.status() === 500);
     release();
@@ -527,7 +527,7 @@ test.describe('pictures on their way in', () => {
     const urls = () =>
       page.evaluate(() => (window as unknown as { __urls: { made: string[]; revoked: string[] } }).__urls);
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await tapThrough(page);
     await answer(page, 'Glasses').click();
     await answer(page, 'Continue').click();
@@ -558,7 +558,7 @@ test.describe('pictures on their way in', () => {
 // back to the top of the page. It comes back to the control that opened it.
 test('closing the studio gives the keyboard back to what opened it', async ({ page }) => {
   const brand = await currentBrand(page);
-  await page.goto(`/${brand.slug}/presenters`);
+  await page.goto(`/${brand.slug}/people`);
   const opener = page.locator('.sc-new-go').first();
   await opener.focus();
   await page.keyboard.press('Enter');

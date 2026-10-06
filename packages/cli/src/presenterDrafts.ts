@@ -882,8 +882,8 @@ export function openPresenterEdit(core: Core, brandId: string, presenterId: stri
   if (!brand) throw fail('brand not found', 404);
   const rows = brandCharacters(brand.json);
   const asked = rows.find((c) => c?.id === presenterId);
-  if (!asked) throw fail('presenter not found', 404);
-  if (!isCustomPresenter(asked)) throw fail('this presenter is not editable', 400);
+  if (!asked) throw fail('person not found', 404);
+  if (!isCustomPresenter(asked)) throw fail('this person is not editable', 400);
   const headId = headOf(brand.json, presenterId);
   const head = rows.find((c) => c?.id === headId) as CustomPresenter;
   return (
@@ -1012,7 +1012,7 @@ async function filePhotos(deps: AssetBuildDeps, id: string, signal: AbortSignal)
         {
           kind: 'presenter',
           imagePaths: rec.sources.map((h) => core.images.pathFor(h)),
-          name: rec.name || 'New presenter',
+          name: rec.name || 'New person',
           instruction: rec.direction || undefined,
           vocabulary: deps.vocabulary,
           classifyPhotos: true,
@@ -1225,7 +1225,7 @@ async function drawView(
           {
             kind: 'presenter',
             imagePaths: [core.images.pathFor(face)],
-            name: rec.name || 'New presenter',
+            name: rec.name || 'New person',
             instruction: rec.direction || undefined,
             vocabulary: deps.vocabulary,
           },
@@ -1967,8 +1967,8 @@ async function saveEdit(
   const brand = core.store.getBrand(rec.brandId);
   if (!brand) throw fail('brand not found', 404);
   const base = brandCharacters(brand.json).find((c) => c?.id === rec.presenterId) as CustomPresenter | undefined;
-  if (!base) throw fail('this presenter no longer exists', 404);
-  const moved = () => fail('this presenter changed elsewhere; reload to continue', 409);
+  if (!base) throw fail('this person no longer exists', 404);
+  const moved = () => fail('this person changed elsewhere; reload to continue', 409);
   const baseId = rec.baseId ?? '';
   if (!baseId || headOf(brand.json, baseId) !== baseId) throw moved();
   if (!rec.name.trim()) throw fail('give them a name', 400);

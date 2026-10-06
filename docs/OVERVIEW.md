@@ -5,13 +5,13 @@ Scenri is a local photo studio for a brand. It runs on your computer, opens in y
 A Brand holds four things you reuse:
 
 - **Products**, what the brand sells.
-- **Presenters**, who appears in the pictures.
-- **Scenes**, where and how a picture is lit and staged.
+- **People**, who appears in the pictures.
+- **Places**, where and how a picture is lit and staged.
 - **Shots**, the pictures you make from those, one card each.
 
-Create is where a Shot is made. The line takes a Product with `$`, a Presenter with `@`, a Scene with `/`, and a colour with `#`. The words between those chips are the direction.
+Create is where a Shot is made. The line takes a Product with `$`, a Person with `@`, a Place with `/`, and a colour with `#`. The words between those chips are the direction.
 
-The library already includes 30 Products, 19 Presenters, 42 Scenes, and 110 example Shots, so you can make a picture before you have added anything of your own.
+The library already includes 30 Products, 19 People, 42 Places, and 110 example Shots, so you can make a picture before you have added anything of your own.
 
 Scenri does not include image generation. You connect Codex on a paid ChatGPT plan, or a key from OpenRouter, Replicate, or fal. When you generate, the prompt and its reference images go to that provider.
 

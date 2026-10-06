@@ -214,7 +214,7 @@ test('slow pictures hold their cards still, and loading never wears the generati
   await page.goto(`/${slug}/products`);
   await expect(page.locator('.sc-lookcard:not([data-variant="skeleton"])').first()).toBeVisible();
   expect(await page.locator('.sc-rendering').count()).toBe(0);
-  for (const wall of ['presenters', 'scenes']) {
+  for (const wall of ['people', 'places']) {
     await page.goto(`/${slug}/${wall}`);
     const card = page.locator('.sc-lookcard:not([data-variant="skeleton"])').first();
     await expect(card).toBeVisible();
@@ -224,7 +224,7 @@ test('slow pictures hold their cards still, and loading never wears the generati
     await expect(card.locator('.sc-placeholder')).toBeAttached();
     expect(await page.locator('.sc-rendering').count()).toBe(0);
     expect(before?.height ?? 0).toBeGreaterThan(40);
-    if (wall === 'scenes') {
+    if (wall === 'places') {
       release();
       await expect(card.locator('img[data-ready]')).toBeAttached({ timeout: 15_000 });
       await expect(card.locator('.sc-placeholder')).toHaveCount(0);

@@ -366,6 +366,6 @@ describe('presenter catalog + direct-attach API', () => {
       },
     });
     expect(res.statusCode).toBe(200);
-    expect(res.json().warnings).toContain('A presenter in this brief is no longer in your roster.');
+    expect(res.json().warnings).toContain('A person in this brief is no longer in your roster.');
   });
 });

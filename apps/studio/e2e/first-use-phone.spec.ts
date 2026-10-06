@@ -63,7 +63,7 @@ test('every moment is the same card it is on a desktop, whole and clear of its t
   await page.locator('[data-guide="compose.add"]').click();
 
   // The picker, which the card stands clear of at every kind.
-  for (const kind of ['Product', 'Presenter', 'Scene'] as const) {
+  for (const kind of ['Product', 'Person', 'Place'] as const) {
     await expect.poll(() => card(page)).toEqual(good);
     await pickFromPicker(page, kind);
   }

@@ -78,8 +78,8 @@ export interface AttachBodyProps {
 
 const KIND_OF: Partial<Record<AttachGroup, IngredientKind>> = {
   Products: 'product',
-  Presenters: 'presenter',
-  Scenes: 'scene',
+  People: 'presenter',
+  Places: 'scene',
 };
 
 interface GroupList {
@@ -425,16 +425,16 @@ export function AttachBody({
           const token: SentenceToken = { t: 'character', id: made.id };
           onPick({
             key: identityKeyOf(token),
-            group: 'Presenters',
+            group: 'People',
             shape: 'square',
-            label: 'Presenter',
+            label: 'Person',
             full: made.name,
             search: made.name,
             token,
           });
           return;
         }
-        onTab('Scenes');
+        onTab('Places');
       },
     });
 
@@ -470,8 +470,8 @@ export function AttachBody({
 
   /** Two reasons a tile sits out, one way of sitting out. A colour never does. */
   const whyFor = (g: AttachGroup): string | null =>
-    refining && g === 'Scenes'
-      ? 'Scenes set up a new shot. Press X on Refining to use one.'
+    refining && g === 'Places'
+      ? 'Places set up a new shot. Press X on Refining to use one.'
       : full && g !== 'Colors'
         ? full
         : null;
@@ -529,9 +529,9 @@ export function AttachBody({
       </div>
 
       <div className="sc-ap-body" ref={bodyRef}>
-        {refining && tab === 'Scenes' && (
+        {refining && tab === 'Places' && (
           <p className="sc-ap-hint">
-            Scenes set up a new shot, so they sit out while you are refining. Press X on Refining to use one.
+            Places set up a new shot, so they sit out while you are refining. Press X on Refining to use one.
           </p>
         )}
         {lists.map((l, gi) => {
@@ -565,14 +565,14 @@ export function AttachBody({
                     Add product
                   </button>
                 )}
-                {tab === 'Presenters' && !only && (
+                {tab === 'People' && !only && (
                   <button type="button" className="sc-ap-sec-act sc-ap-add" onClick={() => create('presenter')}>
-                    Create presenter
+                    Create person
                   </button>
                 )}
-                {tab === 'Scenes' && !only && (
+                {tab === 'Places' && !only && (
                   <button type="button" className="sc-ap-sec-act sc-ap-add" onClick={() => create('scene')}>
-                    Create scene
+                    Create place
                   </button>
                 )}
                 {tab === 'Colors' && (

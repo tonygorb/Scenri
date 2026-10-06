@@ -12,6 +12,7 @@ import {
   LESSON_PICTURES,
   LESSONS,
   NEEDS,
+  lessonAddress,
   lessonAt,
   lessonOf,
   lessonState,
@@ -25,7 +26,7 @@ import { useLaunchTask } from '../layout/useLaunchTask.js';
 import { P } from '../routes.js';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
 
-/** The library's own address: `?learn=lessons`. A lesson's is its id. */
+/** The library's own address: `?learn=lessons`. A lesson's is its `lessonAddress`. */
 export const ALL_LESSONS = 'lessons';
 
 /**
@@ -238,7 +239,7 @@ export function LearnDialog() {
                       if (el) rows.current.set(l.id, el);
                       else rows.current.delete(l.id);
                     }}
-                    onClick={() => param.set(l.id)}
+                    onClick={() => param.set(lessonAddress(l.id))}
                   >
                     <span className="sc-learn-thumb">
                       <img src={LESSON_PICTURES[l.id].square} alt="" decoding="async" />

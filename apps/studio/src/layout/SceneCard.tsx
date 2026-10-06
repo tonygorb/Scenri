@@ -92,7 +92,7 @@ export function SceneCard({
             select: onPick ? { run: () => onPick(scene.id) } : undefined,
             keep: onBookmark ? { on: !!bookmarked, run: () => onBookmark(scene.id) } : undefined,
             onRename: onRename ? () => onRename(scene.id) : undefined,
-            remove: onDelete ? { label: 'Delete scene', run: () => onDelete(scene.id) } : undefined,
+            remove: onDelete ? { label: 'Delete place', run: () => onDelete(scene.id) } : undefined,
           });
   return (
     <CatalogCard

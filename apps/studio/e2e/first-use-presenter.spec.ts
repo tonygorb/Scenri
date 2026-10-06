@@ -55,11 +55,11 @@ test('a word at the start, then quiet: the studio asks its own questions', async
   )?.id as string;
 
   // Learn finds Presenters first, then the studio, and the tutor says which road is which.
-  await fromLearn(page, 'Create a presenter');
-  await walkTheWay(page, 'presenters', 'Your presenters live here');
-  await page.waitForURL('**/presenters');
-  await startNew(page, 'Start a new presenter');
-  await page.waitForURL('**/presenters/new**');
+  await fromLearn(page, 'Create a person');
+  await walkTheWay(page, 'presenters', 'Your people live here');
+  await page.waitForURL('**/people');
+  await startNew(page, 'Start a new person');
+  await page.waitForURL('**/people/new**');
   await expect(studioCoach(page).locator('.sc-coach-title')).toHaveText('Describe someone, or start from photos', {
     timeout: 20_000,
   });
@@ -68,10 +68,10 @@ test('a word at the start, then quiet: the studio asks its own questions', async
   // new one is asked for again
   await expect(studioCoach(page).getByRole('button', { name: 'Back' })).toBeVisible();
   await studioCoach(page).getByRole('button', { name: 'Back' }).click();
-  await page.waitForURL('**/presenters');
+  await page.waitForURL('**/people');
   await expect(page.locator('.sc-pstudio')).toHaveCount(0);
-  await startNew(page, 'Start a new presenter');
-  await page.waitForURL('**/presenters/new**');
+  await startNew(page, 'Start a new person');
+  await page.waitForURL('**/people/new**');
   await expect(studioCoach(page).locator('.sc-coach-title')).toHaveText('Describe someone, or start from photos', {
     timeout: 20_000,
   });
@@ -109,12 +109,12 @@ test('the face and the save are the two words it says, and saving ends the task'
   // Learn continues that exact draft.
   await page.goto(`/${slug}`);
   await learnButton(page).click();
-  await expect(lessonRow(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText(/^Step \d of 5$/);
-  await lessonRow(page, 'Create a presenter').click();
+  await expect(lessonRow(page, 'Create a person').locator('.sc-learn-status')).toHaveText(/^Step \d of 5$/);
+  await lessonRow(page, 'Create a person').click();
   await learnDialog(page)
     .getByRole('button', { name: /^Continue:/ })
     .click();
-  await page.waitForURL(`**/presenters/new/${draft.id}`);
+  await page.waitForURL(`**/people/new/${draft.id}`);
 
   await expect(studioCoach(page).locator('.sc-coach-title')).toHaveText('Decide the face', { timeout: 20_000 });
   // the portrait stays usable beside the question: its versions are part of deciding
@@ -148,7 +148,7 @@ test('the face and the save are the two words it says, and saving ends the task'
   await answer(page, 'Use this person').click();
 
   // Everything between is the studio's own; the tutor speaks again at the save.
-  const save = answer(page, 'Save presenter');
+  const save = answer(page, 'Save person');
   for (let i = 0; i < 120 && !(await save.isVisible()); i++) {
     for (const label of ['Use it', 'Not now']) {
       const b = answer(page, label);
@@ -156,7 +156,7 @@ test('the face and the save are the two words it says, and saving ends the task'
     }
     await page.waitForTimeout(500);
   }
-  await expect(studioCoach(page).locator('.sc-coach-title')).toHaveText('Save your presenter', { timeout: 60_000 });
+  await expect(studioCoach(page).locator('.sc-coach-title')).toHaveText('Save your person', { timeout: 60_000 });
   await save.click();
 
   await expect.poll(async () => (await guideRecord(page)).active, { timeout: 20_000 }).toBeNull();

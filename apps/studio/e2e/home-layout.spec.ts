@@ -47,8 +47,8 @@ test('the shelves share the wall grid and one section beat, in both densities', 
 
   // one way on per shelf, where it ends: the library's Show all, with the whole count
   const shelves = [
-    { shelf: large[1], total: presenters, noun: 'presenters' },
-    { shelf: large[2], total: scenes, noun: 'scenes' },
+    { shelf: large[1], total: presenters, noun: 'people' },
+    { shelf: large[2], total: scenes, noun: 'places' },
   ];
   for (const { shelf, total, noun } of shelves) {
     expect(shelf.headLinks).toBe(0);
@@ -113,10 +113,10 @@ test('a shelf keeps its heading and the wall grid while its cards load', async (
   await openHome(page);
 
   const shelf = chapters(page).nth(1);
-  await expect(shelf.locator('h2')).toHaveText('Presenters');
+  await expect(shelf.locator('h2')).toHaveText('People');
   await expect(shelf.locator('.sc-masonry[aria-hidden]')).toBeVisible();
   // the way on is already there, before the count is known
-  await expect(shelf.locator('.sc-lib-more a')).toHaveText('Show all presenters');
+  await expect(shelf.locator('.sc-lib-more a')).toHaveText('Show all people');
   const loading = await readChapters(page);
   expect(loading[1].cols).toBe(loading[0].cols);
   const top = (i: number) =>

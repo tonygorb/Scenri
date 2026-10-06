@@ -4,7 +4,7 @@ import { isolate, arrived } from './harness.js';
 
 /**
  * Presenter creation as a conversation, end to end, at its own address:
- * /presenters/new for a fresh start, /presenters/new/:draftId once there
+ * /people/new for a fresh start, /people/new/:draftId once there
  * is a draft.
  *
  * Scenri asks one thing, the person answers by tapping or typing, and the
@@ -138,7 +138,7 @@ async function seedDraft(
 }
 
 async function openDraft(p: Page, brand: { slug: string; id: string }, draftId: string) {
-  await p.goto(`/${brand.slug}/presenters/new/${draftId}`);
+  await p.goto(`/${brand.slug}/people/new/${draftId}`);
 }
 
 /** Every request the studio makes to the API between two moments. */
@@ -166,7 +166,7 @@ test.describe('a person from scratch', () => {
   }) => {
     test.setTimeout(60_000);
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await expect(log(page)).toContainText('Who are we making?');
     // the whole sentence is in the log from its first frame, never a character at a time
     await expect(log(page).locator('.sc-convo-say').last()).toHaveText(
@@ -182,7 +182,7 @@ test.describe('a person from scratch', () => {
     await send(page, 'Late 30s woman, Mediterranean appearance, dark shoulder-length hair, slim build, elegant.');
     // one more question before the draw: what else is always true of them
     await answer(page, 'Nothing else').click();
-    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
+    await expect(page).toHaveURL(/\/people\/new\/pd-/, { timeout: 40_000 });
     await expect(answer(page, 'Describe someone')).toHaveCount(0);
     await expect(answer(page, 'Add photos')).toHaveCount(0);
     await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 20_000 });
@@ -205,10 +205,10 @@ test.describe('a person from scratch', () => {
     await expect(log(page)).toContainText('What should we call them?');
     await send(page, 'Maren');
     await expect(log(page)).toContainText('Maren is ready.');
-    await answer(page, 'Save presenter').click();
+    await answer(page, 'Save person').click();
 
     // a saved presenter is an asset: its own page, and the library holds it
-    await expect(page).toHaveURL(/\/presenters\/up-/, { timeout: 40_000 });
+    await expect(page).toHaveURL(/\/people\/up-/, { timeout: 40_000 });
     await expect(studio(page)).toHaveCount(0);
     const person = await personNamed(page, brand.id, 'Maren');
     expect(person.source).toBe('synthetic');
@@ -222,13 +222,13 @@ test.describe('a person from scratch', () => {
     // Testers were stopped mid-description: the box ended at 400 characters,
     // and the draft cut what it was given at 400 again (2026-09-27).
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await expect(composer(page)).toBeFocused();
     const long = `${'Late 30s woman, Mediterranean appearance, dark shoulder-length hair, slim build, elegant and calm. '.repeat(15)}She smiles only with her eyes.`;
     expect(long.length).toBeGreaterThan(1500);
     await send(page, long);
     await answer(page, 'Nothing else').click();
-    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
+    await expect(page).toHaveURL(/\/people\/new\/pd-/, { timeout: 40_000 });
     await expect
       .poll(async () => (await draftOf(page, brand.id, here(page))).direction, { timeout: 20_000 })
       .toContain('She smiles only with her eyes.');
@@ -236,7 +236,7 @@ test.describe('a person from scratch', () => {
 
   test('a step with chips still takes words, and small talk at it is answered by that step', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await answer(page, 'Describe someone').click();
     await expect(log(page)).toContainText('Who are they?');
     // the composer is live in front of a question made of chips: it is the
@@ -267,13 +267,13 @@ test.describe('a person from scratch', () => {
     await log(page).getByRole('button', { name: 'Average', exact: true }).click();
     await expect(log(page)).toContainText('Anything else that is always true of them?');
     await send(page, 'a chipped front tooth');
-    await expect(log(page)).toContainText('Here is the presenter, in full. Ready to draw?');
+    await expect(log(page)).toContainText('Here is the person, in full. Ready to draw?');
     await expect(log(page).locator('.sc-convo-brief-text')).toContainText('a chipped front tooth');
   });
 
   test('the look is tapped one step at a time, and what was tapped is the person', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await answer(page, 'Describe someone').click();
     // one row, one tap, then the next row, in the order a person describes
     // somebody: who they are, their face, their hair, their body
@@ -308,13 +308,13 @@ test.describe('a person from scratch', () => {
     await answer(page, 'Nothing else').click();
     // nothing is drawn until the whole person is read back and agreed to: the
     // brief stands apart from the talk, with a way to take a copy of it
-    await expect(log(page)).toContainText('Here is the presenter, in full. Ready to draw?');
+    await expect(log(page)).toContainText('Here is the person, in full. Ready to draw?');
     await expect(log(page).locator('.sc-convo-brief-text')).toHaveText(
       'A Mediterranean woman in their 30s with shoulder-length black hair, green eyes, olive skin, average height with a solid build.',
     );
     await expect(log(page).getByRole('button', { name: 'Copy' })).toBeAttached();
-    await log(page).getByRole('button', { name: 'Draw the presenter' }).click();
-    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
+    await log(page).getByRole('button', { name: 'Draw the person' }).click();
+    await expect(page).toHaveURL(/\/people\/new\/pd-/, { timeout: 40_000 });
     const first = await draftOf(page, brand.id, here(page));
     expect(first.direction).toBe(
       'a Mediterranean woman in their 30s with shoulder-length black hair, green eyes, olive skin, average height with a solid build',
@@ -323,7 +323,7 @@ test.describe('a person from scratch', () => {
 
   test('a colour of your own rides in the chip the app uses for a colour', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await answer(page, 'Describe someone').click();
     await log(page).getByRole('button', { name: 'Woman', exact: true }).click();
     await log(page).getByRole('button', { name: '30s', exact: true }).click();
@@ -365,7 +365,7 @@ test.describe('a person from scratch', () => {
 
   test('what says nothing beside a colour is bounced, and the colour is kept', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await answer(page, 'Describe someone').click();
     await log(page).getByRole('button', { name: 'Woman', exact: true }).click();
     await log(page).getByRole('button', { name: '30s', exact: true }).click();
@@ -401,7 +401,7 @@ test.describe('a person from scratch', () => {
     page,
   }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await answer(page, 'Describe someone').click();
     await log(page).getByRole('button', { name: 'Woman', exact: true }).click();
     await log(page).getByRole('button', { name: '30s', exact: true }).click();
@@ -441,7 +441,7 @@ test.describe('a person from scratch', () => {
 
   test('an answer opens again where it stands, with the answer lit, and what came after it stays', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await answer(page, 'Describe someone').click();
     await expect(log(page)).toContainText('Who are they?');
     await log(page).getByRole('button', { name: 'Woman', exact: true }).click();
@@ -495,13 +495,13 @@ test.describe('a person from scratch', () => {
 
   test('a text answer is rewritten in place, and cancelling changes nothing', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await answer(page, 'Describe someone').click();
     await log(page).getByRole('button', { name: 'Describe them instead' }).click();
     await expect(log(page)).toContainText('Describe them.');
     await send(page, 'a woman in her 30s with dark curls');
     await answer(page, 'Nothing else').click();
-    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
+    await expect(page).toHaveURL(/\/people\/new\/pd-/, { timeout: 40_000 });
     await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 30_000 });
 
     // a face is already drawn from the words, so changing them is asked about first
@@ -536,7 +536,7 @@ test.describe('a person from scratch', () => {
 
   test('a thin sentence asks one follow-up, and its picks fold into the sentence', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await answer(page, 'Describe someone').click();
     await expect(log(page)).toContainText('Who are they?');
     // the steps own the answer; saying it in words is asked for
@@ -549,7 +549,7 @@ test.describe('a person from scratch', () => {
     await page.getByRole('radio', { name: 'Athletic' }).click();
     await answer(page, 'Continue').click();
     await answer(page, 'Nothing else').click();
-    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
+    await expect(page).toHaveURL(/\/people\/new\/pd-/, { timeout: 40_000 });
     const d = await draftOf(page, brand.id, here(page));
     expect(d.direction).toBe('a man in his 20s, black curly hair, athletic build');
     // the follow-up was asked once and is answered in the record
@@ -560,7 +560,7 @@ test.describe('a person from scratch', () => {
 
   test('deterministic turns cost no request, and the words are whole for a screen reader', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await expect(answer(page, 'Describe someone')).toBeVisible();
     const calls = apiCalls(page);
     await page.waitForTimeout(300);
@@ -576,7 +576,7 @@ test.describe('a person from scratch', () => {
   test('reduced motion: no arrival plays, the line simply stands', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await answer(page, 'Describe someone').click();
     await expect(log(page)).toContainText('Who are they?');
     await expect(page.locator('[data-reveal] .sc-convo-w')).toHaveCount(0);
@@ -586,7 +586,7 @@ test.describe('a person from scratch', () => {
     const brand = await currentBrand(page);
     // the file shares one library, so what matters is that these answers add nothing
     const before = (await draftsOf(page, brand.id)).drafts.length;
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await answer(page, 'Describe someone').click();
     await answer(page, 'Woman').click();
     await expect(log(page)).toContainText('Roughly how old?');
@@ -607,11 +607,11 @@ test.describe('a person from scratch', () => {
     await expect(asked).toBeVisible();
     await asked.getByRole('button', { name: 'Leave' }).click();
     await expect(studio(page)).toHaveCount(0);
-    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters$`));
+    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/people$`));
     expect((await draftsOf(page, brand.id)).drafts).toHaveLength(before);
 
     // and the next one starts at the first question, with nothing behind it
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await expect(answer(page, 'Describe someone')).toBeVisible();
     await expect(log(page)).not.toContainText('Roughly how old?');
   });
@@ -620,32 +620,32 @@ test.describe('a person from scratch', () => {
     const brand = await currentBrand(page);
     const draftId = await seedDraft(page, brand.id, 'portrait-candidate');
     await openDraft(page, brand, draftId);
-    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new/${draftId}$`));
+    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/people/new/${draftId}$`));
     await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 20_000 });
     // the transcript is rebuilt from the draft: the sentence and the name are there, no door is asked
     await expect(log(page)).toContainText('a man in his 30s');
     await expect(answer(page, 'Describe someone')).toHaveCount(0);
 
     await page.reload();
-    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new/${draftId}$`));
+    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/people/new/${draftId}$`));
     await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 20_000 });
 
     await page.keyboard.press('Escape');
     await expect(studio(page)).toHaveCount(0);
-    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters$`));
+    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/people$`));
     expect((await draftsOf(page, brand.id)).drafts.map((d) => d.id)).toContain(draftId);
 
     // Create presenter is a new conversation, never a resume: the bare route
     // asks the first question however many drafts are waiting.
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await expect(answer(page, 'Describe someone')).toBeVisible({ timeout: 20_000 });
     await expect(answer(page, 'Use this person')).toHaveCount(0);
 
     // the draft is offered back by its own card, and that resumes it in place
-    await page.goto(`/${brand.slug}/presenters`);
+    await page.goto(`/${brand.slug}/people`);
     // by its own address, not by position: this file's drafts accumulate
-    await page.locator(`a[href$="/presenters/new/${draftId}"]`).click();
-    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new/${draftId}$`));
+    await page.locator(`a[href$="/people/new/${draftId}"]`).click();
+    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/people/new/${draftId}$`));
     await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 20_000 });
   });
 
@@ -893,10 +893,10 @@ test.describe('a person from scratch', () => {
   test('an unfinished person is offered back from the library, and can be let go', async ({ page }) => {
     const brand = await currentBrand(page);
     const draftId = await seedDraft(page, brand.id, 'portrait-candidate', 'Halden');
-    await page.goto(`/${brand.slug}/presenters`);
+    await page.goto(`/${brand.slug}/people`);
     // the wall carries them first, marked, with how far along they are: the
     // work used to be reachable only from the tab it was started in
-    const card = page.locator(`.sc-lookcard[data-build]:has(a[href$="/presenters/new/${draftId}"])`);
+    const card = page.locator(`.sc-lookcard[data-build]:has(a[href$="/people/new/${draftId}"])`);
     await expect(card).toHaveCount(1);
     await expect(card).toContainText('Draft');
     await expect(card).toContainText('Halden');
@@ -906,7 +906,7 @@ test.describe('a person from scratch', () => {
     // spending anything or writing over what the draft holds
     const before = await draftOf(page, brand.id, draftId);
     await card.getByRole('link').click();
-    await expect(page).toHaveURL(new RegExp(`/presenters/new/${draftId}$`));
+    await expect(page).toHaveURL(new RegExp(`/people/new/${draftId}$`));
     await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 20_000 });
     const after = await draftOf(page, brand.id, draftId);
     expect(after.generations).toBe(before.generations);
@@ -914,7 +914,7 @@ test.describe('a person from scratch', () => {
 
     // letting it go asks first, because a face was drawn for it, and then
     // takes it off the wall
-    await page.goto(`/${brand.slug}/presenters`);
+    await page.goto(`/${brand.slug}/people`);
     await card.getByRole('button', { name: /Discard/ }).click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'Discard' }).click();
     await expect(card).toHaveCount(0);
@@ -945,13 +945,13 @@ test.describe('a person from scratch', () => {
     const dialog = page.getByRole('alertdialog');
     await expect(dialog).toContainText('stays on your wall');
     await dialog.getByRole('button', { name: 'Start over', exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new$`));
+    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/people/new$`));
     await expect(answer(page, 'Describe someone')).toBeVisible();
     await expect(composer(page)).toHaveValue('a man in his 30s');
     // the draft is untouched, and the wall offers it back
     expect((await page.request.get(`/api/brands/${brand.id}/presenter-drafts/${draftId}`)).status()).toBe(200);
-    await page.goto(`/${brand.slug}/presenters`);
-    await expect(page.locator(`.sc-lookcard[data-build]:has(a[href$="/presenters/new/${draftId}"])`)).toHaveCount(1);
+    await page.goto(`/${brand.slug}/people`);
+    await expect(page.locator(`.sc-lookcard[data-build]:has(a[href$="/people/new/${draftId}"])`)).toHaveCount(1);
   });
 
   test('a failed draw offers Retry and keeps the rest of the person', async ({ page }) => {
@@ -987,7 +987,7 @@ test.describe('a person from scratch', () => {
   test('a tattoo on one side is checked at the full body, not at the face, which cannot show it', async ({ page }) => {
     test.setTimeout(90_000);
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await send(page, 'Late 30s woman, dark shoulder-length hair, slim build.');
     await answer(page, 'Tattoo').click();
     await answer(page, 'Continue').click();
@@ -1010,7 +1010,7 @@ test.describe('from photos', () => {
   }) => {
     test.setTimeout(90_000);
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await answer(page, 'Add photos').click();
     await expect(log(page)).toContainText('Add one clear photo of their face.');
     const cont = answer(page, 'Continue');
@@ -1021,7 +1021,7 @@ test.describe('from photos', () => {
     await page.getByRole('checkbox').check();
     await expect(cont).not.toHaveAttribute('aria-disabled', 'true');
     await cont.click();
-    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
+    await expect(page).toHaveURL(/\/people\/new\/pd-/, { timeout: 40_000 });
     // the photographs are asked once what is always true of them, before the set
     await answer(page, 'Nothing to add').click();
     // the face is drawn from the photograph, not adopted from it, and is
@@ -1038,8 +1038,8 @@ test.describe('from photos', () => {
     await expect(page.locator('.sc-convo-line[role="alert"]')).toContainText('Their photos define who they are.');
     await answer(page, 'Not now').click();
     await send(page, 'Noor');
-    await answer(page, 'Save presenter').click();
-    await expect(page).toHaveURL(/\/presenters\/up-/, { timeout: 40_000 });
+    await answer(page, 'Save person').click();
+    await expect(page).toHaveURL(/\/people\/up-/, { timeout: 40_000 });
     const person = await personNamed(page, brand.id, 'Noor');
     expect(person.source).toBe('photos');
     expect(person.sourceRefs).toHaveLength(1);
@@ -1055,12 +1055,12 @@ test.describe('from photos', () => {
   }) => {
     test.setTimeout(90_000);
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await answer(page, 'Add photos').click();
     await page.locator('input[type="file"]').setInputFiles({ name: 'noor.png', mimeType: 'image/png', buffer: PNG });
     await page.getByRole('checkbox').check();
     await answer(page, 'Continue').click();
-    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
+    await expect(page).toHaveURL(/\/people\/new\/pd-/, { timeout: 40_000 });
 
     // The question stands while nothing has been drawn. It used to wait for the
     // face to be approved, which was harmless while the face was one of their
@@ -1086,7 +1086,7 @@ test.describe('from photos', () => {
 
   test('four photos ride, a fifth is refused, and a photo can be taken back before continuing', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await answer(page, 'Add photos').click();
     // five distinct pictures, so five distinct hashes after the store normalises them
     const files = [1, 2, 3, 4, 5].map((i) => ({
@@ -1110,7 +1110,7 @@ test.describe('from photos', () => {
     page,
   }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await answer(page, 'Add photos').click();
     // A half-downloaded photograph between two good ones. The batch used to end
     // at the bad file from inside one try, so the picture after it was never
@@ -1132,7 +1132,7 @@ test.describe('from photos', () => {
 
   test('permission is asked again when the last photograph it was given for is taken away', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await answer(page, 'Add photos').click();
     await page
       .locator('input[type="file"]')
@@ -1153,7 +1153,7 @@ test.describe('the doors', () => {
     await page.goto(`/${brand.slug}/products`);
     await page.goto(`/${brand.slug}/products?new=1`);
     await page.locator('.sc-pick[data-kind="presenter"]').click();
-    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new$`));
+    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/people/new$`));
     await expect(studio(page)).toBeVisible();
     await page.goBack();
     await expect(page).toHaveURL(new RegExp(`/${brand.slug}/products$`));
@@ -1174,7 +1174,7 @@ test.describe('the doors', () => {
    */
   test('the studio arrives over the library, and the composer does not move while it does', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters`);
+    await page.goto(`/${brand.slug}/people`);
     // Watch for any line under the composer rather than sampling for one: the
     // old one came and went inside about four hundred milliseconds, so an
     // assertion taken after the fact would pass over it.
@@ -1185,7 +1185,7 @@ test.describe('the doors', () => {
         if (document.querySelector('.sc-pstudio-foot .sc-dlg-foot')) w.__footSeen = true;
       }).observe(document.body, { childList: true, subtree: true });
     });
-    await page.getByRole('button', { name: 'New presenter' }).click();
+    await page.getByRole('button', { name: 'New person' }).click();
     await expect(studio(page)).toBeVisible();
 
     // it travels rather than appearing: the house motion every other surface
@@ -1216,26 +1216,26 @@ test.describe('the doors', () => {
 
   test('the old ?new=presenter address forwards to the studio', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters?new=presenter`);
-    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new$`));
+    await page.goto(`/${brand.slug}/people?new=presenter`);
+    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/people/new$`));
     await expect(studio(page)).toBeVisible();
   });
 
   test('the library page and the create rail both open the same studio', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters`);
-    await page.getByRole('button', { name: 'New presenter' }).click();
-    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new$`));
+    await page.goto(`/${brand.slug}/people`);
+    await page.getByRole('button', { name: 'New person' }).click();
+    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/people/new$`));
     await expect(log(page)).toContainText('Who are we making?');
   });
 
   test('an existing presenter still opens from the library', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters`);
+    await page.goto(`/${brand.slug}/people`);
     // the card's own Use button sits over its centre; the link is hit at its corner
     // Maeve is in the current catalog; the presenter this used to open was retired with it
     await page.getByRole('link', { name: /copper waves/ }).click({ position: { x: 8, y: 8 } });
-    await expect(page).toHaveURL(/\/presenters\/[^/]+$/);
+    await expect(page).toHaveURL(/\/people\/[^/]+$/);
     await expect(page.getByRole('button', { name: 'Use in a shot' }).first()).toBeVisible();
   });
 });
@@ -1249,7 +1249,7 @@ test.describe('what answers nothing', () => {
     page.on('request', (r) => {
       if (r.method() === 'POST' && /\/presenter-drafts$/.test(r.url())) drafts++;
     });
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await expect(log(page)).toContainText('Who are we making?');
     await send(page, 'how are you?');
     await expect(log(page)).toContainText('This is where the person is described');
@@ -1263,7 +1263,7 @@ test.describe('what answers nothing', () => {
     await expect(log(page)).toContainText('Start over at the top');
     // every one of them is still there, in order, and the doors still stand
     expect(await log(page).locator('.sc-convo-bubble').allTextContents()).toEqual([
-      'Create a presenter',
+      'Create a person',
       'how are you?',
       'bullshit',
       'i want to create a presenter',
@@ -1279,7 +1279,7 @@ test.describe('what answers nothing', () => {
     await expect(log(page)).toContainText('cannot tell yet');
     await answer(page, 'Skip, draw as is').click();
     await answer(page, 'Nothing else').click();
-    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
+    await expect(page).toHaveURL(/\/people\/new\/pd-/, { timeout: 40_000 });
     expect(drafts).toBe(1);
   });
 
@@ -1322,7 +1322,7 @@ test.describe('what answers nothing', () => {
 
   test('a line takes a beat to arrive, and none at all under reduced motion', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await expect(log(page)).toContainText('Who are we making?');
     // a tap is seen before it is taken: the chosen chip lights and the row steps back, then the turn takes its place
     await answer(page, 'Describe someone').click();

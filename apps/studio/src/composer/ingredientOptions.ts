@@ -60,8 +60,15 @@ export function findIngredient(t: SentenceToken, src: IngredientSources): Found 
 /** What the picker calls the thing, in headings, buttons and aria labels. */
 export const NOUN: Record<IngredientKind, string> = {
   product: 'product',
-  presenter: 'presenter',
-  scene: 'scene',
+  presenter: 'person',
+  scene: 'place',
+};
+
+/** And more than one of it: never `${noun}s`, since one person is two people. */
+export const NOUNS: Record<IngredientKind, string> = {
+  product: 'products',
+  presenter: 'people',
+  scene: 'places',
 };
 
 /** Cards before "Show more". Twelve rows of four, which is most of a catalog. */
@@ -395,7 +402,7 @@ export function pickList(
   return { current, items: visible, remaining, total: ranked.length };
 }
 
-/** A caret insert, not a command. `$` a product, `/` a scene, `@` a presenter, `#` a colour. */
+/** A caret insert, not a command. `$` a product, `/` a place, `@` a person, `#` a colour. */
 export type InsertSigil = '$' | '/' | '@' | '#';
 
 export const INSERT_KIND: Record<Exclude<InsertSigil, '#'>, IngredientKind> = {
@@ -411,17 +418,17 @@ export const INSERT_KIND: Record<Exclude<InsertSigil, '#'>, IngredientKind> = {
  */
 export const INSERT_EMPTY = {
   Products: 8,
-  Presenters: 8,
+  People: 8,
   Colors: 16,
-  Scenes: 8,
+  Places: 8,
 } as const;
 
 export type InsertGroup = keyof typeof INSERT_EMPTY;
 
 export const INSERT_LABEL: Record<InsertSigil, InsertGroup> = {
   $: 'Products',
-  '/': 'Scenes',
-  '@': 'Presenters',
+  '/': 'Places',
+  '@': 'People',
   '#': 'Colors',
 };
 
@@ -447,7 +454,7 @@ export interface InsertChoice {
 function fromCandidate(c: Candidate): InsertChoice {
   return {
     key: `${c.kind}:${c.id}`,
-    group: c.kind === 'presenter' ? 'Presenters' : c.kind === 'scene' ? 'Scenes' : 'Products',
+    group: c.kind === 'presenter' ? 'People' : c.kind === 'scene' ? 'Places' : 'Products',
     label: c.label,
     hint: c.sub,
     search: c.search,

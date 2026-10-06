@@ -497,9 +497,9 @@
 
    The visible word is always a shortening of the same label, never a different
    one (Apple possibleLabels, NN/G split buttons). Wide library pages say
-   "New presenter"; below 961px the object drops and every page says "New".
+   "New person"; below 961px the object drops and every page says "New".
    Switching to the noun on a phone was a second compact strategy, so the same
-   control read as New, Presenter or New presenter depending on width. */
+   control read as New, Person or New person depending on width. */
 @media (max-width: 1060px) {
   .sc-nav :is(button, a) {
     padding: 0 8px;

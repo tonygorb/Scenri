@@ -120,8 +120,8 @@ test('walking away and coming back keeps what landed and what is still coming', 
   const ids = await send(page, 'landing while you are elsewhere');
   await expect(picture(page, ids[3])).toBeVisible({ timeout: 20_000 });
 
-  await page.locator('.sc-nav a', { hasText: 'Scenes' }).click();
-  await page.waitForURL(/\/scenes$/);
+  await page.locator('.sc-nav a', { hasText: 'Places' }).click();
+  await page.waitForURL(/\/places$/);
   await page.goto(`/${slug}/create`);
   for (const id of ids) await expect(tile(page, id)).toBeVisible();
   await expect(page.locator('.sc-cell[data-running]')).toHaveCount(0, { timeout: 30_000 });

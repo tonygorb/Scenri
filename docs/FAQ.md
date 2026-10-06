@@ -37,13 +37,18 @@ its own is enough.
 | fal | an API key | none |
 
 Use Codex CLI if you have a paid ChatGPT plan, and OpenRouter if you do not. Replicate and fal take no
-reference images, so Scenri refuses a shot that names a product or a presenter on them rather than
+reference images, so Scenri refuses a shot that names a product or a person on them rather than
 drawing a product or a face that only looks right: the refusal says the engine cannot carry the
 reference images and asks you to choose another engine or remove that chip. A logo on those engines
 rides as words only, and the composer says so before you send.
 
 Scenri needs Codex CLI 0.157.1 or newer; [troubleshooting](TROUBLESHOOTING.md) covers
 updating it.
+
+## Where did Presenters and Scenes go?
+
+They are People and Places now, since version 0.22. Only the names changed: everything you made is
+where it was, and old links to `/presenters` and `/scenes` still open the new pages.
 
 ## What does it cost?
 

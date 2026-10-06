@@ -6,7 +6,16 @@ import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useAssetsPanel, useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import { showcaseBrief } from '../app/useApplyShowcase.js';
-import { hubPath, presenterPath, productPath, scenePath, setPath } from '../routes.js';
+import {
+  SEED_KEYS,
+  attachTabOf,
+  hubPath,
+  presenterPath,
+  productPath,
+  scenePath,
+  seedParam,
+  setPath,
+} from '../routes.js';
 import { briefTokens } from '../composer/BriefInput.js';
 import { useIngredientCatalog } from '../composer/useIngredientCatalog.js';
 import { NO_ATTACHMENTS, type AttachedIds } from '../layout/railSections.js';
@@ -472,7 +481,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   // `setup` rides with `scene`, so it leaves with it: a spent seed left in the
   // address is a seed that applies itself again on the next mount
   const spendSeeds = useCallback(
-    () => dropParams('scene', 'setup', 'presenter', 'product', 'ref', 'view', 'fresh'),
+    () => dropParams(...SEED_KEYS, 'setup', 'product', 'ref', 'view', 'fresh'),
     [dropParams],
   );
 
@@ -622,7 +631,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   /** Focus the brief. What the Create button and the two create cards do now. */
   const compose = useCallback((opts?: { scene?: string; scenesPanel?: boolean }) => {
     if (opts?.scene) composerRef.current?.applyScene(opts.scene);
-    if (opts?.scenesPanel) composerRef.current?.openAttach('Scenes');
+    if (opts?.scenesPanel) composerRef.current?.openAttach('Places');
     composerRef.current?.focus();
   }, []);
 
@@ -1356,17 +1365,15 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           parentId={root}
           initialBrief={remixBrief}
           suppressDraftRestore={showcaseIdParam !== null}
-          startScene={params.get('scene') ?? undefined}
+          startScene={seedParam(params, 'scene') ?? undefined}
           startSetup={params.get('setup') ?? undefined}
-          startPresenter={params.get('presenter') ?? undefined}
+          startPresenter={seedParam(params, 'presenter') ?? undefined}
           startProduct={params.get('product') ?? undefined}
           startRef={params.get('ref') ?? undefined}
           startView={params.get('view') ?? undefined}
           startFresh={params.get('fresh') === '1'}
           onSeedsSpent={spendSeeds}
-          openAttachTab={
-            params.get('attach') === 'scenes' ? 'Scenes' : params.get('attach') === 'products' ? 'Products' : undefined
-          }
+          openAttachTab={attachTabOf(params.get('attach'))}
           target={target}
           onClearTarget={clearTarget}
           onRestoreBranchId={setBranchId}
@@ -1396,9 +1403,8 @@ export function CreateView({ set }: { set: ShotSet | null }) {
             setParams(
               (cur) => {
                 const p = new URLSearchParams(cur);
-                p.delete('scene');
+                for (const k of SEED_KEYS) p.delete(k);
                 p.delete('attach');
-                p.delete('presenter');
                 p.delete('product');
                 return p;
               },

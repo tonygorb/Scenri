@@ -265,11 +265,11 @@ test('a scene inside an open shot starts a new shot rather than editing it', asy
 
   await editor.locator('.sc-brief-line').click();
   await editor.locator('.sc-attach-toggle').click();
-  await page.locator('.sc-ap-tabs button', { hasText: /scenes/i }).click();
+  await page.locator('.sc-ap-tabs button', { hasText: /places/i }).click();
   await attachCards(page).first().click();
 
   await expect(editor.locator('.sc-send')).toHaveAttribute('aria-label', 'Generate');
-  await expect(page.locator('.sc-target-note-alone')).toHaveText('A scene starts a new shot.');
+  await expect(page.locator('.sc-target-note-alone')).toHaveText('A place starts a new shot.');
 });
 
 test('refining points at the version it just made, not the one it started from', async ({ page }) => {
@@ -443,7 +443,7 @@ test('scenes sit out while a refine is armed, and come back when it ends', async
   await expect(page.locator('.sc-target')).toBeVisible();
 
   await page.locator('.sc-attach-toggle').first().click();
-  await page.locator('.sc-ap-tabs button', { hasText: /scenes/i }).click();
+  await page.locator('.sc-ap-tabs button', { hasText: /places/i }).click();
   await expect(page.locator('.sc-ap-hint')).toContainText('sit out while you are refining');
   await expect(attachCards(page).first()).toBeDisabled();
 
@@ -452,7 +452,7 @@ test('scenes sit out while a refine is armed, and come back when it ends', async
   await page.locator('.sc-target-chip button[aria-label="Make a new shot instead"]').click();
   await expect(page.locator('.sc-target')).toHaveCount(0);
   await page.locator('.sc-attach-toggle').first().click();
-  await page.locator('.sc-ap-tabs button', { hasText: /scenes/i }).click();
+  await page.locator('.sc-ap-tabs button', { hasText: /places/i }).click();
   await expect(page.locator('.sc-ap-hint')).toHaveCount(0);
   await expect(attachCards(page).first()).toBeEnabled();
 });
@@ -462,7 +462,7 @@ test('arming a refine lets a lingering scene chip go', async ({ page }) => {
   // explicit Refine press on a card — it used to be refused over and over
   // until the chip was removed by hand.
   await page.locator('.sc-attach-toggle').first().click();
-  await page.locator('.sc-ap-tabs button', { hasText: /scenes/i }).click();
+  await page.locator('.sc-ap-tabs button', { hasText: /places/i }).click();
   await attachCards(page).first().click();
   await expect(line(page).locator('.sc-token[data-kind="template"]')).toHaveCount(1);
 
@@ -558,7 +558,7 @@ test('$ reaches for a product and typing carries on', async ({ page }) => {
 test('/ reaches for a scene and typing carries on', async ({ page }) => {
   await page.keyboard.type('in ');
   await page.keyboard.type('/');
-  await expect(page.locator('.sc-cmd-group')).toHaveText(/^Scenes\s+\d+$/);
+  await expect(page.locator('.sc-cmd-group')).toHaveText(/^Places\s+\d+$/);
   await page.locator('.sc-cmd-row').first().click();
   expect(await chips(page).first().getAttribute('data-tok')).toMatch(/^t:/);
   await page.keyboard.type('at dawn');
@@ -570,7 +570,7 @@ test('/ reaches for a scene and typing carries on', async ({ page }) => {
 test('@ reaches for a presenter and typing carries on', async ({ page }) => {
   await page.keyboard.type('with ');
   await page.keyboard.type('@');
-  await expect(page.locator('.sc-cmd-group')).toHaveText(/^Presenters\s+\d+$/);
+  await expect(page.locator('.sc-cmd-group')).toHaveText(/^People\s+\d+$/);
   await page.locator('.sc-cmd-row').first().click();
   expect(await chips(page).first().getAttribute('data-tok')).toMatch(/^h:/);
   await page.keyboard.type('on ice');
@@ -583,7 +583,7 @@ test('# reaches for a colour', async ({ page }) => {
   await page.keyboard.type('a shot ');
   await page.keyboard.type('#');
   await expect(page.locator('.sc-cmd-group', { hasText: 'Colors' })).toBeVisible();
-  await expect(page.locator('.sc-cmd-group', { hasText: 'Scenes' })).toHaveCount(0);
+  await expect(page.locator('.sc-cmd-group', { hasText: 'Places' })).toHaveCount(0);
   await expect(page.locator('.sc-cmd-swatch').first()).toBeVisible();
   await page.locator('.sc-cmd-row').first().click();
   await page.keyboard.type('at dawn');
@@ -841,12 +841,12 @@ test('pasting a brief back into itself grows no twin', async ({ page }) => {
 
 test('a second scene swaps in place instead of stacking', async ({ page }) => {
   await page.keyboard.type('mood: ');
-  await plusMenu(page, /scenes/i);
+  await plusMenu(page, /places/i);
   await pickCard(page, 0);
   await expect(chips(page)).toHaveCount(1);
   const first = await chips(page).first().textContent();
 
-  await plusMenu(page, /scenes/i);
+  await plusMenu(page, /places/i);
   await pickCard(page, 2);
   await expect(chips(page)).toHaveCount(1);
   expect(await chips(page).first().textContent()).not.toBe(first);
@@ -860,7 +860,7 @@ test('a second scene swaps in place instead of stacking', async ({ page }) => {
  * nobody had chosen turned up in the composer days later.
  */
 test('a scene on its own is not a draft to come back to', async ({ page }) => {
-  await plusMenu(page, /scenes/i);
+  await plusMenu(page, /places/i);
   await pickCard(page, 0);
   await expect(chips(page)).toHaveCount(1);
 
@@ -880,10 +880,10 @@ test('a scene on its own is not a draft to come back to', async ({ page }) => {
  */
 test('a seeded scene leaves the URL behind, and stays removed', async ({ page }) => {
   const base = new URL(page.url()).pathname;
-  await page.goto(`${base}?scene=clay-court&attach=products&compose=1`);
+  await page.goto(`${base}?place=clay-court&attach=products&compose=1`);
   await line(page).waitFor();
   await expect(chips(page)).toHaveCount(1);
-  await expect.poll(() => new URL(page.url()).searchParams.get('scene')).toBeNull();
+  await expect.poll(() => new URL(page.url()).searchParams.get('place')).toBeNull();
   await expect.poll(() => new URL(page.url()).searchParams.get('compose')).toBeNull();
 
   await line(page).click();
@@ -1346,7 +1346,7 @@ test('a shape chosen while refining one shot does not follow you to the next', a
  */
 test('a chip swaps in one click and the prose survives', async ({ page }) => {
   await page.keyboard.type('a shot of ');
-  await plusMenu(page, /scenes/i);
+  await plusMenu(page, /places/i);
   await pickCard(page, 0);
   await page.keyboard.press('Escape');
   await page.keyboard.type(' at dawn');
@@ -1368,7 +1368,7 @@ test('a chip swaps in one click and the prose survives', async ({ page }) => {
 
 test('typing in the picker never reaches the brief', async ({ page }) => {
   await page.keyboard.type('keep me ');
-  await plusMenu(page, /scenes/i);
+  await plusMenu(page, /places/i);
   await pickCard(page, 0);
   await page.keyboard.press('Escape');
   const before = await sentence(page);
@@ -1381,7 +1381,7 @@ test('typing in the picker never reaches the brief', async ({ page }) => {
 });
 
 test('search finds a scene and one click takes it', async ({ page }) => {
-  await plusMenu(page, /scenes/i);
+  await plusMenu(page, /places/i);
   await pickCard(page, 0);
   await page.keyboard.press('Escape');
 
@@ -1418,7 +1418,7 @@ test('the caret comes back where it was, on whichever side it was', async ({ pag
 
 test('remove from the footer empties the slot', async ({ page }) => {
   await page.keyboard.type('mood ');
-  await plusMenu(page, /scenes/i);
+  await plusMenu(page, /places/i);
   await pickCard(page, 0);
   await page.keyboard.press('Escape');
 
@@ -1485,7 +1485,7 @@ test('one list, with the brand’s own products before the ones Scenri ships', a
 
 test('the row saying what is on is not a door', async ({ page }) => {
   await page.keyboard.type('same ');
-  await plusMenu(page, /scenes/i);
+  await plusMenu(page, /places/i);
   await pickCard(page, 0);
   await page.keyboard.press('Escape');
   const before = await sentence(page);
@@ -1506,7 +1506,7 @@ test('the row saying what is on is not a door', async ({ page }) => {
 });
 
 test('a mouse gets the search field straight away', async ({ page }) => {
-  await plusMenu(page, /scenes/i);
+  await plusMenu(page, /places/i);
   await pickCard(page, 0);
   await page.keyboard.press('Escape');
 
@@ -1519,20 +1519,20 @@ test('a mouse gets the search field straight away', async ({ page }) => {
 });
 
 test('the current row links out to the asset, and only from its own button', async ({ page }) => {
-  await plusMenu(page, /scenes/i);
+  await plusMenu(page, /places/i);
   await pickCard(page, 0);
   await page.keyboard.press('Escape');
 
   await openPicker(page);
   const open = currentRow(page).locator('.sc-swap-open');
   await expect(open).toHaveAttribute('target', '_blank');
-  await expect(open).toHaveAttribute('href', /\/scenes\/[a-z0-9-]+$/);
+  await expect(open).toHaveAttribute('href', /\/places\/[a-z0-9-]+$/);
   // the row itself carries no href: looking at a thing is a deliberate act
   expect(await currentRow(page).getAttribute('href')).toBeNull();
 });
 
 test('a scene swapped through the picker still toasts and still undoes', async ({ page }) => {
-  await plusMenu(page, /scenes/i);
+  await plusMenu(page, /places/i);
   await pickCard(page, 0);
   await page.keyboard.press('Escape');
   const first = await chips(page).first().textContent();
@@ -1548,7 +1548,7 @@ test('a scene swapped through the picker still toasts and still undoes', async (
 
 test('the panel flips below the chip when there is no room above', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 380 });
-  await plusMenu(page, /scenes/i);
+  await plusMenu(page, /places/i);
   await pickCard(page, 0);
   await page.keyboard.press('Escape');
 
@@ -1563,7 +1563,7 @@ test('the panel flips below the chip when there is no room above', async ({ page
 
 test('only one surface is ever open', async ({ page }) => {
   await page.keyboard.type('one ');
-  await plusMenu(page, /scenes/i);
+  await plusMenu(page, /places/i);
   await pickCard(page, 0);
   await page.keyboard.press('Escape');
 
@@ -1580,7 +1580,7 @@ test('only one surface is ever open', async ({ page }) => {
 
 test('a chip is reachable, openable and removable from the keyboard', async ({ page }) => {
   await page.keyboard.type('AAAA ');
-  await plusMenu(page, /scenes/i);
+  await plusMenu(page, /places/i);
   await pickCard(page, 0);
   await page.keyboard.press('Escape');
 
@@ -1765,7 +1765,7 @@ test('Enter and Tab insert, Escape and an outside click leave the text', async (
 
   await page.keyboard.type(' and @');
   await page.locator('.sc-cmd-row').first().waitFor();
-  await expect(page.locator('.sc-cmd-group')).toHaveText(/^Presenters\s+\d+$/);
+  await expect(page.locator('.sc-cmd-group')).toHaveText(/^People\s+\d+$/);
   await page.keyboard.press('Tab');
   await expect(chips(page)).toHaveCount(2);
   expect(await chips(page).nth(1).getAttribute('data-tok')).toMatch(/^h:/);
@@ -2043,9 +2043,9 @@ test('the drop caret is drawn in the gap the pointer is over, on a line of only 
   await add(/products/i, 0);
   await add(/products/i, 1);
   await add(/products/i, 2);
-  await add(/presenters/i, 0);
-  await add(/presenters/i, 1);
-  await add(/scenes/i, 0);
+  await add(/people/i, 0);
+  await add(/people/i, 1);
+  await add(/places/i, 0);
   await expect(chips(page)).toHaveCount(6);
   // nothing was typed, so the line is chips and the guards between them
 
@@ -3429,7 +3429,7 @@ test.describe('the attach picker', () => {
     await dock(page).locator('.sc-attach-toggle').click();
     await expect(upload(page)).toBeVisible();
     await expect(page.locator('.sc-ap-actions .sc-ap-upload')).toHaveCount(1);
-    for (const tab of ['Products', 'Presenters', 'Scenes', 'Colors', 'Brand', 'Shots']) {
+    for (const tab of ['Products', 'People', 'Places', 'Colors', 'Brand', 'Shots']) {
       await page.locator('.sc-ap-tabs button', { hasText: tab }).click();
       await expect(upload(page)).toBeVisible();
     }
@@ -3444,8 +3444,8 @@ test.describe('the attach picker', () => {
     const action = (name: string) => page.locator('.sc-attachpanel .sc-ap-add', { hasText: name });
     for (const [tab, name] of [
       ['Products', 'Add product'],
-      ['Presenters', 'Create presenter'],
-      ['Scenes', 'Create scene'],
+      ['People', 'Create person'],
+      ['Places', 'Create place'],
       ['Colors', 'Add color'],
       ['Brand', 'Add logo'],
     ] as const) {
@@ -3463,7 +3463,7 @@ test.describe('the attach picker', () => {
     const search = await openSearch(page);
     const open = page.locator('.sc-attachpanel .sc-libsearch[data-open]');
     // a press anywhere else in the panel lets the field go, and an empty field folds back into its button
-    await page.locator('.sc-ap-tabs button', { hasText: 'Presenters' }).click();
+    await page.locator('.sc-ap-tabs button', { hasText: 'People' }).click();
     await expect(search).not.toBeFocused();
     await expect(open).toHaveCount(0);
     // Escape in a search with text clears the text and keeps the panel
@@ -3525,7 +3525,7 @@ test.describe('the attach picker', () => {
     await page.keyboard.press('Enter');
     await expect(chips(page)).toHaveCount(0);
     // a scene is the one template chip, and its tile toggles the same way
-    await page.locator('.sc-ap-tabs button', { hasText: 'Scenes' }).click();
+    await page.locator('.sc-ap-tabs button', { hasText: 'Places' }).click();
     await attachCards(page).first().click();
     await expect(line(page).locator('.sc-token[data-kind="template"]')).toHaveCount(1);
     await expect(page.locator('.sc-ap-card[data-on]')).toHaveCount(1);
@@ -3603,7 +3603,7 @@ test.describe('the attach picker', () => {
         .evaluate((g) => getComputedStyle(g).gridTemplateColumns.split(' ').length);
     const first = await cols();
     expect(first).toBeGreaterThanOrEqual(4);
-    for (const tab of ['Products', 'Presenters', 'Scenes', 'Shots', 'Colors', 'Brand', 'All']) {
+    for (const tab of ['Products', 'People', 'Places', 'Shots', 'Colors', 'Brand', 'All']) {
       await page.locator('.sc-ap-tabs button', { hasText: tab }).click();
       const box = (await page.locator('.sc-attachpanel').boundingBox())!;
       expect(Math.round(box.height), tab).toBe(Math.round(frame.height));
@@ -3613,14 +3613,14 @@ test.describe('the attach picker', () => {
   });
 
   test('a search with no hits says so and keeps the upload action', async ({ page }) => {
-    await plusMenu(page, /presenters/i);
+    await plusMenu(page, /people/i);
     const search = await openSearch(page);
     await search.fill('zzqq');
-    await expect(page.locator('.sc-ap-empty')).toHaveText('No matching presenters.');
+    await expect(page.locator('.sc-ap-empty')).toHaveText('No matching people.');
     await expect(attachCards(page)).toHaveCount(0);
     await expect(upload(page)).toBeVisible();
     // the rail's counts follow the search
-    await expect(page.locator('.sc-ap-tabs button', { hasText: 'Presenters' })).toContainText('0');
+    await expect(page.locator('.sc-ap-tabs button', { hasText: 'People' })).toContainText('0');
     await search.fill('');
     await expect(attachCards(page).first()).toBeVisible();
     // a scoped search: the whole library on All, one kind on a tab
@@ -3634,9 +3634,9 @@ test.describe('the attach picker', () => {
     await line(page).click();
     await plusMenu(page, /products/i);
     await pickCard(page, 0);
-    await page.locator('.sc-ap-tabs button', { hasText: 'Presenters' }).click();
+    await page.locator('.sc-ap-tabs button', { hasText: 'People' }).click();
     await attachCards(page).first().click();
-    await page.locator('.sc-ap-tabs button', { hasText: 'Scenes' }).click();
+    await page.locator('.sc-ap-tabs button', { hasText: 'Places' }).click();
     await attachCards(page).first().click();
     await page.keyboard.press('Escape');
     await expect(chips(page)).toHaveCount(3);
@@ -3808,7 +3808,7 @@ test('"Use in a shot" where the composer is on screen adds the chip to the brief
   await page.goto(brandHome(page));
   await line(page).click();
   await page.keyboard.type('a brief that stays');
-  const shelf = page.locator('section', { has: page.locator('.sc-sec-title', { hasText: 'Scenes' }) });
+  const shelf = page.locator('section', { has: page.locator('.sc-sec-title', { hasText: 'Places' }) });
   await shelf.locator('.sc-lookcard-open').first().click();
   await page.waitForURL(/\/create$/);
 

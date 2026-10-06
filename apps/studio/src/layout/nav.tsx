@@ -81,14 +81,14 @@ export function useMainNav(iconSize: number): NavItem[] {
     },
     {
       key: 'presenters',
-      label: 'Presenters',
+      label: 'People',
       icon: <IdentificationBadge size={iconSize} weight={w(presenters)} />,
       active: presenters,
       to: presentersPath(brand),
     },
     {
       key: 'scenes',
-      label: 'Scenes',
+      label: 'Places',
       icon: <FilmSlate size={iconSize} weight={w(scenes)} />,
       active: scenes,
       to: scenesPath(brand),

@@ -54,7 +54,7 @@ test('one product', async ({ page }) => {
 
 test('scenes library', async ({ page }) => {
   await prep(page);
-  await page.goto(`/${d.slug}/scenes`);
+  await page.goto(`/${d.slug}/places`);
   await shot(page, 'scenes');
 });
 

@@ -396,7 +396,7 @@ describe('the scene studio', () => {
     expect(job.reading.figureTreatment).toBeUndefined();
     expect(job.reading.prompt).not.toContain('their own product shots');
     // Activity names it as it names any picture, never from the clause
-    expect(job.label).toBe('New scene');
+    expect(job.label).toBe('New place');
     // so the place is drawn beside the shot with nobody in it, and any cast
     // that came through anyway is taken out by the scrub
     expect(generated[0].prompt).toContain('No person from the attached images is in it.');
@@ -764,7 +764,7 @@ describe('the words themselves', () => {
   it('names a place from the first words of its direction', () => {
     expect(nameFromWords('Warm brutalist hotel lobby at dusk, hard side light')).toBe('Warm brutalist hotel lobby');
     expect(nameFromWords('  white cyclorama ')).toBe('White cyclorama');
-    expect(nameFromWords('')).toBe('New scene');
+    expect(nameFromWords('')).toBe('New place');
   });
 
   it('checks a reading by the rules a saved scene is held to', () => {

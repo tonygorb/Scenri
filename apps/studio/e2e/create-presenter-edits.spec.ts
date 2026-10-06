@@ -66,10 +66,10 @@ async function tapThrough(p: Page) {
 test.describe('changing an answer', () => {
   test('A: an answer three back opens in place, and the run carries on from it', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await tapThrough(page);
     await answer(page, 'Nothing else').click();
-    await expect(log(page)).toContainText('Here is the presenter, in full. Ready to draw?');
+    await expect(log(page)).toContainText('Here is the person, in full. Ready to draw?');
 
     await pencil(page, 'you:look-hair').click();
     const reopened = turn(page, 'q:look-hair');
@@ -82,7 +82,7 @@ test.describe('changing an answer', () => {
     await expect(turn(page, 'you:look-who')).toHaveAttribute('data-dim', 'true');
     // the question the conversation is on still stands, and takes no answer
     await expect(turn(page, 'q:agree')).toHaveAttribute('data-dim', 'true');
-    await expect(turn(page, 'q:agree').getByRole('button', { name: 'Draw the presenter' })).toBeDisabled();
+    await expect(turn(page, 'q:agree').getByRole('button', { name: 'Draw the person' })).toBeDisabled();
     // nothing before it moved, and everything after it is still readable
     await expect(turn(page, 'you:look-age')).toContainText('30s');
     await expect(turn(page, 'you:look-length')).toContainText('Long');
@@ -102,15 +102,15 @@ test.describe('changing an answer', () => {
     }
     await answer(page, 'Nothing else').click();
     await expect(log(page)).toContainText('short blonde hair');
-    await answer(page, 'Draw the presenter').click();
-    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
+    await answer(page, 'Draw the person').click();
+    await expect(page).toHaveURL(/\/people\/new\/pd-/, { timeout: 40_000 });
     await expect.poll(async () => (await draftOf(page, brand.id)).direction, { timeout: 20_000 }).toContain('blonde');
   });
 
   test('B: three details answered, one taken away, and the others left alone', async ({ page }) => {
     test.setTimeout(60_000);
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await tapThrough(page);
     for (const chip of ['Glasses', 'Tattoo', 'Scar']) await answer(page, chip).click();
     await answer(page, 'Continue').click();
@@ -118,7 +118,7 @@ test.describe('changing an answer', () => {
     await answer(page, 'On the chin').click();
     await answer(page, 'Floral').click();
     await answer(page, 'Right forearm').click();
-    await expect(log(page)).toContainText('Here is the presenter, in full. Ready to draw?');
+    await expect(log(page)).toContainText('Here is the person, in full. Ready to draw?');
     await expect(turn(page, 'you:traits')).toContainText('Glasses, Scar and Tattoo');
 
     // the chooser opens again with the three lit; the middle one goes
@@ -135,7 +135,7 @@ test.describe('changing an answer', () => {
     // about itself, so taking another one away says nothing about it
     await expect(turn(page, 'you:trait-glasses')).toContainText('Thin black');
     await expect(turn(page, 'you:trait-scar')).toContainText('On the chin');
-    await expect(answer(page, 'Draw the presenter')).toBeVisible();
+    await expect(answer(page, 'Draw the person')).toBeVisible();
     // one taken in is the only thing asked
     await pencil(page, 'you:traits').click();
     await turn(page, 'q:traits').getByRole('button', { name: 'Piercing' }).click();
@@ -143,10 +143,10 @@ test.describe('changing an answer', () => {
     await expect(log(page)).toContainText('What piercing do they wear?');
     await expect(turn(page, 'you:trait-glasses')).toContainText('Thin black');
     await answer(page, 'Nose stud').click();
-    await expect(answer(page, 'Draw the presenter')).toBeVisible();
+    await expect(answer(page, 'Draw the person')).toBeVisible();
 
-    await answer(page, 'Draw the presenter').click();
-    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
+    await answer(page, 'Draw the person').click();
+    await expect(page).toHaveURL(/\/people\/new\/pd-/, { timeout: 40_000 });
     await expect
       .poll(async () => (await draftOf(page, brand.id)).keep as string, { timeout: 20_000 })
       .toContain('thin black');
@@ -158,7 +158,7 @@ test.describe('changing an answer', () => {
 
   test('sending at an answer that is open for change takes it back, whatever was sent', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await answer(page, 'Describe someone').click();
     for (const label of ['Woman', '30s', 'Mediterranean', 'Olive', 'Brown']) await answer(page, label).click();
     await answer(page, 'Long').click();
@@ -214,7 +214,7 @@ test.describe('changing an answer', () => {
 
   test('C: from scratch to photos: the rows go with the door, and the photographs are the answer', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await answer(page, 'Describe someone').click();
     await answer(page, 'Woman').click();
     await answer(page, '30s').click();
@@ -228,7 +228,7 @@ test.describe('changing an answer', () => {
     await expect(page.locator('.sc-assetform-ref')).toHaveCount(1);
     await page.getByRole('checkbox').check();
     await answer(page, 'Continue').click();
-    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
+    await expect(page).toHaveURL(/\/people\/new\/pd-/, { timeout: 40_000 });
     await expect(turn(page, 'you:photos')).toContainText('One photo');
     await expect(turn(page, 'you:look-who')).toHaveCount(0);
     expect((await draftOf(page, brand.id)).source).toBe('photos');
@@ -236,7 +236,7 @@ test.describe('changing an answer', () => {
 
   test('a photograph does not follow the person back through the other door', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await answer(page, 'Add photos').click();
     await page.locator('input[type="file"]').setInputFiles({ name: 'noor.png', mimeType: 'image/png', buffer: PNG });
     await expect(page.locator('.sc-assetform-ref')).toHaveCount(1);
@@ -256,10 +256,10 @@ test.describe('changing an answer', () => {
     // a face, a change, and the run answered again: well past a default budget
     test.setTimeout(60_000);
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await tapThrough(page);
     await answer(page, 'Nothing else').click();
-    await answer(page, 'Draw the presenter').click();
+    await answer(page, 'Draw the person').click();
     await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 30_000 });
     const before = await draftOf(page, brand.id);
     expect(before.generations).toBe(1);
@@ -297,7 +297,7 @@ test.describe('changing an answer', () => {
 
   test('E: a reload lands where it left off, with nothing said twice', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await answer(page, 'Describe someone').click();
     await answer(page, 'Woman').click();
     await answer(page, '30s').click();
@@ -319,7 +319,7 @@ test.describe('changing an answer', () => {
 test.describe('a picture of the thing itself', () => {
   test('lands in the line as a chip the moment it is chosen, and rides with the answer', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await tapThrough(page);
     await answer(page, 'Glasses').click();
     await answer(page, 'Continue').click();
@@ -349,8 +349,8 @@ test.describe('a picture of the thing itself', () => {
     await expect(page.locator('.sc-convo-field .sc-token[data-kind="image"]')).toHaveCount(0);
 
     // and it reaches the draft as a picture of the detail, not of a person
-    await answer(page, 'Draw the presenter').click();
-    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
+    await answer(page, 'Draw the person').click();
+    await expect(page).toHaveURL(/\/people\/new\/pd-/, { timeout: 40_000 });
     await expect
       .poll(async () => Object.keys((await draftOf(page, brand.id)).detailRefs ?? {}), { timeout: 20_000 })
       .toEqual(['glasses']);
@@ -358,7 +358,7 @@ test.describe('a picture of the thing itself', () => {
 
   test('is added from the composer too, and answers on its own', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await tapThrough(page);
     await answer(page, 'Glasses').click();
     await answer(page, 'Continue').click();
@@ -384,7 +384,7 @@ test.describe('a picture of the thing itself', () => {
     page,
   }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await tapThrough(page);
     await answer(page, 'Glasses').click();
     await answer(page, 'Continue').click();
@@ -405,7 +405,7 @@ test.describe('a picture of the thing itself', () => {
 
   test('comes off again from its own chip', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await tapThrough(page);
     await answer(page, 'Glasses').click();
     await answer(page, 'Continue').click();
@@ -425,7 +425,7 @@ test.describe('a picture of the thing itself', () => {
 test.describe('an answer written again', () => {
   const toLength = async (page: Page) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await answer(page, 'Describe someone').click();
     for (const label of ['Woman', '30s', 'Mediterranean', 'Olive', 'Black']) {
       await log(page).getByRole('button', { name: label, exact: true }).click();
@@ -506,7 +506,7 @@ test.describe('on a phone', () => {
 
   test('F: an old answer opens again from its pencil, and a step is answered in words', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await answer(page, 'Describe someone').click();
     await answer(page, 'Woman').click();
     await answer(page, '30s').click();
@@ -537,7 +537,7 @@ test.describe('on a phone', () => {
 
   test('the composer stands down where it is, and never leaves the screen', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     const card = page.locator('.sc-convo-card');
     const foot = page.locator('.sc-pstudio-foot');
     await expect(card).toBeVisible();

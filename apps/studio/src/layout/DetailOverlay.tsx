@@ -433,9 +433,9 @@ export function DetailOverlay({
             case 'product':
               return proseNames.product(t.id) ?? 'a product';
             case 'character':
-              return proseNames.person(t.id) ?? 'a presenter';
+              return proseNames.person(t.id) ?? 'a person';
             case 'template':
-              return proseNames.scene(t.id) ?? 'a scene';
+              return proseNames.scene(t.id) ?? 'a place';
             case 'color':
               return t.name ?? t.hex;
             case 'ref':

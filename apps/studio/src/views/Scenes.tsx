@@ -160,7 +160,7 @@ export function ScenesView() {
       applyBrand((await api.updateScene(brand.id, renaming.id, { name })).brand);
       setRenaming(null);
     } catch (e: any) {
-      const f = failureToast(e, 'Could not rename this scene');
+      const f = failureToast(e, 'Could not rename this place');
       setRenameError([f.title, f.detail].filter(Boolean).join(' '));
     } finally {
       setRenamingBusy(false);
@@ -178,7 +178,7 @@ export function ScenesView() {
         await refreshBrands();
         pick.forget(removing.id);
         setRemoving(null);
-      } else push(failureToast(e, 'Could not delete this scene'));
+      } else push(failureToast(e, 'Could not delete this place'));
     } finally {
       setRemovingBusy(false);
     }
@@ -251,7 +251,7 @@ export function ScenesView() {
   const facetGroup = {
     key: 'vertical',
     label: 'Vertical',
-    everyLabel: 'All scenes',
+    everyLabel: 'All places',
     everyCount: scenes.length + mine.length,
     selected: onlyMarked ? KEEPERS : vertical,
     // One write, both axes: `bookmarked` and `vertical` are mutually exclusive,
@@ -330,7 +330,7 @@ export function ScenesView() {
       await refreshBrands();
       pick.retain(failed);
       setDeletingBatch(false);
-      if (error) push(failureToast(error, 'Could not delete these scenes'));
+      if (error) push(failureToast(error, 'Could not delete these places'));
     } finally {
       setRemovingBusy(false);
     }
@@ -346,7 +346,7 @@ export function ScenesView() {
 
   const createCta = (
     <button type="button" className="sc-btn sc-btn-primary" onClick={() => createAsset('scene')}>
-      <Plus size={12} /> Create scene
+      <Plus size={12} /> Create place
     </button>
   );
 
@@ -394,11 +394,11 @@ export function ScenesView() {
    */
   const toolbar = (
     <LibraryToolbar
-      title="Scenes"
+      title="Places"
       filters={<FacetFilter mode={mode} group={facetGroup} />}
       density={<DensityControl value={density} onChange={setDensity} />}
       search={
-        scenes.length >= SEARCH_MIN && <LibrarySearch value={q} onChange={setQ} noun="scenes" total={scenes.length} />
+        scenes.length >= SEARCH_MIN && <LibrarySearch value={q} onChange={setQ} noun="places" total={scenes.length} />
       }
     />
   );
@@ -413,7 +413,7 @@ export function ScenesView() {
           {showMine && (
             <section className="sc-owned">
               <div className="sc-sec-head">
-                <h2 className="sc-sec-title">Your scenes</h2>
+                <h2 className="sc-sec-title">Your places</h2>
               </div>
               <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
                 {!onlyMarked &&
@@ -421,7 +421,7 @@ export function ScenesView() {
                     <DraftCard
                       key={d.convo}
                       id={d.convo}
-                      name={d.name || 'Untitled scene'}
+                      name={d.name || 'Untitled place'}
                       hash={d.hash}
                       drawing={d.drawing}
                       state={sceneDraftState(d)}
@@ -433,7 +433,7 @@ export function ScenesView() {
                 {discarding && (
                   <Confirm
                     label="Discard"
-                    title={`Discard ${discarding.name || 'this unfinished scene'}?`}
+                    title={`Discard ${discarding.name || 'this unfinished place'}?`}
                     body={
                       discarding.drawing
                         ? 'The picture being drawn is stopped, and what was drawn here is thrown away. Nothing was saved to the library.'
@@ -494,7 +494,7 @@ export function ScenesView() {
               )}
               {renaming && (
                 <RenameDialog
-                  title="Rename scene"
+                  title="Rename place"
                   name={renaming.name}
                   maxLength={60}
                   busy={renamingBusy}
@@ -507,7 +507,7 @@ export function ScenesView() {
               )}
               {removing && (
                 <Confirm
-                  label="Delete scene"
+                  label="Delete place"
                   title={`Delete ${removing.name}?`}
                   body={deleteLeaves('owned-scene', 1)}
                   open
@@ -540,10 +540,10 @@ export function ScenesView() {
               shape="cold"
               title={
                 <>
-                  Build your own <em>scene</em>
+                  Build your own <em>place</em>
                 </>
               }
-              body="Upload a few references of a place, or describe it, and its light and materials carry into every image you make."
+              body="Upload a few pictures of a location, or describe one, and its light and materials carry into every image you make."
               action={createCta}
             />
           )}
@@ -551,7 +551,7 @@ export function ScenesView() {
           {/* A heading only where it separates two things. */}
           {showMine && loaded && !error && byFacet.length > 0 && (
             <div className="sc-sec-head sc-owned-divider">
-              <h2 className="sc-sec-title">Scenri scenes</h2>
+              <h2 className="sc-sec-title">Scenri places</h2>
             </div>
           )}
 
@@ -625,11 +625,11 @@ export function ScenesView() {
             <LibraryEmpty
               shape="zero"
               title="Nothing in Keepers yet"
-              body="Keep a scene from its card and it stays here."
+              body="Keep a place from its card and it stays here."
               mark={keepersMark}
               action={
                 <button type="button" className="sc-btn sc-btn-primary" onClick={() => setFacets({ bookmarked: null })}>
-                  Browse every scene
+                  Browse every place
                 </button>
               }
             />
@@ -650,7 +650,7 @@ export function ScenesView() {
             filtered.length === 0 &&
             mineShown.length === 0 && (
               <LibraryZero
-                noun="scenes"
+                noun="places"
                 q={q}
                 facet={bookmarksBrowse ? null : onlyMarked ? 'Keepers' : vertical}
                 onClearSearch={clearSearch}

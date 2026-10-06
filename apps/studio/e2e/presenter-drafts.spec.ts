@@ -65,14 +65,14 @@ test('Create presenter starts a new conversation however many drafts are waiting
   await seedDraft(page.request, brand.id, 'a woman in her 30s with dark curly hair');
 
   // answer part of one, leave without finishing, and come back for another
-  await page.goto(`/${brand.slug}/presenters/new`);
+  await page.goto(`/${brand.slug}/people/new`);
   await answer(page, 'Describe someone').click();
   await answer(page, 'Woman').click();
   await expect(turn(page, 'you:look-who')).toContainText('Woman');
 
-  await page.goto(`/${brand.slug}/presenters`);
-  await page.getByRole('button', { name: 'New presenter' }).click();
-  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new$`));
+  await page.goto(`/${brand.slug}/people`);
+  await page.getByRole('button', { name: 'New person' }).click();
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/people/new$`));
 
   // the first question, and nothing of either the seeded draft or the
   // half-answered conversation
@@ -96,7 +96,7 @@ test('the old brand-scoped session keys are not read', async ({ page }) => {
   const brand = await currentBrand(page);
   const seeded = await seedDraft(page.request, brand.id, 'a woman in her 30s with dark curly hair');
 
-  await page.goto(`/${brand.slug}/presenters`);
+  await page.goto(`/${brand.slug}/people`);
   await page.evaluate(
     ({ id, brandId }) => {
       sessionStorage.setItem(`scenri:presenter-draft:${brandId}`, id);
@@ -113,9 +113,9 @@ test('the old brand-scoped session keys are not read', async ({ page }) => {
     { id: seeded, brandId: brand.id },
   );
 
-  await page.getByRole('button', { name: 'New presenter' }).click();
+  await page.getByRole('button', { name: 'New person' }).click();
   // not replaced into the pointed-at draft, and not holding its answers
-  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new$`));
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/people/new$`));
   await expect(answer(page, 'Describe someone')).toBeVisible();
   await expect(turn(page, 'you:look-who')).toHaveCount(0);
   await expect(page.locator('.sc-pstudio-well img')).toHaveCount(0);
@@ -136,7 +136,7 @@ test('three drafts keep their own answers and their own pictures', async ({ page
 
   // opened in turn, and then opened again out of order, each wears its own
   for (const id of [a, b, c, c, a, b]) {
-    await page.goto(`/${brand.slug}/presenters/new/${id}`);
+    await page.goto(`/${brand.slug}/people/new/${id}`);
     await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 20_000 });
     await expect(page.locator('.sc-pstudio-well img')).toHaveAttribute('src', new RegExp(faces[id]));
   }
@@ -163,19 +163,19 @@ test('switching between drafts quickly never shows the one you left', async ({ p
   const faceA = await faceOf(page.request, brand.id, a);
   const faceB = await faceOf(page.request, brand.id, b);
 
-  await page.goto(`/${brand.slug}/presenters/new/${a}`);
+  await page.goto(`/${brand.slug}/people/new/${a}`);
   await expect(page.locator('.sc-pstudio-well img')).toHaveAttribute('src', new RegExp(faceA), { timeout: 20_000 });
 
   // through the wall's own links, with no settling in between
   for (let i = 0; i < 4; i++) {
-    await page.goto(`/${brand.slug}/presenters`);
-    await page.locator(`a[href$="/presenters/new/${b}"]`).click();
-    await page.goto(`/${brand.slug}/presenters`);
-    await page.locator(`a[href$="/presenters/new/${a}"]`).click();
+    await page.goto(`/${brand.slug}/people`);
+    await page.locator(`a[href$="/people/new/${b}"]`).click();
+    await page.goto(`/${brand.slug}/people`);
+    await page.locator(`a[href$="/people/new/${a}"]`).click();
   }
 
   // settled on A: the picture is A's, and stays A's while the reads catch up
-  await expect(page).toHaveURL(new RegExp(`/presenters/new/${a}$`));
+  await expect(page).toHaveURL(new RegExp(`/people/new/${a}$`));
   await expect(page.locator('.sc-pstudio-well img')).toHaveAttribute('src', new RegExp(faceA), { timeout: 20_000 });
   await page.waitForTimeout(2500);
   await expect(page.locator('.sc-pstudio-well img')).toHaveAttribute('src', new RegExp(faceA));
@@ -198,11 +198,11 @@ test('discarding a drawn draft asks first, and cancelling keeps it', async ({ pa
     })
   ).json();
 
-  await page.goto(`/${brand.slug}/presenters`);
+  await page.goto(`/${brand.slug}/people`);
   // the card also carries its Select tick, so the puck is found by what it does
   const puck = (id: string) =>
     page
-      .locator(`a[href$="/presenters/new/${id}"]`)
+      .locator(`a[href$="/people/new/${id}"]`)
       .locator('..')
       .getByRole('button', { name: /^Discard / });
 
@@ -211,11 +211,11 @@ test('discarding a drawn draft asks first, and cancelling keeps it', async ({ pa
   const dialog = page.getByRole('alertdialog');
   await expect(dialog).toContainText('The views drawn so far are thrown away');
   await dialog.getByRole('button', { name: 'Cancel' }).click();
-  await expect(page.locator(`a[href$="/presenters/new/${drawn}"]`)).toHaveCount(1);
+  await expect(page.locator(`a[href$="/people/new/${drawn}"]`)).toHaveCount(1);
 
   // a conversation with nothing drawn on it costs only the answering, so it goes at once
   await puck(bare.id).click();
-  await expect(page.locator(`a[href$="/presenters/new/${bare.id}"]`)).toHaveCount(0);
+  await expect(page.locator(`a[href$="/people/new/${bare.id}"]`)).toHaveCount(0);
   await expect(page.getByRole('alertdialog')).toHaveCount(0);
 
   // and the card that went hands its place on. The control that discards a card
@@ -227,7 +227,7 @@ test('discarding a drawn draft asks first, and cancelling keeps it', async ({ pa
   // and agreeing really does throw the drawn one away
   await puck(drawn).click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Discard' }).click();
-  await expect(page.locator(`a[href$="/presenters/new/${drawn}"]`)).toHaveCount(0);
+  await expect(page.locator(`a[href$="/people/new/${drawn}"]`)).toHaveCount(0);
   const left = (await (await page.request.get(`/api/brands/${brand.id}/presenter-drafts`)).json()) as {
     drafts: { id: string }[];
   };
@@ -252,7 +252,7 @@ test('opening a draft only ever adds to the conversation', async ({ page }) => {
   const brand = await currentBrand(page);
   const draftId = await seedDraft(page.request, brand.id, 'a woman in her 40s, silver crop');
 
-  await page.goto(`/${brand.slug}/presenters`);
+  await page.goto(`/${brand.slug}/people`);
   await page.evaluate(() => {
     const w = window as unknown as { __withdrawn: string[]; __shrank: boolean; __lastH: number };
     w.__withdrawn = [];
@@ -273,7 +273,7 @@ test('opening a draft only ever adds to the conversation', async ({ page }) => {
     }).observe(document.body, { childList: true, subtree: true });
   });
 
-  await page.locator(`a[href$="/presenters/new/${draftId}"]`).click();
+  await page.locator(`a[href$="/people/new/${draftId}"]`).click();
   await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 20_000 });
 
   // Nothing said is unsaid. A turn that appears and is taken away again is the
@@ -291,7 +291,7 @@ test('Start over begins a new conversation and leaves every draft where it was',
   const a = await seedDraft(page.request, brand.id, 'a woman in her 30s, dark curly hair');
   const b = await seedDraft(page.request, brand.id, 'a man in his 20s, shaved head');
 
-  await page.goto(`/${brand.slug}/presenters/new/${a}`);
+  await page.goto(`/${brand.slug}/people/new/${a}`);
   await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 20_000 });
   await page.getByRole('button', { name: 'Start over' }).click();
   const dialog = page.getByRole('alertdialog');
@@ -305,7 +305,7 @@ test('Start over begins a new conversation and leaves every draft where it was',
   // Reported 2026-09-16. A draft with no picture on it still goes, which is
   // `create-presenter-weak-photos`; discard on the card covers the rest, and
   // asks separately.
-  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new$`));
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/people/new$`));
   const left = (await (await page.request.get(`/api/brands/${brand.id}/presenter-drafts`)).json()) as {
     drafts: { id: string }[];
   };
@@ -313,10 +313,10 @@ test('Start over begins a new conversation and leaves every draft where it was',
   expect(left.drafts.map((d) => d.id)).toContain(b);
 
   // and both are still reachable from the wall, each at its own stage
-  await page.goto(`/${brand.slug}/presenters`);
+  await page.goto(`/${brand.slug}/people`);
   for (const id of [a, b]) {
-    await page.locator(`a[href$="/presenters/new/${id}"]`).click();
+    await page.locator(`a[href$="/people/new/${id}"]`).click();
     await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 20_000 });
-    await page.goto(`/${brand.slug}/presenters`);
+    await page.goto(`/${brand.slug}/people`);
   }
 });

@@ -70,13 +70,13 @@ export function Danger({ onDone, thisComputer }: { onDone: () => void; thisCompu
             <span className="txt">
               <b>Delete generated shots</b>
               <small data-prose="">
-                Removes every set and every generated shot, in every brand. Brands, cast and scenes stay.
+                Removes every set and every generated shot, in every brand. Brands, products, people and places stay.
               </small>
             </span>
             <Confirm
               label="Delete shots"
               title="Delete every generated shot?"
-              body="Brands, cast and scenes stay. Every set and every generated shot goes."
+              body="Brands, products, people and places stay. Every set and every generated shot goes."
               busy={busy}
               onConfirm={() => void run('shots')}
             />

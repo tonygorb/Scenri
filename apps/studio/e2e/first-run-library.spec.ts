@@ -62,7 +62,7 @@ test.beforeAll(async () => {
     for (const angle of ['three-quarter', 'front'])
       files.push([`previews/demo-products/${id}/${angle}.jpg`, await jpeg(seed++)]);
   }
-  for (const id of presenters) files.push([`previews/presenters/${id}/avatar.jpg`, await jpeg(seed++)]);
+  for (const id of presenters) files.push([`previews/people/${id}/avatar.jpg`, await jpeg(seed++)]);
   bytes = storedZip(files);
   pin = await pinFor(bytes);
   pinFile = join(mkdtempSync(join(tmpdir(), 'sc-e2e-pin-')), 'pin.json');
@@ -175,7 +175,7 @@ test('library pictures hold their place, arrive without a reload, and the bell c
     await page.keyboard.press('Escape');
 
     // moving around while it runs neither restarts nor doubles it
-    for (const name of ['Home', 'Scenes', 'Create', 'Products']) {
+    for (const name of ['Home', 'Places', 'Create', 'Products']) {
       await page.getByRole('link', { name, exact: true }).first().click();
       await page.waitForTimeout(400);
     }

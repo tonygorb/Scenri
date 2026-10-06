@@ -8,22 +8,44 @@ import { useKindPreview } from '../../create/useKindPreview.js';
 import { useMainNav } from '../nav.js';
 import type { CreateKind } from '../../createDraft.js';
 
-const INGREDIENTS: { kind: CreateKind; label: string; line: string; noun: string; icon: typeof Package }[] = [
-  { kind: 'product', label: 'Product', line: 'What you are photographing', noun: 'product', icon: Package },
+const INGREDIENTS: {
+  kind: CreateKind;
+  label: string;
+  line: string;
+  noun: string;
+  nouns: string;
+  icon: typeof Package;
+}[] = [
+  {
+    kind: 'product',
+    label: 'Product',
+    line: 'What you are photographing',
+    noun: 'product',
+    nouns: 'products',
+    icon: Package,
+  },
   {
     kind: 'presenter',
-    label: 'Presenter',
+    label: 'Person',
     line: 'Who appears in the shot',
-    noun: 'presenter',
+    noun: 'person',
+    nouns: 'people',
     icon: IdentificationBadge,
   },
-  { kind: 'scene', label: 'Scene', line: 'The place and its light', noun: 'scene', icon: FilmSlate },
+  {
+    kind: 'scene',
+    label: 'Place',
+    line: 'Where it happens, and its light',
+    noun: 'place',
+    nouns: 'places',
+    icon: FilmSlate,
+  },
 ];
 
 const PAGE_NEW: Record<CreateKind, string> = {
   product: 'New product',
-  presenter: 'New presenter',
-  scene: 'New scene',
+  presenter: 'New person',
+  scene: 'New place',
 };
 
 /**
@@ -35,7 +57,7 @@ const PAGE_NEW: Record<CreateKind, string> = {
  * primary that only opens a menu promises an action it does not perform, and
  * an unlabelled plus was the opposite problem: it performed one nobody could
  * name. The visible word is one label, shortened when the bar is tight:
- * "New presenter" from 961px, "New" below that, never the noun alone.
+ * "New person" from 961px, "New" below that, never the noun alone.
  *
  * The menu leads with the shot rather than listing only the ingredients, because
  * a menu that offers everything except the usual thing makes you hunt for the
@@ -77,7 +99,7 @@ export function NewButton() {
           <Plus size={14} weight="bold" className="sc-new-plus" aria-hidden="true" />
           <span className="sc-new-lb">
             <span className="sc-new-verb">New </span>
-            <span className="sc-new-kind">{pageKind}</span>
+            <span className="sc-new-kind">{INGREDIENTS.find((r) => r.kind === pageKind)?.noun}</span>
           </span>
         </button>
       ) : (
@@ -135,7 +157,7 @@ export function NewButton() {
               </span>
               <span className="sc-start-n">
                 {count === 0 ? 'None yet' : count}
-                <span className="sc-vh">{` ${row.noun}${count === 1 ? '' : 's'} so far`}</span>
+                <span className="sc-vh">{` ${count === 1 ? row.noun : row.nouns} so far`}</span>
               </span>
             </BarRow>
           );

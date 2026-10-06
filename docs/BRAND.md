@@ -31,7 +31,7 @@ That is still a redraw. Scenri can promise the right file was sent. It cannot pr
 
 On Replicate or fal, which carry no reference images, the Shot still runs. The composer says first that the mark will ride as words only.
 
-Built-in Products, Presenters, and Scenes do not contain your logo. You attach it per Shot.
+Built-in Products, People, and Places do not contain your logo. You attach it per Shot.
 
 ## Colours
 

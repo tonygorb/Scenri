@@ -84,12 +84,12 @@ test('one thing at a time, from the welcome to a finished picture', async ({ pag
 
   // A real pick is what moves it on, and the picker moves with it.
   await expect(chips(page)).toHaveCount(1);
-  await expect(coachTitle(page)).toHaveText('Choose a presenter');
-  await expect(page.locator('.sc-attachpanel .sc-ap-sec-title')).toContainText('Presenters');
-  await pickFromPicker(page, 'Presenter');
-  await expect(coachTitle(page)).toHaveText('Choose a scene');
-  await expect(page.locator('.sc-attachpanel .sc-ap-sec-title')).toContainText('Scenes');
-  await pickFromPicker(page, 'Scene');
+  await expect(coachTitle(page)).toHaveText('Choose a person');
+  await expect(page.locator('.sc-attachpanel .sc-ap-sec-title')).toContainText('People');
+  await pickFromPicker(page, 'Person');
+  await expect(coachTitle(page)).toHaveText('Choose a place');
+  await expect(page.locator('.sc-attachpanel .sc-ap-sec-title')).toContainText('Places');
+  await pickFromPicker(page, 'Place');
 
   // Nothing left to add: the picker closes itself rather than asking them to.
   await expect(page.locator('.sc-attachpanel')).toHaveCount(0);
@@ -189,11 +189,11 @@ test('Learn sits in the bar beside the bell, and says what is already done', asy
 
 test('a scene has its own task, held in the studio it is made in', async ({ page }) => {
   await page.goto(`/${slug}`);
-  await fromLearn(page, 'Build a scene');
-  await walkTheWay(page, 'scenes', 'Your scenes live here');
-  await page.waitForURL('**/scenes');
-  await startNew(page, 'Start a new scene');
-  await expect(page).toHaveURL(/\/scenes\/new\/[a-f0-9]+$/);
+  await fromLearn(page, 'Build a place');
+  await walkTheWay(page, 'scenes', 'Your places live here');
+  await page.waitForURL('**/places');
+  await startNew(page, 'Start a new place');
+  await expect(page).toHaveURL(/\/places\/new\/[a-f0-9]+$/);
   const studio = page.locator('.sc-pstudio[data-kind="scene"]');
   await expect(studio.locator('.sc-coach .sc-coach-title')).toHaveText('Describe the place, or start from pictures');
   // the studio's own line stays usable beside the question
@@ -210,5 +210,5 @@ test('a scene has its own task, held in the studio it is made in', async ({ page
   expect((await guideRecord(page)).progress.scene?.reached).toContain('start');
   // the tutor is still asking on the library; Learn is opened from the address
   await page.goto(`/${slug}?learn=lessons`);
-  await expect(lessonRow(page, 'Build a scene').locator('.sc-learn-status')).toHaveText('Step 3 of 5');
+  await expect(lessonRow(page, 'Build a place').locator('.sc-learn-status')).toHaveText('Step 3 of 5');
 });

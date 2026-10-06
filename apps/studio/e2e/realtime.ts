@@ -91,7 +91,7 @@ export const CARD_SPOT = { x: 12, y: 56 };
  */
 export async function openOwnedScene(page: Page, name: string): Promise<void> {
   await ownedSceneCard(page, name).locator('a.sc-lookcard-open').click({ position: CARD_SPOT });
-  await page.waitForURL(/\/scenes\/us-/);
+  await page.waitForURL(/\/places\/us-/);
   await expect(page.locator('main.sc-scenepage')).toBeVisible();
 }
 
@@ -105,11 +105,11 @@ export async function goCreate(page: Page): Promise<void> {
 }
 
 export async function goScenes(page: Page): Promise<void> {
-  await mainNav(page).getByRole('link', { name: 'Scenes', exact: true }).click();
-  await expect(page).toHaveURL(/\/scenes$/);
+  await mainNav(page).getByRole('link', { name: 'Places', exact: true }).click();
+  await expect(page).toHaveURL(/\/places$/);
   // The URL moves before the page does: until the wall renders, the bar's New is
   // still the shot link, and a click on it went to Create (SC-H15, CI 2026-09-26).
-  await expect(page.getByRole('button', { name: 'New scene', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'New place', exact: true })).toBeVisible();
 }
 
 /**
@@ -122,7 +122,7 @@ export async function askSceneMenu(page: Page, query: string): Promise<void> {
   await page.keyboard.press('End');
   await page.keyboard.type(' in ');
   await page.keyboard.type('/');
-  await expect(page.locator('.sc-cmd-group')).toHaveText(/^Scenes\s+\d+$/);
+  await expect(page.locator('.sc-cmd-group')).toHaveText(/^Places\s+\d+$/);
   await page.keyboard.type(query);
 }
 
@@ -239,7 +239,7 @@ export async function askProductMenu(page: Page, query: string): Promise<void> {
   await page.keyboard.type(query);
 }
 
-export async function goNav(page: Page, name: 'Home' | 'Products' | 'Presenters'): Promise<void> {
+export async function goNav(page: Page, name: 'Home' | 'Products' | 'People'): Promise<void> {
   await mainNav(page).getByRole('link', { name, exact: true }).click();
   await expect(page).toHaveURL(name === 'Home' ? /^[^?]*\/[^/]+$/ : new RegExp(`/${name.toLowerCase()}$`));
 }
@@ -272,7 +272,7 @@ export async function renameScene(page: Page, to: string): Promise<void> {
  * it draws nothing and waits for nothing. The offer is absent on a home
  * without Scenri's library, so the last press is taken either way.
  */
-export async function finishSceneSet(page: Page, finish = 'Open scene'): Promise<void> {
+export async function finishSceneSet(page: Page, finish = 'Open place'): Promise<void> {
   const studio = page.locator('.sc-pstudio[data-kind="scene"]');
   const start = studio.locator('[data-turn="q:set-start"]:not([data-picked])');
   const done = studio.locator('[data-turn="q:set-done"]:not([data-picked])');
@@ -293,7 +293,7 @@ export async function buildScene(page: Page, sentence: string, name: string): Pr
   await line.fill(sentence);
   await line.press('Enter');
   // what the sentence left open is asked, one tap each; these tests pass it over
-  const draw = studio.getByRole('button', { name: 'Draw the scene' });
+  const draw = studio.getByRole('button', { name: 'Draw the place' });
   const live = studio.locator('[data-turn^="q:"]:not([data-picked])').last();
   const pass = live.getByRole('button', { name: 'Leave it to the reading', exact: true });
   for (let i = 0; i < 4; i++) {
@@ -307,6 +307,6 @@ export async function buildScene(page: Page, sentence: string, name: string): Pr
   // the name is asked while the first picture draws
   await line.fill(name);
   await line.press('Enter');
-  await studio.getByRole('button', { name: 'Use this scene' }).click({ timeout: 60_000 });
+  await studio.getByRole('button', { name: 'Use this place' }).click({ timeout: 60_000 });
   await finishSceneSet(page);
 }

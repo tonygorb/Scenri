@@ -45,11 +45,11 @@ async function tap(q: Locator, name: string) {
 
 /** A scene drawn once, standing on the stage, ready to be changed. */
 async function drawn(p: Page, slug: string, name: string) {
-  await p.goto(`/${slug}/scenes/new`);
+  await p.goto(`/${slug}/places/new`);
   await arrived(p, '.sc-pstudio[data-kind="scene"]');
   await say(p, 'A white cyclorama under hard flash, seen straight on, on a low plinth, mist lying low');
   await expect(openQ(p)).toHaveAttribute('data-turn', /^q:agree-/, { timeout: 15_000 });
-  await tap(openQ(p), 'Draw the scene');
+  await tap(openQ(p), 'Draw the place');
   await say(p, name);
   await expect(openQ(p)).toHaveAttribute('data-turn', /^q:decide-/, { timeout: 20_000 });
   return new URL(p.url()).pathname;
@@ -101,7 +101,7 @@ test('a change that failed closes without asking, waits on the wall as drawn, an
   // nothing is lost by closing: no discard-or-stay question
   await studio(page).getByRole('button', { name: 'Close', exact: true }).click();
   await expect(page.getByRole('alertdialog')).toHaveCount(0);
-  await page.waitForURL(new RegExp(`/${slug}/scenes$`));
+  await page.waitForURL(new RegExp(`/${slug}/places$`));
   const card = page.locator('.sc-lookcard[data-build]', { hasText: 'Stuck Cyc' });
   await expect(card).toContainText('Drawn, not used yet');
   await card.getByRole('link').click();

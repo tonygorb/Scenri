@@ -10,7 +10,7 @@ import { SceneCreate } from '../create/scene/SceneCreate.js';
 import { sceneFinishedIn } from '../create/scene/sceneDrafts.js';
 import { seeded, type StudioState } from '../create/scene/sceneStudioRules.js';
 import { COPY } from '../create/scene/sceneCopy.js';
-import { P, sceneEditPath, scenePath, scenesPath, sceneStudioPath } from '../routes.js';
+import { P, sceneEditPath, scenePath, scenesPath, sceneStudioPath, seedQuery } from '../routes.js';
 import { useTitleEntity } from '../useDocumentTitle.js';
 
 const hashOf = (ref: unknown): string | null => {
@@ -89,7 +89,7 @@ export function SceneStudioRoute() {
   const { applyBrand } = useAppData();
   const navigate = useNavigate();
   const { announce, caps } = useCreateFlow();
-  useTitleEntity(sceneId ? 'Edit scene' : 'Create scene');
+  useTitleEntity(sceneId ? 'Edit place' : 'Create place');
 
   // Read once, on the way in: the record is the version the session starts
   // from, and a brand refetch while editing must not reseed underneath it.
@@ -169,8 +169,7 @@ export function SceneStudioRoute() {
             { quiet: !(toCreate && from) },
           );
         }
-        if (toCreate && from)
-          navigate(`${from.split('?')[0]}?scene=${encodeURIComponent(id)}&compose=1`, { replace: true });
+        if (toCreate && from) navigate(`${from.split('?')[0]}?${seedQuery('scene', id)}&compose=1`, { replace: true });
         else navigate(scenePath(brand, id), { replace: true });
       }}
     />

@@ -27,7 +27,7 @@ test('a read that fails is said once, draws nothing, saves nothing, and keeps th
     return seg.length === 1 && seg[0] !== 'setup';
   });
   const slug = decodeURIComponent(new URL(page.url()).pathname.split('/')[1]);
-  await page.goto(`/${slug}/scenes/new`);
+  await page.goto(`/${slug}/places/new`);
   await arrived(page, '.sc-pstudio[data-kind="scene"]');
   await turn(page, 'q:source').getByRole('button', { name: 'Add pictures', exact: true }).click();
   const q = turn(page, 'q:photos');

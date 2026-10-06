@@ -21,13 +21,13 @@ describe('briefChanges', () => {
 
   it('reads one out and one in as a swap', () => {
     expect(briefChanges(brief({ t: 'character', id: 'mara' }), brief({ t: 'character', id: 'dax' }), names)).toEqual([
-      'presenter Mara to Dax',
+      'person Mara to Dax',
     ]);
   });
 
   it('names an ingredient that was added, and one that was dropped', () => {
-    expect(briefChanges(brief(), brief({ t: 'template', id: 'ice-core' }), names)).toEqual(['scene Ice Core added']);
-    expect(briefChanges(brief({ t: 'character', id: 'mara' }), brief(), names)).toEqual(['presenter Mara removed']);
+    expect(briefChanges(brief(), brief({ t: 'template', id: 'ice-core' }), names)).toEqual(['place Ice Core added']);
+    expect(briefChanges(brief({ t: 'character', id: 'mara' }), brief(), names)).toEqual(['person Mara removed']);
   });
 
   it('counts colours and references rather than naming them', () => {
@@ -78,8 +78,8 @@ describe('briefChanges', () => {
     );
     expect(briefChanges(from, to, names)).toEqual([
       'product Aurelia serum to Cold brew can',
-      'presenter Mara added',
-      'scene Ice Core to Mirror Salt Flat',
+      'person Mara added',
+      'place Ice Core to Mirror Salt Flat',
     ]);
   });
 });
@@ -171,7 +171,7 @@ describe('briefProse', () => {
         ],
       },
     } as unknown as TreeNode;
-    expect(briefProse(node, names)).toBe('a product a presenter the brand mark');
+    expect(briefProse(node, names)).toBe('a product a person the brand mark');
   });
 
   it('falls back to the compiled prompt for shots made before briefs were stored', () => {

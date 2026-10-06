@@ -54,7 +54,7 @@ describe('the lessons', () => {
     expect(new Set(ids).size).toBe(ids.length);
     for (const id of ids) expect(MILESTONE[id], id).toBeTruthy();
     expect(ids).toEqual(['first-shot', 'product', 'reuse', 'presenter', 'scene', 'refine']);
-    expect(lessonOf('presenter')?.title).toBe('Create a presenter');
+    expect(lessonOf('presenter')?.title).toBe('Create a person');
     expect(lessonOf('lessons')).toBeNull();
     expect(lessonOf(null)).toBeNull();
   });

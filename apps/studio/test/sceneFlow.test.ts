@@ -956,7 +956,7 @@ describe('a place started from a shot', () => {
     expect(setupDone(inScene)).toBe(false);
     const q = lastQ(turnsFor(args({ setup: setupOf(inScene) })));
     expect(q?.prompt).toBe('This shot was made in Harbour.');
-    expect(q?.kind === 'choice' && q.options?.map((o) => o.label)).toEqual(['Use Harbour', 'Read a new scene from it']);
+    expect(q?.kind === 'choice' && q.options?.map((o) => o.label)).toEqual(['Use Harbour', 'Read a new place from it']);
     // Use leaves for that scene: it is not an answer here
     expect(answerPatch('reuse', { kind: 'choice', id: 'use' }, inScene)).toBeNull();
     const patch = answerPatch('reuse', { kind: 'choice', id: 'read' }, inScene);
@@ -1154,7 +1154,7 @@ describe('after Use: nothing is drawn until it is asked for', () => {
       ['not-now', 'Not now'],
     ]);
     // a world built around a person is offered the same two, said of a presenter
-    expect(lastQ(turnsFor(flow({ set: offered({ who: 'presenter' }) })))?.prompt).toContain('a Scenri demo presenter');
+    expect(lastQ(turnsFor(flow({ set: offered({ who: 'presenter' }) })))?.prompt).toContain('a Scenri demo person');
   });
 
   it('offers the set again, counted, when the place moved under it', () => {
@@ -1206,7 +1206,7 @@ describe('after Use: nothing is drawn until it is asked for', () => {
     const f = flow({ set: offered() });
     expect(composerFor(f, lastQ(turnsFor(f))).target).toEqual({
       kind: 'off',
-      why: 'The scene is saved. Choose above.',
+      why: 'The place is saved. Choose above.',
     });
   });
 

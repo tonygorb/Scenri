@@ -22,6 +22,7 @@ import { ChipPreview, isPreviewKind, type PreviewKind } from './ChipPreview.js';
 import { useHoverPreview } from './useHoverPreview.js';
 import { TokenMenu, type MenuOption } from './TokenMenu.js';
 import { IngredientPicker, type CloseReason } from './IngredientPicker.js';
+import { chipViewName } from '../sceneExampleRules.js';
 import { ColorChipMenu } from './ColorChipMenu.js';
 import { composingEvent, enterSubmits, INSERT_MENU_ID, menuFromInput } from './insertMenu.js';
 import {
@@ -166,7 +167,7 @@ export const BriefInput = forwardRef<
      * has not got, and the fix is a different ingredient rather than a
      * different scene — so the picker offers it as an action instead of the
      * chip's own click silently becoming it. */
-    onAttachRequest?: (tab: 'Products' | 'Presenters') => void;
+    onAttachRequest?: (tab: 'Products' | 'People') => void;
     onSubmit: () => void;
     /** A dropped file goes straight to the same place a picked one does — this
      * only hands the raw FileList off, upload + insert stays wherever it
@@ -295,12 +296,12 @@ export const BriefInput = forwardRef<
       const found = findIngredient(token, { products, demoProducts, cast, presenters, scenes: templates });
       if (found?.kind === 'scene') {
         const t = found.scene;
-        label = t ? sceneLabel(t, 'chip') : 'missing template';
+        label = t ? sceneLabel(t, 'chip') : 'missing place';
         thumb = thumbOf(t?.previewUrl ?? null, 'micro');
         // A picked view: the scene's chip shows that picture and names it.
         if (t && token.t === 'template' && token.view) {
           thumb = thumbUrl(token.view, 'micro');
-          if (token.viewName) label = `${label} · ${token.viewName}`;
+          if (token.viewName) label = `${label} · ${chipViewName(token.viewName)}`;
         }
         const tint = normalizeTint(t?.previewColor);
         if (tint) {
@@ -1444,7 +1445,8 @@ export const BriefInput = forwardRef<
   const pickedView =
     anchorToken?.t === 'template' && anchorToken.view
       ? ((
-          sceneViews.find((o) => o.hash === anchorToken.view) ?? sceneViews.find((o) => o.name === anchorToken.viewName)
+          sceneViews.find((o) => o.hash === anchorToken.view) ??
+          sceneViews.find((o) => !!anchorToken.viewName && o.name === chipViewName(anchorToken.viewName))
         )?.view ?? null)
       : null;
   /** The chip keeps its scene and takes the picture (a catalog frame is copied into the store first), or lets it go. */
@@ -1716,7 +1718,7 @@ function sameColor(a: string | null | undefined, b: string | null | undefined): 
 function labelFallback(t: SentenceToken, templates: Scene[], products: any[]): string {
   if (t.t === 'template') {
     const name = templates.find((x) => x.id === t.id)?.name ?? 'template';
-    return t.view && t.viewName ? `${name} · ${t.viewName}` : name;
+    return t.view && t.viewName ? `${name} · ${chipViewName(t.viewName)}` : name;
   }
   if (t.t === 'product') return products.find((x) => x.id === t.id)?.name ?? 'product';
   if (t.t === 'character') return 'someone';

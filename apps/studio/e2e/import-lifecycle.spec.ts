@@ -193,7 +193,7 @@ test('an import survives navigation and a reload, and never forks in two', async
 
   // Walk around the app while it runs.
   await page.goto(`/${brand.slug}/create`);
-  await page.goto(`/${brand.slug}/presenters`);
+  await page.goto(`/${brand.slug}/people`);
   await page.goto(`/${brand.slug}/products`);
   // And reload on top of that.
   await page.reload();

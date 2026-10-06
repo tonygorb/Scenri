@@ -84,7 +84,7 @@ const wallCard = (p: Page, name: string) =>
 
 async function deletePresenterFromWall(p: Page, name: string) {
   await wallCard(p, name).click({ button: 'right' });
-  await p.getByRole('menuitem', { name: 'Delete presenter' }).click();
+  await p.getByRole('menuitem', { name: 'Delete person' }).click();
   await p
     .getByRole('alertdialog')
     .getByRole('button', { name: /Delete/ })
@@ -170,8 +170,8 @@ test.describe('the bell across a brand switch', () => {
       if (f === page.mainFrame()) went.push(f.url());
     });
     await card.getByRole('button', { name: 'Use in a shot' }).click();
-    await expect.poll(() => went.find((u) => u.includes('scene='))).toBeTruthy();
-    const at = new URL(went.find((u) => u.includes('scene='))!);
+    await expect.poll(() => went.find((u) => u.includes('place='))).toBeTruthy();
+    const at = new URL(went.find((u) => u.includes('place='))!);
     expect(at.pathname.startsWith(`/${A.slug}/`)).toBe(true);
   });
 
@@ -199,7 +199,7 @@ test.describe('the bell across a brand switch', () => {
     ).json();
     // a fresh load reads the work at once rather than on the next idle tick
     const baseline = page.waitForResponse(activityOf(A.id));
-    await page.goto(`/${A.slug}/scenes`);
+    await page.goto(`/${A.slug}/places`);
     await baseline;
     await expect(page.locator('.sc-lookcard[data-build]', { hasText: 'Away Draw' })).toContainText('Drawing', {
       timeout: 10_000,
@@ -233,11 +233,11 @@ test.describe('two tabs on one library', () => {
     test.setTimeout(60_000);
     const brand = await brandNamed(page.request, FIXTURE);
     await savedPresenter(page.request, brand.id, 'Tabbed');
-    await page.goto(`/${brand.slug}/presenters`);
+    await page.goto(`/${brand.slug}/people`);
     await expect(wallCard(page, 'Tabbed')).toBeVisible();
 
     const other = await context.newPage();
-    await other.goto(`/${brand.slug}/presenters`);
+    await other.goto(`/${brand.slug}/people`);
     await deletePresenterFromWall(other, 'Tabbed');
 
     // back to the first tab, the way a person comes back to one
@@ -266,14 +266,14 @@ test.describe('two tabs on one library', () => {
     const openQ = (p: Page) => studio(p).locator('[data-turn^="q:"]:not([data-picked])').last();
     const line = (p: Page) => studio(p).locator('.sc-pstudio-foot textarea');
 
-    await page.goto(`/${brand.slug}/scenes/new`);
+    await page.goto(`/${brand.slug}/places/new`);
     await arrived(page, '.sc-pstudio[data-kind="scene"]');
-    await page.waitForURL(new RegExp(`/${brand.slug}/scenes/new/[a-f0-9]+$`));
+    await page.waitForURL(new RegExp(`/${brand.slug}/places/new/[a-f0-9]+$`));
     const at = new URL(page.url()).pathname;
     await line(page).fill('A white cyclorama under hard flash, seen straight on, on a low plinth, mist lying low');
     await line(page).press('Enter');
     await expect(openQ(page)).toHaveAttribute('data-turn', /^q:agree-/, { timeout: 15_000 });
-    await openQ(page).getByRole('button', { name: 'Draw the scene', exact: true }).click();
+    await openQ(page).getByRole('button', { name: 'Draw the place', exact: true }).click();
     await line(page).fill('Twin Cyc');
     await line(page).press('Enter');
 
@@ -291,13 +291,13 @@ test.describe('two tabs on one library', () => {
     expect(jobs.filter((j) => j.job === 'again')).toHaveLength(1);
 
     // used and finished in the first tab
-    await openQ(page).getByRole('button', { name: 'Use this scene', exact: true }).click();
+    await openQ(page).getByRole('button', { name: 'Use this place', exact: true }).click();
     const offer = studio(page).locator('[data-turn="q:set-start"]:not([data-picked])');
     const done = studio(page).locator('[data-turn="q:set-done"]:not([data-picked])');
     await expect(offer.or(done)).toBeVisible({ timeout: 30_000 });
     if (await offer.isVisible()) await offer.getByRole('button', { name: 'Not now', exact: true }).click();
-    await done.getByRole('button', { name: 'Open scene', exact: true }).click();
-    await page.waitForURL(/\/scenes\/us-/);
+    await done.getByRole('button', { name: 'Open place', exact: true }).click();
+    await page.waitForURL(/\/places\/us-/);
 
     // the second tab is still open on it, and a person types a change there
     await other.bringToFront();
@@ -307,7 +307,7 @@ test.describe('two tabs on one library', () => {
 
     // the wall in the first tab: the conversation was used, so it is no draft
     await page.bringToFront();
-    await page.goto(`/${brand.slug}/scenes`);
+    await page.goto(`/${brand.slug}/places`);
     await page.waitForTimeout(1500);
     await expect(page.locator('.sc-lookcard[data-build]', { hasText: 'Twin Cyc' })).toHaveCount(0);
     const saved = ((await (await page.request.get('/api/brands')).json()) as any[])
@@ -323,14 +323,14 @@ test.describe('two tabs on one library', () => {
     const brand = await brandNamed(page.request, FIXTURE);
     const id = await savedPresenter(page.request, brand.id, 'Chipped');
     // "Use in a shot": the brief opens with the person in it, and words are added
-    await page.goto(`/${brand.slug}/create?presenter=${id}&compose=1`);
+    await page.goto(`/${brand.slug}/create?person=${id}&compose=1`);
     await expect(page.locator('.sc-brief .sc-token', { hasText: 'Chipped' })).toBeVisible({ timeout: 15_000 });
     await page.locator('.sc-brief-line').first().click();
     await page.keyboard.press('End');
     await page.keyboard.type(' on a quiet beach at dawn');
 
     // same session: to the wall through the app's own nav, delete them, and back
-    await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Presenters' }).click();
+    await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'People' }).click();
     await expect(wallCard(page, 'Chipped')).toBeVisible();
     await deletePresenterFromWall(page, 'Chipped');
     await page.getByRole('link', { name: 'Create', exact: true }).click();
@@ -364,9 +364,9 @@ test.describe('a connection that drops', () => {
   /** A scene studio with a place said in full, read back and ready to draw. */
   async function readyToDraw(p: Page) {
     const { slug } = await brandNamed(p.request, FIXTURE);
-    await p.goto(`/${slug}/scenes/new`);
+    await p.goto(`/${slug}/places/new`);
     await arrived(p, '.sc-pstudio[data-kind="scene"]');
-    await p.waitForURL(new RegExp(`/${slug}/scenes/new/[a-f0-9]+$`));
+    await p.waitForURL(new RegExp(`/${slug}/places/new/[a-f0-9]+$`));
     await say(p, 'A white cyclorama under hard flash, seen straight on, on a low plinth, mist lying low');
     await expect(openQ(p)).toHaveAttribute('data-turn', /^q:agree-/, { timeout: 15_000 });
   }
@@ -380,7 +380,7 @@ test.describe('a connection that drops', () => {
       cancels += 1;
       return cancels === 1 ? route.abort('internetdisconnected') : route.fallback();
     });
-    await tap(openQ(page), 'Draw the scene');
+    await tap(openQ(page), 'Draw the place');
     await expect(openQ(page)).toHaveAttribute('data-turn', 'q:name');
     await expect(pill(page)).toHaveText('Stop');
     await pill(page).click();
@@ -395,7 +395,7 @@ test.describe('a connection that drops', () => {
   }) => {
     test.setTimeout(90_000);
     await readyToDraw(page);
-    await tap(openQ(page), 'Draw the scene');
+    await tap(openQ(page), 'Draw the place');
     await expect(openQ(page)).toHaveAttribute('data-turn', 'q:name');
     await context.setOffline(true);
     await expect(studio(page)).toContainText('Lost touch with Scenri. Still trying.', { timeout: 20_000 });
@@ -417,7 +417,7 @@ test.describe('a connection that drops', () => {
       if (asks <= 3) return route.abort('connectionrefused');
       return route.fulfill({ status: 404, contentType: 'application/json', body: '{"error":"job not found"}' });
     });
-    await tap(openQ(page), 'Draw the scene');
+    await tap(openQ(page), 'Draw the place');
     await expect(studio(page)).toContainText('Lost touch with Scenri. Still trying.', { timeout: 20_000 });
     await expect(studio(page)).toContainText('That work is gone: the server restarted while it ran.', {
       timeout: 20_000,

@@ -5,8 +5,8 @@ const run = () => {};
 
 describe('catalog pick verbs', () => {
   it('deletes presenters you own, and names the count', () => {
-    expect(catalogPickVerb('presenter', 1)).toMatchObject({ tool: 'Delete', menu: 'Delete presenter', danger: true });
-    expect(catalogPickVerb('presenter', 3).menu).toBe('Delete 3 presenters');
+    expect(catalogPickVerb('presenter', 1)).toMatchObject({ tool: 'Delete', menu: 'Delete person', danger: true });
+    expect(catalogPickVerb('presenter', 3).menu).toBe('Delete 3 people');
   });
 
   it('discards drafts', () => {
@@ -15,8 +15,8 @@ describe('catalog pick verbs', () => {
   });
 
   it('deletes scenes and products you own', () => {
-    expect(catalogPickVerb('owned-scene', 3).menu).toBe('Delete 3 scenes');
-    expect(catalogPickVerb('owned-scene', 1).menu).toBe('Delete scene');
+    expect(catalogPickVerb('owned-scene', 3).menu).toBe('Delete 3 places');
+    expect(catalogPickVerb('owned-scene', 1).menu).toBe('Delete place');
     expect(catalogPickVerb('product', 3).menu).toBe('Delete 3 products');
     expect(catalogPickVerb('product', 1).menu).toBe('Delete product');
   });
@@ -31,10 +31,10 @@ describe('catalog pick verbs', () => {
       onDeselect: run,
       onAct: run,
     });
-    expect(items.map((it) => it.label)).toEqual(['Open', 'Open in new tab', 'Deselect this', 'Delete 3 scenes']);
+    expect(items.map((it) => it.label)).toEqual(['Open', 'Open in new tab', 'Deselect this', 'Delete 3 places']);
     expect(items.at(-1)?.separated).toBe(true);
     expect(items.at(-1)?.danger).toBe(true);
-    expect(items.some((it) => it.label === 'Duplicate presenter')).toBe(false);
+    expect(items.some((it) => it.label === 'Duplicate person')).toBe(false);
   });
 
   it('says Deselect when the pick is one card', () => {
@@ -47,7 +47,7 @@ describe('catalog pick verbs', () => {
       onDeselect: run,
       onAct: run,
     });
-    expect(items.map((it) => it.label)).toEqual(['Open', 'Open in new tab', 'Deselect', 'Delete scene']);
+    expect(items.map((it) => it.label)).toEqual(['Open', 'Open in new tab', 'Deselect', 'Delete place']);
   });
 
   it('continues a picked draft and discards the pick', () => {
@@ -96,8 +96,8 @@ describe('catalog pick verbs', () => {
       'Open',
       'Open in new tab',
       'Deselect this',
-      'Add 3 scenes to Keepers',
-      'Delete 3 scenes',
+      'Add 3 places to Keepers',
+      'Delete 3 places',
     ]);
     expect(scenes.find((it) => it.key === 'keep')?.icon).toBe('keep');
     expect(scenes.at(-1)?.separated).toBe(true);
@@ -113,7 +113,7 @@ describe('catalog pick verbs', () => {
       allKept: true,
     });
     expect(off.find((it) => it.key === 'keep')).toMatchObject({
-      label: 'Remove 2 presenters from Keepers',
+      label: 'Remove 2 people from Keepers',
       icon: 'kept',
     });
 
@@ -154,10 +154,10 @@ describe('what a delete leaves behind', () => {
       'Shots already made with them keep their images. Their recipe loses these products, and building from one again will miss them.',
     );
     expect(deleteLeaves('owned-scene', 1)).toBe(
-      'Shots already made here keep their images. Their recipe will say this scene is gone, and building from one again will miss it.',
+      'Shots already made here keep their images. Their recipe will say this place is gone, and building from one again will miss it.',
     );
     expect(deleteLeaves('owned-scene', 2)).toBe(
-      'Shots already made here keep their images. Their recipe will say these scenes are gone, and building from one again will miss them.',
+      'Shots already made here keep their images. Their recipe will say these places are gone, and building from one again will miss them.',
     );
     expect(deleteLeaves('presenter', 1)).toBe(
       'Shots already made with them keep their images. Their recipe loses this person, and building from one again will miss them.',

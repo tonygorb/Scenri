@@ -224,7 +224,7 @@ export function PresenterPage() {
     return (
       <ScrollPane>
         <main className="sc-lookpage" id="main">
-          <h1>Couldn't load this presenter</h1>
+          <h1>Couldn't load this person</h1>
           <p className="sc-lookpage-lede">Something went wrong reaching the catalog.</p>
           <div className="sc-lookpage-acts">
             <button type="button" className="sc-btn sc-btn-primary" onClick={() => refetchPresenters()}>
@@ -240,11 +240,11 @@ export function PresenterPage() {
     return (
       <ScrollPane>
         <main className="sc-lookpage" id="main">
-          <h1>This presenter isn't here anymore</h1>
+          <h1>This person isn't here anymore</h1>
           <p className="sc-lookpage-lede">They may have been removed from the catalog, or the link is out of date.</p>
           <div className="sc-lookpage-acts">
             <Link className="sc-btn sc-btn-primary" to={presentersPath(brand)}>
-              Browse presenters
+              Browse people
             </Link>
           </div>
         </main>
@@ -301,7 +301,7 @@ export function PresenterPage() {
   return (
     <ScrollPane>
       <main className="sc-lookpage sc-presenterpage" id="main">
-        <RecordCrumb to={presentersPath(brand)} wall="Presenters" where={owned ? 'Yours' : 'Scenri library'} />
+        <RecordCrumb to={presentersPath(brand)} wall="People" where={owned ? 'Yours' : 'Scenri library'} />
         {face.src && (
           <div className="sc-presenterpage-avatar">
             <Shown src={thumbOf(face.src, 'small')} crop={face.crop} />
@@ -334,7 +334,7 @@ export function PresenterPage() {
           </button>
           {owned && (
             <Link className="sc-btn sc-btn-ghost" to={editHref}>
-              {editing ? 'Continue editing' : 'Edit presenter'}
+              {editing ? 'Continue editing' : 'Edit person'}
             </Link>
           )}
           <RecordKeep kind="presenter" brandId={brand.id} id={presenterId} />
@@ -435,7 +435,7 @@ export function PresenterPage() {
               {owned.likeness ? ` Likeness confirmed ${new Date(owned.likeness.attestedAt).toLocaleDateString()}.` : ''}
             </p>
             <Confirm
-              label="Delete presenter"
+              label="Delete person"
               title={`Delete ${owned.name}?`}
               body={deleteLeaves('presenter', 1)}
               busy={busy}

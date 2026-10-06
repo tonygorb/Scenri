@@ -106,7 +106,7 @@ export function registerSceneStudioRoutes(app: FastifyInstance, deps: BuildRoute
     const job = jobOr404(req, reply, brand.id);
     if (!job) return;
     const sceneId = String(((req.body ?? {}) as any).sceneId ?? '');
-    if (!sceneId) return reply.status(400).send({ error: 'which scene?' });
+    if (!sceneId) return reply.status(400).send({ error: 'which place?' });
     const state = attachSceneStudioJob(await buildDeps(), job.id, sceneId);
     return { state, brand: core.store.getBrand(brand.id) };
   });

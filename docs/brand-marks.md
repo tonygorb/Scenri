@@ -23,5 +23,5 @@ The rest of the contract:
   sending that the mark will ride as text only, and the send response repeats it.
 - A refinement carries the source shot's mark unless it was removed, and says so if the mark has
   since left the kit.
-- Built assets (products, presenters, scenes) exclude logos by design: they are neutral raw
+- Built assets (products, people, places) exclude logos by design: they are neutral raw
   material, and the mark is applied per shot via the chip.

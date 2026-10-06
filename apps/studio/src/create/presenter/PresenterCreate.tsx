@@ -43,7 +43,7 @@ export function PresenterCreate({ onClose, ...args }: CreationFlowArgs & { onClo
     // A draft closed over stays on the wall, a draw on it still running, and
     // that is said once: the card used to be the only way to learn it. Not
     // while it is being saved, when it is becoming a presenter instead.
-    if (d && !f.saving) push({ kind: 'info', title: 'Kept on Presenters', detail: 'Continue it from its card.' });
+    if (d && !f.saving) push({ kind: 'info', title: 'Kept on People', detail: 'Continue it from its card.' });
     onClose();
   };
   /**
@@ -68,7 +68,7 @@ export function PresenterCreate({ onClose, ...args }: CreationFlowArgs & { onClo
         // and a conversation with no picture on it is not a document.
         body={`This conversation begins again from the first question. ${
           worthKeeping(d)
-            ? 'The views drawn so far are kept: the unfinished presenter stays on your wall.'
+            ? 'The views drawn so far are kept: the unfinished person stays on your wall.'
             : 'Nothing has been drawn yet, so nothing is kept.'
         }`}
         open={f.confirming === 'start-over' || undefined}

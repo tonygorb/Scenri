@@ -13,7 +13,7 @@ import { LOGO, PORTRAIT, picture } from './pictures.js';
  */
 isolate({ shot: false, env: { SCENRI_DEMO_ENGINE: '0', SCENRI_DEMO_BUILDS: '0' } });
 
-const GATE = 'Drawing a presenter needs image generation, which is not set up yet.';
+const GATE = 'Drawing a person needs image generation, which is not set up yet.';
 
 async function currentBrand(p: Page): Promise<{ slug: string; id: string }> {
   await p.goto('/');
@@ -51,7 +51,7 @@ async function continueWith(p: Page, files: { name: string; buffer: Buffer }[]) 
 
 test('describing stops at the setup line, with no way round it', async ({ page }) => {
   const brand = await currentBrand(page);
-  await page.goto(`/${brand.slug}/presenters/new`);
+  await page.goto(`/${brand.slug}/people/new`);
   await answer(page, 'Describe someone').click();
   await expect(log(page)).toContainText(GATE);
   await expect(answer(page, 'Set up')).toBeVisible();
@@ -66,7 +66,7 @@ test('a logo at the photo door stays a photo: Continue stops at the same line, a
 }) => {
   test.setTimeout(60_000);
   const brand = await currentBrand(page);
-  await page.goto(`/${brand.slug}/presenters/new`);
+  await page.goto(`/${brand.slug}/people/new`);
   // the upload itself needs nothing: it goes in, and Continue is live
   await continueWith(page, [{ name: 'acme-logo.png', buffer: LOGO }]);
   await expect(log(page)).toContainText(GATE);
@@ -75,7 +75,7 @@ test('a logo at the photo door stays a photo: Continue stops at the same line, a
   // the logo stands above the line as what was given, and nowhere as a face
   await expect(page.locator('[data-turn="you:photos"] img')).toHaveCount(1);
   await expect(page.locator('.sc-pstudio-well img')).toHaveCount(0);
-  await expect(page).toHaveURL(/\/presenters\/new$/);
+  await expect(page).toHaveURL(/\/people\/new$/);
   await nothingMade(page, brand.id);
 
   // a reload is the same conversation, stopped at the same place, the logo still theirs
@@ -90,14 +90,14 @@ test('a logo at the photo door stays a photo: Continue stops at the same line, a
   await nothingMade(page, brand.id);
 
   // nothing reached the wall: it still offers to cast their first one
-  await page.goto(`/${brand.slug}/presenters`);
-  await expect(page.getByRole('heading', { name: 'Cast your own presenter' })).toBeVisible();
-  await expect(page.getByText('Your presenters', { exact: true })).toHaveCount(0);
+  await page.goto(`/${brand.slug}/people`);
+  await expect(page.getByRole('heading', { name: 'Create your own person' })).toBeVisible();
+  await expect(page.getByText('Your people', { exact: true })).toHaveCount(0);
 });
 
 test('a photo that looks like a person, and more than one picture, stop at the same place', async ({ page }) => {
   const brand = await currentBrand(page);
-  await page.goto(`/${brand.slug}/presenters/new`);
+  await page.goto(`/${brand.slug}/people/new`);
   await continueWith(page, [
     { name: 'portrait.png', buffer: PORTRAIT },
     { name: 'acme-logo.png', buffer: LOGO },
@@ -116,7 +116,7 @@ test('a studio that believed something could draw is refused by the server, and 
     }),
   );
   const brand = await currentBrand(page);
-  await page.goto(`/${brand.slug}/presenters/new`);
+  await page.goto(`/${brand.slug}/people/new`);
   await continueWith(page, [{ name: 'acme-logo.png', buffer: LOGO }]);
   await expect(log(page)).toContainText(GATE);
   await expect(answer(page, 'Set up')).toBeVisible();

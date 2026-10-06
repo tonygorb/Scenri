@@ -120,12 +120,12 @@ export const COPY = {
     body: 'A product is the thing you are selling. Scenri keeps its real photos, so it looks the same in every shot you make.',
   },
   presenter: {
-    title: 'Choose a presenter',
-    body: 'A presenter is a person Scenri keeps. Pick one and the same face shows your product in every shot.',
+    title: 'Choose a person',
+    body: 'A person is someone Scenri keeps. Pick one and the same face shows your product in every shot.',
   },
   scene: {
-    title: 'Choose a scene',
-    body: 'A scene is a place and its light. It decides where the shot happens and how it feels.',
+    title: 'Choose a place',
+    body: 'A place is a setting and its light. It decides where the shot happens and how it feels.',
   },
   make: {
     title: 'Say how to shoot it, then make it',
@@ -137,7 +137,7 @@ export const COPY = {
   },
   result: {
     title: 'Your first shot',
-    body: 'The product, the presenter and the scene you chose are kept, so your next shot starts from them. Open it to change one thing.',
+    body: 'The product, the person and the place you chose are kept, so your next shot starts from them. Open it to change one thing.',
   },
   failed: {
     title: "That one didn't work",
@@ -153,7 +153,7 @@ export const COPY = {
   },
   reuseResult: {
     title: 'The same product, twice',
-    body: 'Two shots, one thing you added once. Anything Scenri keeps works this way: products, presenters and scenes.',
+    body: 'Two shots, one thing you added once. Anything Scenri keeps works this way: products, people and places.',
   },
   refineAsk: {
     title: 'Change one thing',
@@ -184,19 +184,19 @@ export const COPY = {
     body: 'Add its real photos, or bring in your catalog from your store. Either way it is yours to reuse.',
   },
   sceneGo: {
-    title: 'Your scenes live here',
-    body: 'A scene is a place and its light, saved to shoot in again. Open Scenes to make one.',
+    title: 'Your places live here',
+    body: 'A place is a setting and its light, saved to shoot in again. Open Places to make one.',
   },
   sceneNew: {
-    title: 'Start a new scene',
+    title: 'Start a new place',
     body: 'Describe the place in a sentence, start from pictures of it, or let it guide you.',
   },
   presenterGo: {
-    title: 'Your presenters live here',
-    body: 'A presenter is a person Scenri keeps, the same face in every shot. Open Presenters to make one.',
+    title: 'Your people live here',
+    body: 'A person is someone Scenri keeps, the same face in every shot. Open People to make one.',
   },
   presenterNew: {
-    title: 'Start a new presenter',
+    title: 'Start a new person',
     body: 'Describe someone, or add photos of a real person. The studio takes it from there.',
   },
   presenterEngine: {
@@ -209,19 +209,19 @@ export const COPY = {
   },
   presenterFace: {
     title: 'Decide the face',
-    body: 'Every shot with this presenter uses this face, so take the one you want.',
+    body: 'Every shot with this person uses this face, so take the one you want.',
   },
   presenterSave: {
-    title: 'Save your presenter',
+    title: 'Save your person',
     body: 'Once saved they are in your ingredients, ready for every shot.',
   },
   sceneStart: {
     title: 'Describe the place, or start from pictures',
-    body: 'A scene is the place and its light around your shot. Pictures are read for you; guided, it asks one thing at a time.',
+    body: 'A place is the setting and its light around your shot. Pictures are read for you; guided, it asks one thing at a time.',
   },
   sceneWords: {
-    title: 'These words are the scene',
-    body: 'Every shot made in this scene is told exactly this. Draw it to see it, or say what to add.',
+    title: 'These words are the place',
+    body: 'Every shot made in this place is told exactly this. Draw it to see it, or say what to add.',
   },
   productMake: {
     title: 'Add your product',
@@ -238,7 +238,7 @@ const failed = (n: GuideTaskNode) =>
 export const ingredientsOf = (c: ComposerFacts) => c.products + c.presenters + (c.scene ? 1 : 0) + c.others;
 
 /** The ingredients the first shot asks for, in order, and the picker tab each lives on. */
-export const ASK_TAB = { product: 'Products', presenter: 'Presenters', scene: 'Scenes' } as const;
+export const ASK_TAB = { product: 'Products', presenter: 'People', scene: 'Places' } as const;
 export type AskedKind = keyof typeof ASK_TAB;
 
 export interface ShotFacts {

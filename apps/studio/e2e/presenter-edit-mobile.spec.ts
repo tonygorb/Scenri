@@ -46,7 +46,7 @@ async function seedPresenter(req: APIRequestContext, brandId: string): Promise<s
 test('the phone editor stacks and keeps the composer in reach; the tablet keeps the rail', async ({ page }) => {
   const brand = await currentBrand(page);
   const id = await seedPresenter(page.request, brand.id);
-  await page.goto(`/${brand.slug}/presenters/${id}/edit`);
+  await page.goto(`/${brand.slug}/people/${id}/edit`);
   await expect(page.getByRole('log')).toContainText('What would you like to change about Maren?');
   const vw = page.viewportSize()!;
   const phone = vw.width < 768;

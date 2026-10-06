@@ -14,8 +14,8 @@ import {
  */
 describe('what the empty stage says under its sign', () => {
   it('points at the conversation while there is still something to describe', () => {
-    expect(stageHint('look-hair')).toBe('Keep describing your presenter');
-    expect(stageHint(null)).toBe('Keep describing your presenter');
+    expect(stageHint('look-hair')).toBe('Keep describing your person');
+    expect(stageHint(null)).toBe('Keep describing your person');
   });
 
   it('asks for photographs where photographs are what is wanted', () => {

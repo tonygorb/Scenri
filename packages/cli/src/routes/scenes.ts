@@ -86,9 +86,9 @@ export function registerSceneRoutes(
     const id = /^[a-z0-9-]+$/.exec(String(p.id))?.[0];
     const view = isSceneView(p.view) ? p.view : null;
     const slot = view ? slotOfView(view) : null;
-    if (!id || !scenes.some((s) => s.id === id)) return reply.status(404).send({ error: 'scene not found' });
+    if (!id || !scenes.some((s) => s.id === id)) return reply.status(404).send({ error: 'place not found' });
     if (!slot || !existsSync(refPath(id, slot)))
-      return reply.status(404).send({ error: 'this scene has no such view' });
+      return reply.status(404).send({ error: 'this place has no such view' });
     const hash = core.images.save(
       await sharp(readFileSync(refPath(id, slot)))
         .png()

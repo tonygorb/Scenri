@@ -83,13 +83,13 @@ test.describe('adding to a brand', () => {
     // library pages keep the same short word: the nav already names the place,
     // and "Presenter" in the pill is what ran into Scenes
     await page.setViewportSize({ width: 768, height: 800 });
-    await page.goto(`/${slug}/presenters`);
+    await page.goto(`/${slug}/people`);
     await expect(page.locator('.sc-new-kind')).toBeHidden();
     await expect(page.locator('.sc-new-verb')).toHaveText(/^New\s*$/);
     await expectNewIsPill(page);
     const overlap = await page.evaluate(() => {
       const scenes = [...document.querySelectorAll('.sc-nav a')]
-        .find((a) => a.textContent?.trim() === 'Scenes')
+        .find((a) => a.textContent?.trim() === 'Places')
         ?.getBoundingClientRect();
       const end = document.querySelector('.sc-topbar-end')?.getBoundingClientRect();
       return !!(scenes && end && end.left < scenes.right - 0.5);
@@ -145,15 +145,15 @@ test.describe('adding to a brand', () => {
   });
 
   test('New on a library page makes that kind, and is named for it', async ({ page }) => {
-    await page.goto(`/${slug}/presenters`);
-    await expect(page.locator('.sc-new-go')).toHaveAccessibleName('New presenter');
+    await page.goto(`/${slug}/people`);
+    await expect(page.locator('.sc-new-go')).toHaveAccessibleName('New person');
     await page.locator('.sc-new-go').click();
-    await expect(page).toHaveURL(new RegExp(`/${slug}/presenters/new$`));
-    await page.goto(`/${slug}/scenes`);
-    await expect(page.locator('.sc-new-go')).toHaveAccessibleName('New scene');
+    await expect(page).toHaveURL(new RegExp(`/${slug}/people/new$`));
+    await page.goto(`/${slug}/places`);
+    await expect(page.locator('.sc-new-go')).toHaveAccessibleName('New place');
     await page.locator('.sc-new-go').click();
     // a scene is made in its studio, which has its own address from the first press
-    await expect(page).toHaveURL(new RegExp(`/${slug}/scenes/new/[a-f0-9]+$`));
+    await expect(page).toHaveURL(new RegExp(`/${slug}/places/new/[a-f0-9]+$`));
     await page.goto(`/${slug}/products`);
     await expect(page.locator('.sc-new-go')).toHaveAccessibleName('New product');
     await page.locator('.sc-new-go').click();
@@ -180,7 +180,7 @@ test.describe('adding to a brand', () => {
     const panel = page.locator('.sc-attachpanel');
     await page.locator('.sc-new-go').click();
     await expect(panel).toBeVisible();
-    await panel.getByRole('tab', { name: /^Presenters/ }).click();
+    await panel.getByRole('tab', { name: /^People/ }).click();
     // mark this panel, so a close and reopen (the flash) would show as a new one
     await panel.evaluate((el) => {
       (el as HTMLElement & { __kept?: boolean }).__kept = true;
@@ -189,7 +189,7 @@ test.describe('adding to a brand', () => {
     await page.locator('.sc-new-go').click();
     await page.waitForTimeout(300);
     expect(await panel.evaluate((el) => (el as HTMLElement & { __kept?: boolean }).__kept === true)).toBe(true);
-    await expect(panel.getByRole('tab', { name: /^Presenters/ })).toHaveAttribute('aria-selected', 'true');
+    await expect(panel.getByRole('tab', { name: /^People/ })).toHaveAttribute('aria-selected', 'true');
     expect(await page.evaluate(() => !!document.activeElement?.closest('.sc-brief'))).toBe(true);
   });
 
@@ -203,20 +203,20 @@ test.describe('adding to a brand', () => {
     await expect(rows.nth(0)).toContainText('New shot');
     await expect(rows.nth(0)).toHaveAttribute('data-lead', '');
     await expect(rows.nth(1)).toContainText('Product');
-    await expect(rows.nth(2)).toContainText('Presenter');
-    await expect(rows.nth(3)).toContainText('Scene');
+    await expect(rows.nth(2)).toContainText('Person');
+    await expect(rows.nth(3)).toContainText('Place');
     // each one is a picture rather than an icon, and says how many you have
     await expect(page.locator('.sc-start-n')).toHaveCount(3);
   });
 
   test('a row goes straight to that kind, with no chooser in between: a scene to its studio', async ({ page }) => {
-    await page.goto(`/${slug}/presenters`);
+    await page.goto(`/${slug}/people`);
     const before = page.url();
 
     await trigger(page).click();
-    await page.locator('.sc-start-row', { hasText: 'Scene' }).click();
-    await expect(page).toHaveURL(new RegExp(`/${slug}/scenes/new/[a-f0-9]+$`));
-    await expect(page.getByRole('dialog', { name: 'Create scene' })).toBeVisible();
+    await page.locator('.sc-start-row', { hasText: 'Place' }).click();
+    await expect(page).toHaveURL(new RegExp(`/${slug}/places/new/[a-f0-9]+$`));
+    await expect(page.getByRole('dialog', { name: 'Create place' })).toBeVisible();
 
     await page.goBack();
     await expect(page).toHaveURL(before);
@@ -254,15 +254,15 @@ test.describe('adding to a brand', () => {
   });
 
   test('a deep link lands straight in the flow, with no arrow back to a chooser nobody saw', async ({ page }) => {
-    await page.goto(`/${slug}/scenes?new=product`);
+    await page.goto(`/${slug}/places?new=product`);
     await expect(page.getByRole('heading', { name: 'New product' })).toBeVisible();
     await expect(page.locator('.sc-newdlg-back')).toHaveCount(0);
   });
 
   test('a presenter is a place, not a dialog: the old param forwards to its address', async ({ page }) => {
     await page.goto(`/${slug}/products?new=presenter`);
-    await expect(page).toHaveURL(new RegExp(`/${slug}/presenters/new$`));
-    await expect(page.getByRole('heading', { name: 'Create presenter' })).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/${slug}/people/new$`));
+    await expect(page.getByRole('heading', { name: 'Create person' })).toBeVisible();
     await expect(page.locator('.sc-pstudio')).toBeVisible();
     await expect(dialog(page)).toHaveCount(0);
   });
@@ -280,8 +280,8 @@ test.describe('adding to a brand', () => {
   test('the chooser puts the keyboard on the row for the page you are on', async ({ page }) => {
     for (const [path, kind] of [
       ['products', 'product'],
-      ['presenters', 'presenter'],
-      ['scenes', 'scene'],
+      ['people', 'presenter'],
+      ['places', 'scene'],
     ] as const) {
       await page.goto(`/${slug}/${path}?new=1`);
       await expect(page.locator('.sc-pick').first()).toBeVisible();
@@ -297,11 +297,11 @@ test.describe('adding to a brand', () => {
     await expect(page.locator('.sc-dlg-foot')).toContainText('No preview');
 
     // the studios say what cannot be done in the conversation, where it matters
-    await page.goto(`/${slug}/scenes/new`);
+    await page.goto(`/${slug}/places/new`);
     await expect(page.locator('.sc-pstudio')).toBeVisible();
     await expect(page.locator('.sc-pstudio-foot .sc-dlg-foot')).toHaveCount(0);
 
-    await page.goto(`/${slug}/presenters/new`);
+    await page.goto(`/${slug}/people/new`);
     await expect(page.locator('.sc-pstudio')).toBeVisible();
     await expect(page.locator('.sc-pstudio-foot .sc-dlg-foot')).toHaveCount(0);
   });

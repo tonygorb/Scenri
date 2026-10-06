@@ -104,7 +104,7 @@ export async function readTheOpening(p: Page): Promise<void> {
 }
 
 /** Picks the first tile of a kind in the open picker, the way a person does. */
-export async function pickFromPicker(p: Page, kind: 'Product' | 'Presenter' | 'Scene'): Promise<void> {
+export async function pickFromPicker(p: Page, kind: 'Product' | 'Person' | 'Place'): Promise<void> {
   await p
     .locator('.sc-attachpanel')
     .getByRole('button', { name: new RegExp(`^${kind}: `) })
@@ -116,7 +116,7 @@ export async function pickFromPicker(p: Page, kind: 'Product' | 'Presenter' | 'S
 export async function pickTheIngredients(p: Page): Promise<void> {
   await expect(coachTitle(p)).toHaveText('Choose a product');
   await p.locator('[data-guide="compose.add"]').click();
-  for (const kind of ['Product', 'Presenter', 'Scene'] as const) await pickFromPicker(p, kind);
+  for (const kind of ['Product', 'Person', 'Place'] as const) await pickFromPicker(p, kind);
   await expect(coachTitle(p)).toHaveText('Say how to shoot it, then make it');
 }
 

@@ -7,6 +7,13 @@ Status: draft for RFC. Version field: `specVersion: "0.1"`.
 
 A portable, tool-neutral description of a brand's visual and verbal identity: enough for an AI generation tool to produce on-brand assets without re-teaching the brand every time. Think `package.json` for brand DNA.
 
+## Field names are the format's
+
+`characters[]` are the people a brand casts and `scenes[]` the places it shoots in. Scenri's
+interface calls them People and Places (since Scenri 0.22; earlier it said Presenters and Scenes).
+The field names belong to the format, not to any one tool's vocabulary, so they do not change
+when a tool renames what it shows, and a bundle written before such a rename stays valid.
+
 ## Container
 
 - **Bare form:** a `brand.json` file, asset fields hold URLs or paths relative to the JSON file.

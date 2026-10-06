@@ -747,7 +747,7 @@ export function useSceneFlow(args: {
   let onStage: { hash?: string; drawing: boolean } | null = null;
   const placeItem = (sel: string): StageStripItem => ({
     view: 'place',
-    label: 'The place',
+    label: COPY.emptyLabel,
     state: sel === 'place' ? 'current' : 'approved',
     hash: v?.hash ?? undefined,
     photo: false,
@@ -806,7 +806,7 @@ export function useSceneFlow(args: {
     stage: onStage
       ? {
           hash: onStage.hash,
-          alt: `${studio.name.trim() || v?.reading.name || 'The scene'}, in use`,
+          alt: `${studio.name.trim() || v?.reading.name || 'The place'}, in use`,
           drawing: onStage.drawing || (!!studio.job && studio.job.phase === 'drawing'),
           doing: setLine ?? doingLine(studio),
           items: strip,
@@ -814,7 +814,7 @@ export function useSceneFlow(args: {
         }
       : {
           hash: (picked === 'place' ? v?.hash : shownOf(v)) ?? undefined,
-          alt: `Preview of ${studio.name.trim() || v?.reading.name || 'the scene'}`,
+          alt: `Preview of ${studio.name.trim() || v?.reading.name || 'the place'}`,
           drawing: !!studio.job && studio.job.phase === 'drawing',
           since: studio.job?.since ?? undefined,
           doing: doingLine(studio),

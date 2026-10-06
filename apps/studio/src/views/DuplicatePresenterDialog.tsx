@@ -51,7 +51,7 @@ export function DuplicatePresenterDialog({
       }}
     >
       <div className="sc-newdlg-head">
-        <SheetTitle className="sc-newdlg-title">Duplicate presenter</SheetTitle>
+        <SheetTitle className="sc-newdlg-title">Duplicate person</SheetTitle>
         <SheetClose asChild>
           <button type="button" className="sc-set-close sc-newdlg-close" aria-label="Close">
             <span aria-hidden>{'×'}</span>

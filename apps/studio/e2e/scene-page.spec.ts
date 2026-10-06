@@ -89,14 +89,14 @@ async function scene(p: Page, brandId: string, name: string, over: Record<string
 test('says what the place is and what a shot made here is told', async ({ page }) => {
   const b = await brand(page);
   const s = await scene(page, b.id, 'Wet Basalt Shore');
-  await page.goto(`/${b.slug}/scenes/${s.id}`);
+  await page.goto(`/${b.slug}/places/${s.id}`);
 
   await expect(page.getByRole('heading', { level: 1, name: 'Wet Basalt Shore' })).toBeVisible();
   // the presenter page's head: the name, where it is filed as chips, what it is in one sentence
   await expect(page.getByRole('list', { name: 'Filed under' })).toHaveText(['Beauty', 'Fragrance'].join(''));
   await expect(page.getByText('A cold shore of black rock.')).toBeVisible();
-  await expect(page.locator('.sc-lookpage-crumb a')).toHaveText('Scenes');
-  await expect(page.locator('.sc-lookpage-crumb a')).toHaveAttribute('href', `/${b.slug}/scenes`);
+  await expect(page.locator('.sc-lookpage-crumb a')).toHaveText('Places');
+  await expect(page.locator('.sc-lookpage-crumb a')).toHaveAttribute('href', `/${b.slug}/places`);
   await expect(page.locator('.sc-lookpage-crumb')).toContainText('Yours');
   await expect(page.locator('.sc-lookpage-facts')).toHaveCount(0);
   // what its picture is, in the footnote, never as a caption under it
@@ -104,7 +104,7 @@ test('says what the place is and what a shot made here is told', async ({ page }
   await expect(page.locator('.sc-prec-note')).toContainText('Shots are told the words. Use a view to shoot like it.');
   // one verb, and the way to change it
   await expect(page.locator('.sc-lookpage-acts .sc-btn-primary')).toHaveText('Use in a shot');
-  await expect(page.getByRole('link', { name: 'Edit scene' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Edit place' })).toBeVisible();
   // what a shot is told: the keys that are real, whole and in the open
   await expect(page.getByText('Overcast daylight, no shadow edge')).toBeVisible();
   await expect(page.getByText('Anything you write in the shot wins')).toBeVisible();
@@ -116,7 +116,7 @@ test('says what the place is and what a shot made here is told', async ({ page }
 test('the pictures of the place are large enough to judge, and open at full size', async ({ page }) => {
   const b = await brand(page);
   const s = await scene(page, b.id, 'Basalt Frames');
-  await page.goto(`/${b.slug}/scenes/${s.id}`);
+  await page.goto(`/${b.slug}/places/${s.id}`);
 
   const tile = page.locator('.sc-scenepage-place .sc-scenepage-open');
   await expect(tile).toBeVisible();
@@ -128,7 +128,7 @@ test('the pictures of the place are large enough to judge, and open at full size
   // (the centre is the pill, as on a card: the picture opens from anywhere else)
   const aside = { position: { x: 24, y: 60 } };
   await tile.hover(aside);
-  const use = page.getByRole('button', { name: 'Use this view: The place' });
+  const use = page.getByRole('button', { name: 'Use this view: Empty' });
   await expect(use).toHaveCSS('opacity', '1');
   const pill = (await use.boundingBox())!;
   expect(pill.height).toBeLessThan(40);
@@ -147,7 +147,7 @@ test('the pictures of the place are large enough to judge, and open at full size
 test('what it was read from is shown as evidence, never as the place itself', async ({ page }) => {
   const b = await brand(page);
   const s = await scene(page, b.id, 'Basalt Evidence');
-  await page.goto(`/${b.slug}/scenes/${s.id}`);
+  await page.goto(`/${b.slug}/places/${s.id}`);
 
   // with the pictures, in the presenter's own sources block
   await expect(page.locator('.sc-presenterpage-sources-lb')).toHaveText('What it was read from');
@@ -160,7 +160,7 @@ test('a way to shoot it is how the verb is pressed, and it rides in the chip', a
   const s = await scene(page, b.id, 'Basalt Setups', {
     setups: [{ id: 'top-down', label: 'Top down', camera: 'Directly overhead, looking straight down, deep focus' }],
   });
-  await page.goto(`/${b.slug}/scenes/${s.id}`);
+  await page.goto(`/${b.slug}/places/${s.id}`);
 
   // no band of its own: the ways hang off Use in a shot
   await expect(page.getByText('Ways to shoot it')).toHaveCount(0);
@@ -181,7 +181,7 @@ test('a way that was wrong can be taken away, which only Details can do', async 
   const s = await scene(page, b.id, 'Basalt Unways', {
     setups: [{ id: 'wide', label: 'Wide', camera: 'A wide view, the subject small in the frame' }],
   });
-  await page.goto(`/${b.slug}/scenes/${s.id}`);
+  await page.goto(`/${b.slug}/places/${s.id}`);
 
   await page.getByRole('button', { name: 'Edit name, filing and ways' }).click();
   const sheet = page.getByRole('dialog');
@@ -201,7 +201,7 @@ test('a way that was wrong can be taken away, which only Details can do', async 
 test('an anchor goes with the shot as its world, and a picture picked is the frame it follows', async ({ page }) => {
   const b = await brand(page);
   const s = await scene(page, b.id, 'Basalt Anchor', { anchor: true });
-  await page.goto(`/${b.slug}/scenes/${s.id}`);
+  await page.goto(`/${b.slug}/places/${s.id}`);
   await expect(page.locator('.sc-prec-note')).toContainText(
     'Shots are given its picture as their world and find their own frame in it. Use a view to shoot like it.',
   );
@@ -215,8 +215,8 @@ test('an anchor goes with the shot as its world, and a picture picked is the fra
   // one chip: the scene, carrying the picture it follows, named by its view
   await page.waitForURL(/\/create/);
   const chip = page.locator('.sc-token[data-kind=template]');
-  await expect(chip).toHaveAttribute('data-tok', `t:${s.id}||${preview}|Place`);
-  await expect(chip).toContainText('Basalt Anchor · Place');
+  await expect(chip).toHaveAttribute('data-tok', `t:${s.id}||${preview}|Empty`);
+  await expect(chip).toContainText('Basalt Anchor · Empty');
   await expect(chip.locator('img')).toHaveAttribute('src', new RegExp(preview));
   await expect(page.locator('.sc-token[data-kind=ref]')).toHaveCount(0);
   // spent, so Back or a reload never adds it again; a seed nobody built on is
@@ -242,11 +242,11 @@ test('an anchor goes with the shot as its world, and a picture picked is the fra
 test('deleting it is gone from the library in the same commit, with no reload', async ({ page }) => {
   const b = await brand(page);
   const s = await scene(page, b.id, 'Basalt To Delete');
-  await page.goto(`/${b.slug}/scenes/${s.id}`);
+  await page.goto(`/${b.slug}/places/${s.id}`);
 
-  await page.getByRole('button', { name: 'Delete scene' }).click();
-  await page.getByRole('alertdialog').getByRole('button', { name: 'Delete scene' }).click();
-  await page.waitForURL(new RegExp(`/${b.slug}/scenes$`));
+  await page.getByRole('button', { name: 'Delete place' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Delete place' }).click();
+  await page.waitForURL(new RegExp(`/${b.slug}/places$`));
   await expect(page.getByText('Basalt To Delete')).toHaveCount(0);
 });
 
@@ -274,24 +274,24 @@ test('Set as cover shows the hero on the card, everywhere, with no reload, and c
     await page.request.post('/api/brief/preview', { data: { brief, brandId: b.id, engineId: 'demo' } })
   ).json();
 
-  await page.goto(`/${b.slug}/scenes/${s.id}`);
+  await page.goto(`/${b.slug}/places/${s.id}`);
   // the hero first, then the place; the mark on the one that stands for it
   const labels = page.locator('.sc-refset .sc-refset-lb');
   await expect(labels.first()).toHaveText('Hero · Cover');
-  await expect(labels.nth(1)).toHaveText('The place');
+  await expect(labels.nth(1)).toHaveText('Empty');
   const frames = page.locator('.sc-refset .sc-sceneview-frame');
   // the cover wears a card's selected ring, and its caption says so
   await expect(frames.first()).toHaveAttribute('data-cover', 'true');
   await expect(labels.first()).toHaveText('Hero · Cover');
   // the keyboard reaches both: the pill, and More holding Set as cover
   await page.keyboard.press('Tab');
-  const morePlace = frames.nth(1).getByRole('button', { name: 'More for The place' });
+  const morePlace = frames.nth(1).getByRole('button', { name: 'More for Empty' });
   await morePlace.focus();
   await expect(morePlace).toHaveCSS('opacity', '1');
-  await expect(frames.nth(1).getByRole('button', { name: 'Use this view: The place' })).toHaveCSS('opacity', '1');
+  await expect(frames.nth(1).getByRole('button', { name: 'Use this view: Empty' })).toHaveCSS('opacity', '1');
   await page.keyboard.press('Enter');
   await page.getByRole('menuitem', { name: 'Set as cover' }).press('Enter');
-  await expect(labels.nth(1)).toHaveText('The place · Cover');
+  await expect(labels.nth(1)).toHaveText('Empty · Cover');
   await expect(labels.first()).toHaveText('Hero');
   await expect(frames.first()).not.toHaveAttribute('data-cover');
   expect((await record()).cover).toBe('place');
@@ -301,8 +301,8 @@ test('Set as cover shows the hero on the card, everywhere, with no reload, and c
   await expect(page.getByRole('menuitem')).toHaveText(['Open', 'Use this view', 'Set as cover']);
   await page.keyboard.press('Escape');
   // the wall shows it in the same commit
-  await page.getByRole('link', { name: 'Scenes', exact: true }).first().click();
-  await page.waitForURL(new RegExp(`/${b.slug}/scenes$`));
+  await page.getByRole('link', { name: 'Places', exact: true }).first().click();
+  await page.waitForURL(new RegExp(`/${b.slug}/places$`));
   await expect(page.locator(`img[src*="${place}"]`).first()).toBeVisible();
   // and a shot is given exactly what it was given before
   const after = await (
@@ -316,13 +316,13 @@ test("a catalog scene's views: Scenri's cover is marked and fixed, and Use this 
   page,
 }) => {
   const b = await brand(page);
-  await page.goto(`/${b.slug}/scenes/waterline-caustics`);
+  await page.goto(`/${b.slug}/places/waterline-caustics`);
   const frames = page.locator('.sc-refset .sc-sceneview-frame');
   // Scenri's cover is its own choice and is not marked here: a cover mark is
   // state for someone who can change it, and nobody changes this one
   await expect(page.locator('.sc-refset .sc-refset-lb')).toHaveText([
     'Hero',
-    'The place',
+    'Empty',
     'Close-up',
     'Another angle',
     'A bold one',
@@ -370,14 +370,14 @@ test("a catalog scene's views: Scenri's cover is marked and fixed, and Use this 
 
 test("a scene chip's picker offers its own pictures: follow one, then the whole scene again", async ({ page }) => {
   const b = await brand(page);
-  await page.goto(`/${b.slug}/create?scene=waterline-caustics&compose=1`);
+  await page.goto(`/${b.slug}/create?place=waterline-caustics&compose=1`);
   const chip = page.locator('.sc-token[data-kind=template]');
   await expect(chip).toHaveAttribute('data-tok', 't:waterline-caustics');
   await chip.click();
   // two sections: this scene's pictures, Whole scene first, then the other scenes
-  await expect(page.locator('.sc-swap .sc-ap-sec')).toHaveText([/Waterline/, /Other scenes/]);
+  await expect(page.locator('.sc-swap .sc-ap-sec')).toHaveText([/Waterline/, /Other places/]);
   const tiles = page.locator('.sc-swap-this .sc-ap-card');
-  await expect(tiles).toHaveText(['+2Whole scene', 'Hero', 'Place', 'Close-up', 'Angle', 'Bold']);
+  await expect(tiles).toHaveText(['+2Whole place', 'Hero', 'Empty', 'Close-up', 'Angle', 'Bold']);
   await expect(tiles.first()).toHaveAttribute('aria-pressed', 'true');
   // following a picture is the scene's own chip carrying it
   await tiles.nth(3).click();
@@ -393,7 +393,7 @@ test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   test('a view opens, and the sheet carries what a catalog view offers', async ({ page }) => {
     const b = await brand(page);
-    await page.goto(`/${b.slug}/scenes/waterline-caustics`);
+    await page.goto(`/${b.slug}/places/waterline-caustics`);
     // no hover on a phone: the frame's own actions are not drawn
     await expect(page.locator('.sc-refset .sc-sceneview-frame .sc-lookcard-use').first()).toBeHidden();
     // Scenri's own cover is not marked

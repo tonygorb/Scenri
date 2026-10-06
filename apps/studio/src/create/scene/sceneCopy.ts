@@ -1,12 +1,14 @@
 /**
- * Every line the scene studio says, once.
+ * Every line the place studio says, once. (A place is a scene in code.)
  *
- * Plain and specific, in the product's own words: a scene is a place and its
+ * Plain and specific, in the product's own words: a place is a setting and its
  * light, and what a shot is told about it is words. No em dashes, no marvel,
  * nothing about models.
  */
 /** "Hands, another angle and a bold one". */
 /** "Two pictures", for an offer that says what it costs before it is pressed. */
+const DEMO: Record<'product' | 'presenter', string> = { product: 'product', presenter: 'person' };
+
 function count(n: number): string {
   const word = ['No', 'One', 'Two', 'Three', 'Four', 'Five'][n] ?? String(n);
   return `${word} picture${n === 1 ? '' : 's'}`;
@@ -19,9 +21,9 @@ function joinAnd(xs: string[]): string {
 }
 
 export const COPY = {
-  title: 'Create scene',
-  editTitle: 'Edit scene',
-  intent: 'Create a scene',
+  title: 'Create place',
+  editTitle: 'Edit place',
+  intent: 'Create a place',
 
   // the setup
   source: 'Where are we shooting? Describe the place, or start from pictures of one.',
@@ -32,7 +34,7 @@ export const COPY = {
   /**
    * The quiet way from Add pictures to one of the brand's own shots. Only the
    * place in it is read: the shot's product and people are its cast, not the
-   * scene's.
+   * place's.
    */
   fromShot: 'Or start from one of your shots',
   fromShotAnswer: 'Start from one of my shots',
@@ -46,10 +48,10 @@ export const COPY = {
   shotAnswer: 'This shot',
   backToPictures: 'Back to pictures',
   shotOff: 'Choose a shot above.',
-  /** The shot was made in a scene the brand can already use. */
+  /** The shot was made in a place the brand can already use. */
   madeIn: (name: string) => `This shot was made in ${name}.`,
   takeScene: (name: string) => `Use ${name}`,
-  readNew: 'Read a new scene from it',
+  readNew: 'Read a new place from it',
   reuseOff: 'Choose above.',
   anotherShot: 'Choose another shot',
   /** Stop was pressed before anything landed. Not a fault. */
@@ -61,7 +63,7 @@ export const COPY = {
   guideInstead: 'Guide me instead',
   skip: 'Skip',
   describeInstead: 'Describe instead',
-  /** Said once, at the first row: a world is a starting point, not the final scene. */
+  /** Said once, at the first row: a world is a starting point, not the final place. */
   worldHint: "Choose a starting world. You'll personalise it next.",
   /** The light row, once a world has already named its own light. */
   worldLightPrompt: (light: string) => `This world is already lit ${light}. Keep it, or choose another.`,
@@ -104,7 +106,7 @@ export const COPY = {
   keepShotPlaceholder: 'Anything to keep or ignore in it?',
   changePlaceholder: 'Say what to change. The rest stays.',
   namePlaceholder: 'Its name',
-  nameIt: 'Name this scene',
+  nameIt: 'Name this place',
   attachLabel: 'Add pictures of the place',
   send: 'Send',
   lineLabel: 'Your answer',
@@ -114,12 +116,18 @@ export const COPY = {
   reading: 'Writing what your shots are told',
   readingPhotos: 'Reading your pictures',
   changing: 'Changing the words',
-  drawing: 'Drawing the scene',
+  drawing: 'Drawing the place',
   stillReading: 'Still writing what your shots are told',
 
   // the read-back and the decision
   readingHead: 'What your shots are told',
   placeLabel: 'The place',
+  /**
+   * The place's own picture, empty of anyone and anything, among its examples
+   * (the `place` view: "Sea Wall · Empty" on a chip). Inside a Place, "The
+   * place" said nothing, so the picture is named for what it shows.
+   */
+  emptyLabel: 'Empty',
   lightLabel: 'Light',
   cameraLabel: 'Camera',
   figureLabel: 'Built around',
@@ -137,22 +145,22 @@ export const COPY = {
   /**
    * A picture or a shot is read by Codex before anything is written or drawn,
    * so with nothing to read it the press stops here, calmly, the pictures kept.
-   * The same sentence the presenter says, about the step that needs setting up.
+   * The same sentence the person studio says, about the step that needs setting up.
    */
   noReader: 'Reading pictures needs Codex, which is not set up yet.',
   noReaderOff: 'Set up Codex above to read them.',
   changePictures: 'Change pictures',
   readAgain: 'I read the place again.',
-  draw: 'Draw the scene',
-  saveWords: 'Save scene',
-  here: 'Here is the scene.',
+  draw: 'Draw the place',
+  saveWords: 'Save place',
+  here: 'Here is the place.',
   again: 'Here it is again.',
   changed: 'Here it is, changed.',
   decide: (name: string) => `Here is ${name}. Use it, or change something.`,
   decideEdit: (name: string) => `Here is ${name}. Save it, or change something.`,
-  /** A saved scene opened to change it, before anything has: why there is no Save yet. */
+  /** A saved place opened to change it, before anything has: why there is no Save yet. */
   decideSaved: 'Nothing has changed yet.',
-  use: 'Use this scene',
+  use: 'Use this place',
   saveChanges: 'Save changes',
   tryAgain: 'Try again',
   changeSomething: 'Change something',
@@ -171,7 +179,7 @@ export const COPY = {
   /** A Stop that never reached the server: the pill is Stop again. */
   stopLost: 'Stop did not reach Scenri. Press it again.',
   /** The conversation is open in another window, where different work is already running. */
-  busyElsewhere: 'This scene is already being worked on in another window. Try again once that is done.',
+  busyElsewhere: 'This place is already being worked on in another window. Try again once that is done.',
   retry: 'Try again',
   version: (n: number) => `Version ${n}`,
 
@@ -180,10 +188,10 @@ export const COPY = {
   saved: 'Saved.',
   savedQuiet: 'Saved. Nothing is drawn until you ask.',
   /** The line after Use: the place is decided, and the way on is the question above. */
-  usedOff: 'The scene is saved. Choose above.',
+  usedOff: 'The place is saved. Choose above.',
   /** The offer, with what it draws named, so the cost is read before it is pressed. */
   showInUse: (who: 'product' | 'presenter', labels: string[]) =>
-    `Show it in use? ${count(labels.length)} with a Scenri demo ${who} in the place: ${joinAnd(
+    `Show it in use? ${count(labels.length)} with a Scenri demo ${DEMO[who]} in the place: ${joinAnd(
       labels.map((l) => l.toLowerCase()),
     )}.`,
   /** The same offer for a set the place moved under. */
@@ -198,7 +206,7 @@ export const COPY = {
   drawIt: 'Draw it',
   drawThem: 'Draw them',
   drawThemAgain: 'Draw them again',
-  inUse: (who: 'product' | 'presenter') => `Saved. Now it is shown in use, with a Scenri demo ${who}.`,
+  inUse: (who: 'product' | 'presenter') => `Saved. Now it is shown in use, with a Scenri demo ${DEMO[who]}.`,
   noLibrary: "Saved. Scenri's library has not downloaded yet, so it cannot be shown in use for now.",
   exampleHere: {
     hero: 'Here is the hero.',
@@ -219,7 +227,7 @@ export const COPY = {
   /** Nothing was drawn in use: where it can be, whenever they want it. */
   readyUndrawn: (name: string) => `${name} is ready. It can be shown in use any time, from its page.`,
   readyMissing: (name: string) => `${name} is ready. Some did not draw.`,
-  openScene: 'Open scene',
+  openScene: 'Open place',
   useInAShot: 'Use in a shot',
 
   // one line back to a sentence that answers nothing
@@ -229,7 +237,7 @@ export const COPY = {
   askHelp: 'Describe the place in a few words, or tap one above. Everything can be changed later.',
   goFirst: 'Choose above, or describe the place first.',
   startOverIsUp: 'Start over is at the top of this panel.',
-  notInAScene: 'A scene holds the place and its light. Add presenters and products in Create.',
+  notInAScene: 'A place holds the setting and its light. Add people and products in Create.',
   usePutBack: 'Step back through the versions on the picture, and Put back the one you want.',
   sayAChange: 'Say what to change about the place, and the rest stays as it is.',
   renamed: (name: string) => `Called it ${name}.`,
@@ -238,15 +246,15 @@ export const COPY = {
   changeBody:
     'The picture was drawn from the answers as they are. Changing one asks again from there, and the pictures so far go. To keep the picture and change one thing, say it in the line instead.',
   onlyPictures: 'Only pictures can show a place.',
-  fourPictures: 'Four pictures is the most a scene is read from.',
+  fourPictures: 'Four pictures is the most a place is read from.',
   heicNotYet: 'HEIC pictures cannot be read yet. Export them as JPEG, then add them.',
 
   // leaving
-  leaveTitle: 'Leave this scene?',
+  leaveTitle: 'Stop making this place?',
   leaveBody: 'Nothing has been read yet, so the answers here go.',
   leave: 'Leave',
   discardTitle: 'Discard the changes?',
-  discardBody: 'The scene stays as it was saved. What was drawn here is let go.',
+  discardBody: 'The place stays as it was saved. What was drawn here is let go.',
   discard: 'Discard changes',
   startOver: 'Start over',
   startOverTitle: 'Start over?',

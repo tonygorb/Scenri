@@ -431,7 +431,7 @@ export function useEditingFlow({ presenterId, onLeave, caps }: EditingFlowArgs) 
         ? () => void s.revert(view)
         : null,
     surface: {
-      title: 'Edit presenter',
+      title: 'Edit person',
       memoryKey,
       // an edit session is resumed whenever a draft for this person was already open
       resumed,

@@ -330,7 +330,7 @@ describe('review', () => {
 
   it('asks for a name before Use', () => {
     const s = reduce(landed, { type: 'name', text: '   ' });
-    expect(offerOf(s)).toMatchObject({ can: false, why: 'Name this scene' });
+    expect(offerOf(s)).toMatchObject({ can: false, why: 'Name this place' });
   });
 
   it('is stale when the place is given again, and offers no Use until it is read', () => {

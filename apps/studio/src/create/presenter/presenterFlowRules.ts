@@ -986,7 +986,7 @@ function build(
 ) {
   const ctx = flowContext(draft, canGenerate, engine);
   const a = state.answers;
-  const lead: Turn[] = [{ kind: 'you', id: 'intent', text: 'Create a presenter' }];
+  const lead: Turn[] = [{ kind: 'you', id: 'intent', text: 'Create a person' }];
   // the details the photographs were asked about belong after the read of them
   const after: Turn[] = [];
   const photosDoor = a.source?.door === 'photos';
@@ -1124,7 +1124,7 @@ function build(
             a.source.via === 'taps'
               ? `${lookLine(lookOf(a))}${keepLine(a) ? `, and always ${keepLine(a)}` : ''}.`
               : compileDirection(a),
-          options: [{ id: 'draw', label: 'Draw the presenter' }],
+          options: [{ id: 'draw', label: 'Draw the person' }],
         };
       } else if (failed) {
         open = {

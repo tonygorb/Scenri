@@ -217,6 +217,7 @@ function readme(json: any, missing: number): string {
     'brand.json holds the whole kit; assets/ holds every image it references,',
     'and the file fields inside brand.json are paths relative to brand.json.',
     'Format: https://scenri.co/schema/brand-0.1.schema.json',
+    'Scenri shows characters[] as People and scenes[] as Places.',
     '',
     'Products imported from a store catalog are not included: this bundle is the',
     'brand document as stored, and catalog products are resolved at generation',

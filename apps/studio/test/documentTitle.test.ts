@@ -5,8 +5,8 @@ describe('titleFor', () => {
   it('names the section holding each surface', () => {
     expect(titleFor('/acme/create')).toBe('Create - Scenri');
     expect(titleFor('/acme/products')).toBe('Products - Scenri');
-    expect(titleFor('/acme/scenes')).toBe('Scenes - Scenri');
-    expect(titleFor('/acme/presenters')).toBe('Presenters - Scenri');
+    expect(titleFor('/acme/places')).toBe('Places - Scenri');
+    expect(titleFor('/acme/people')).toBe('People - Scenri');
     expect(titleFor('/setup')).toBe('Set up - Scenri');
     expect(titleFor('/acme/kit')).toBe('Brand kit - Scenri');
     expect(titleFor('/acme/whats-new')).toBe("What's new - Scenri");
@@ -20,15 +20,15 @@ describe('titleFor', () => {
 
   it('names the thing on screen once it has one', () => {
     expect(titleFor('/acme/products/p1', '', 'Monolith')).toBe('Monolith - Scenri');
-    expect(titleFor('/acme/scenes/s1', '', 'Salt Cavern')).toBe('Salt Cavern - Scenri');
-    expect(titleFor('/acme/presenters/m1', '', 'Astrid')).toBe('Astrid - Scenri');
+    expect(titleFor('/acme/places/s1', '', 'Salt Cavern')).toBe('Salt Cavern - Scenri');
+    expect(titleFor('/acme/people/m1', '', 'Astrid')).toBe('Astrid - Scenri');
     expect(titleFor('/acme/sets/summer', '', 'Summer drop')).toBe('Summer drop - Scenri');
   });
 
   it('falls back to the section while a name is missing, never to undefined', () => {
     expect(titleFor('/acme/products/p1')).toBe('Products - Scenri');
-    expect(titleFor('/acme/scenes/s1', '', null)).toBe('Scenes - Scenri');
-    expect(titleFor('/acme/presenters/m1', '', '')).toBe('Presenters - Scenri');
+    expect(titleFor('/acme/places/s1', '', null)).toBe('Places - Scenri');
+    expect(titleFor('/acme/people/m1', '', '')).toBe('People - Scenri');
     expect(titleFor('/acme/sets/summer', '', '   ')).toBe('Create - Scenri');
   });
 
@@ -54,7 +54,7 @@ describe('titleFor', () => {
     // newlines and control characters are, so they collapse.
     expect(titleFor('/acme/products/p1', '', '  Wide\n\tBottle  ')).toBe('Wide Bottle - Scenri');
     expect(titleFor('/acme/products/p1', '', '<b>Bottle</b>')).toBe('<b>Bottle</b> - Scenri');
-    expect(titleFor('/acme/presenters/m1', '', 'مارين')).toBe('مارين - Scenri');
+    expect(titleFor('/acme/people/m1', '', 'مارين')).toBe('مارين - Scenri');
   });
 
   it('cuts a name no tab could draw', () => {

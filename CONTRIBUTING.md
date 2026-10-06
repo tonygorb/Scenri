@@ -48,9 +48,17 @@ the same data, with CSS and components hot swapping in about a tenth of a second
 Build and reload on 4747 only when you need what the browser suites need: the E2E
 run, `pnpm test:visual`, or a video capture.
 
+### People and Places in the code
+
+What the app calls a Person is a `presenter` in the code, and a Place is a
+`scene`. The routes, the API, the stored brand (`characters[]`, `scenes[]`), the
+brief tokens (`character`, `template`) and the prompts keep those names, so a
+Brand made before the rename opens unchanged. Anything a person reads says Person,
+People, Place or Places; `copyHygiene.test.ts` holds the studio to it.
+
 ### Saved changes reach every surface without a reload
 
-A saved product, presenter, scene, logo or colour is read from one place: the
+A saved product, person, place, logo or colour is read from one place: the
 brand row the shell holds (`useBrand().brand`), or the product library for
 products that came from a store. Never copy one into page state. A write answers
 with what it changed, and the caller applies that answer before it navigates or

@@ -33,8 +33,8 @@ test('chips change, Back takes one out', async ({ page }) => {
   await readTheOpening(page);
   await page.locator('[data-guide="compose.add"]').click();
   await pickFromPicker(page, 'Product');
-  await pickFromPicker(page, 'Presenter');
-  await pickFromPicker(page, 'Scene');
+  await pickFromPicker(page, 'Person');
+  await pickFromPicker(page, 'Place');
   await expect(chips(page)).toHaveCount(3);
 
   // no X on a chip while the tutor is walking them through it
@@ -44,17 +44,17 @@ test('chips change, Back takes one out', async ({ page }) => {
   // the shelf it came from: the choice is in front of them, not one press away
   await coachCard(page).getByRole('button', { name: 'Back' }).click();
   await expect(chips(page)).toHaveCount(2);
-  await expect(coachTitle(page)).toHaveText('Choose a scene');
+  await expect(coachTitle(page)).toHaveText('Choose a place');
   await expect(page.locator('.sc-attachpanel .sc-ap-body')).toBeVisible();
   await expect(
     page
       .locator('.sc-attachpanel')
-      .getByRole('button', { name: /^Scene: / })
+      .getByRole('button', { name: /^Place: / })
       .first(),
   ).toBeVisible();
   await coachCard(page).getByRole('button', { name: 'Back' }).click();
   await expect(chips(page)).toHaveCount(1);
-  await expect(coachTitle(page)).toHaveText('Choose a presenter');
+  await expect(coachTitle(page)).toHaveText('Choose a person');
   await coachCard(page).getByRole('button', { name: 'Back' }).click();
   await expect(chips(page)).toHaveCount(0);
   await expect(coachTitle(page)).toHaveText('Choose a product');

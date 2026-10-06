@@ -109,7 +109,7 @@ export function PresentersView() {
 
   const createCta = (
     <button ref={cta} type="button" className="sc-btn sc-btn-primary" onClick={() => createAsset('presenter')}>
-      <Plus size={12} /> Create presenter
+      <Plus size={12} /> Create person
     </button>
   );
 
@@ -264,7 +264,7 @@ export function PresentersView() {
       applyBrand((await api.updatePresenter(brand.id, renaming.id, { name })).brand);
       setRenaming(null);
     } catch (e: any) {
-      const f = failureToast(e, 'Could not rename this presenter');
+      const f = failureToast(e, 'Could not rename this person');
       setActError([f.title, f.detail].filter(Boolean).join(' '));
     } finally {
       setActing(false);
@@ -311,7 +311,7 @@ export function PresentersView() {
       // The dialog is still open and owns the failure; the toast would be the
       // same sentence in a second place. It gets the humanised reading, not
       // the raw engine text.
-      const f = failureToast(e, 'Could not duplicate this presenter');
+      const f = failureToast(e, 'Could not duplicate this person');
       setActError([f.title, f.detail].filter(Boolean).join(' '));
     } finally {
       setActing(false);
@@ -335,7 +335,7 @@ export function PresentersView() {
         await refreshBrands();
         pick.forget(removing.id);
         setRemoving(null);
-      } else push(failureToast(e, 'Could not delete this presenter'));
+      } else push(failureToast(e, 'Could not delete this person'));
     } finally {
       setActing(false);
     }
@@ -449,7 +449,7 @@ export function PresentersView() {
       await refreshBrands();
       pick.retain(failed);
       setDeletingBatch(false);
-      if (error) push(failureToast(error, 'Could not delete these presenters'));
+      if (error) push(failureToast(error, 'Could not delete these people'));
     } finally {
       setActing(false);
     }
@@ -469,7 +469,7 @@ export function PresentersView() {
   const facetGroup = {
     key: 'category',
     label: 'Category',
-    everyLabel: 'All presenters',
+    everyLabel: 'All people',
     everyCount: presenters.length + mine.length,
     selected: onlyMarked ? KEEPERS : category,
     onSelect: (v: string | null) =>
@@ -498,12 +498,12 @@ export function PresentersView() {
    */
   const toolbar = (
     <LibraryToolbar
-      title="Presenters"
+      title="People"
       filters={<FacetFilter mode={mode} group={facetGroup} />}
       density={<DensityControl value={density} onChange={setDensity} />}
       search={
         presenters.length >= SEARCH_MIN && (
-          <LibrarySearch value={q} onChange={setQ} noun="presenters" total={presenters.length} />
+          <LibrarySearch value={q} onChange={setQ} noun="people" total={presenters.length} />
         )
       }
     />
@@ -519,7 +519,7 @@ export function PresentersView() {
           {showMine && (
             <section className="sc-owned">
               <div className="sc-sec-head">
-                <h2 className="sc-sec-title">Your presenters</h2>
+                <h2 className="sc-sec-title">Your people</h2>
               </div>
               <div
                 ref={wall}
@@ -549,7 +549,7 @@ export function PresentersView() {
                 {discarding && (
                   <Confirm
                     label="Discard"
-                    title={`Discard ${discarding.name.trim() || 'this unfinished presenter'}?`}
+                    title={`Discard ${discarding.name.trim() || 'this unfinished person'}?`}
                     body="The views drawn so far are thrown away. Nothing was saved to the library."
                     open
                     busy={false}
@@ -595,7 +595,7 @@ export function PresentersView() {
                 ))}
                 {renaming && (
                   <RenameDialog
-                    title="Rename presenter"
+                    title="Rename person"
                     name={renaming.name}
                     maxLength={60}
                     busy={acting}
@@ -622,7 +622,7 @@ export function PresentersView() {
                 )}
                 {removing && (
                   <Confirm
-                    label="Delete presenter"
+                    label="Delete person"
                     title={`Delete ${removing.name}?`}
                     body={deleteLeaves('presenter', 1)}
                     open
@@ -682,7 +682,7 @@ export function PresentersView() {
               shape="cold"
               title={
                 <>
-                  Cast your own <em>presenter</em>
+                  Create your own <em>person</em>
                 </>
               }
               body="Describe someone new, or add photos of a real person. They stay the same person in every image you make."
@@ -694,7 +694,7 @@ export function PresentersView() {
             away and the page is simply a wall of ours, which needs no label. */}
           {showMine && presentersLoaded && !presentersError && visible.length > 0 && (
             <div className="sc-sec-head sc-owned-divider">
-              <h2 className="sc-sec-title">Scenri presenters</h2>
+              <h2 className="sc-sec-title">Scenri people</h2>
             </div>
           )}
 
@@ -707,7 +707,7 @@ export function PresentersView() {
           {presentersLoaded && presentersError && (
             <LibraryEmpty
               shape="error"
-              title="Couldn't load the presenter library"
+              title="Couldn't load Scenri people"
               body="Something went wrong reaching the catalog."
               onRetry={() => refetchPresenters()}
             />
@@ -744,11 +744,11 @@ export function PresentersView() {
             <LibraryEmpty
               shape="zero"
               title="Nothing in Keepers yet"
-              body="Keep a presenter from its card and it stays here."
+              body="Keep a person from their card and they stay here."
               mark={keepersMark}
               action={
                 <button type="button" className="sc-btn sc-btn-primary" onClick={() => setFacets({ bookmarked: null })}>
-                  Browse every presenter
+                  Browse everyone
                 </button>
               }
             />
@@ -760,7 +760,7 @@ export function PresentersView() {
             !librarySource.length &&
             presenters.length > 0 && (
               <LibraryZero
-                noun="presenters"
+                noun="people"
                 q={q}
                 facet={onlyMarked ? 'Keepers' : category}
                 onClearSearch={clearSearch}
@@ -769,7 +769,7 @@ export function PresentersView() {
             )}
 
           {presentersLoaded && !presentersError && !presenters.length && (
-            <LibraryEmpty shape="zero" body="The presenter library is still being cast. Check back soon." />
+            <LibraryEmpty shape="zero" body="Scenri people are still being cast. Check back soon." />
           )}
 
           {remaining > 0 && (

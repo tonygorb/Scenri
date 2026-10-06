@@ -212,8 +212,8 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     if (!brand) return;
     const id = String((req.params as any).presenterId);
     const base = brandCharacters(brand.json).find((c: any) => c.id === id);
-    if (!base) return reply.status(404).send({ error: 'presenter not found' });
-    if (!isCustomPresenter(base)) return reply.status(400).send({ error: 'this presenter is not editable' });
+    if (!base) return reply.status(404).send({ error: 'person not found' });
+    if (!isCustomPresenter(base)) return reply.status(400).send({ error: 'this person is not editable' });
     const built = presenterRecordFrom(await withDerivedCrops(core, storedOnly(core, req.body), base), base);
     if (!built.ok) return reply.status(400).send({ error: built.error });
     try {
@@ -240,8 +240,8 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     const id = String((req.params as any).presenterId);
     const rows = brandCharacters(brand.json);
     const current = rows.find((c: any) => c.id === id);
-    if (!current) return reply.status(404).send({ error: 'presenter not found' });
-    if (!isCustomPresenter(current)) return reply.status(400).send({ error: 'this presenter is not editable' });
+    if (!current) return reply.status(404).send({ error: 'person not found' });
+    if (!isCustomPresenter(current)) return reply.status(400).send({ error: 'this person is not editable' });
     const older =
       current.revisionOf && !current.supersededBy ? rows.find((c: any) => c.id === current.revisionOf) : undefined;
     if (!older) return reply.status(400).send({ error: 'nothing to revert' });
@@ -280,8 +280,8 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     const id = String((req.params as any).presenterId);
     const rows = brandCharacters(brand.json);
     const base = rows.find((c: any) => c.id === id);
-    if (!base) return reply.status(404).send({ error: 'presenter not found' });
-    if (!isCustomPresenter(base)) return reply.status(400).send({ error: 'this presenter is not editable' });
+    if (!base) return reply.status(404).send({ error: 'person not found' });
+    if (!isCustomPresenter(base)) return reply.status(400).send({ error: 'this person is not editable' });
     // Shots already made keep their prompt and their pixels. A brief that names
     // this person again will say so; see compileBrief's roster warning.
     // The person goes whole: the head and every record it superseded, in one
@@ -344,7 +344,7 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     if (!brand) return;
     const id = String((req.params as any).sceneId);
     const base = brandScenes(brand.json).find((s) => s.id === id);
-    if (!base) return reply.status(404).send({ error: 'scene not found' });
+    if (!base) return reply.status(404).send({ error: 'place not found' });
     const body = sceneBody(core, req.body);
     if ('error' in body) return reply.status(400).send({ error: body.error });
     const built = sceneRecordFrom(body, base);
@@ -373,7 +373,7 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     if (!brand) return;
     const id = String((req.params as any).sceneId);
     const gone = brandScenes(brand.json).find((s) => s.id === id);
-    if (!gone) return reply.status(404).send({ error: 'scene not found' });
+    if (!gone) return reply.status(404).send({ error: 'place not found' });
     // A read still running over this scene would otherwise finish into a record
     // that is gone, and a studio draw would land on it or redraw it. Stopped
     // first, so no analyzer or engine call is spent on it.
@@ -413,13 +413,13 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     if (!brand) return;
     const id = String((req.params as any).sceneId);
     const scene = brandScenes(brand.json).find((s) => s.id === id) as CustomScene | undefined;
-    if (!scene) return reply.status(404).send({ error: 'scene not found' });
+    if (!scene) return reply.status(404).send({ error: 'place not found' });
     if (!(scene.refs ?? []).length)
-      return reply.status(400).send({ error: 'this scene was written from words, so there is nothing to read again' });
+      return reply.status(400).send({ error: 'this place was written from words, so there is nothing to read again' });
     // One at a time: a second read would spend another analyzer call and race
     // the first one for the same record.
     if (sceneBuildRunning(brand.id, id))
-      return reply.status(409).send({ error: 'this scene is already being read again' });
+      return reply.status(409).send({ error: 'this place is already being read again' });
     const body = (req.body ?? {}) as any;
     try {
       return startAssetBuild(await buildDeps(), {
@@ -444,7 +444,7 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     if (!brand) return;
     const id = String((req.params as any).sceneId);
     const scene = brandScenes(brand.json).find((s) => s.id === id);
-    if (!scene) return reply.status(404).send({ error: 'scene not found' });
+    if (!scene) return reply.status(404).send({ error: 'place not found' });
     const engine = await buildEngine();
     if (!engine) return reply.status(400).send({ error: 'no engine here can draw a preview' });
     // The same anchor the studio draws: beside the scene's own pictures, then

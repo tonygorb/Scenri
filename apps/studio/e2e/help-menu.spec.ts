@@ -19,7 +19,7 @@ const float = (p: Page) => p.locator('.sc-help-float button');
 test('nothing guides on its own; the ? sits in the corner and gathers the help', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const s = await slug(page);
-  await page.goto(`/${s}/presenters`);
+  await page.goto(`/${s}/people`);
   await expect(float(page)).toBeVisible();
   await expectNoGuide(page);
   await expect(page.locator('.sc-welcome')).toHaveCount(0);
@@ -51,7 +51,7 @@ test('Learn counts only the lessons taken, whatever the library holds, and start
   test.skip(!FIRST_USE, 'first use is paused (src/firstUse.ts)');
   await page.setViewportSize({ width: 1440, height: 900 });
   const s = await slug(page);
-  await page.goto(`/${s}/scenes`);
+  await page.goto(`/${s}/places`);
   await learnButton(page).click();
   await expect(page).toHaveURL(/learn=lessons/);
   // the seeded brand already holds a finished shot, and that is not the same
@@ -61,8 +61,8 @@ test('Learn counts only the lessons taken, whatever the library holds, and start
   await page.keyboard.press('Escape');
 
   // Opening a surface is not asking to be guided on an install that was not new.
-  await page.goto(`/${s}/scenes/new`);
-  await expect(page.getByRole('dialog', { name: 'Create scene' })).toBeVisible();
+  await page.goto(`/${s}/places/new`);
+  await expect(page.getByRole('dialog', { name: 'Create place' })).toBeVisible();
   await expectNoGuide(page);
   expect(((await (await page.request.get('/api/guide')).json()) as { active: unknown }).active).toBeNull();
 });

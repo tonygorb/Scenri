@@ -105,7 +105,7 @@ export function useAssetFields(
      * A draft that was never sent cannot be written any more, so one found here
      * is a leftover from when closing the dialog kept your typing. Drop it
      * rather than refilling from it once before the new rule takes hold: the
-     * first "New scene" after an update is exactly the one that must not open
+     * first "New place" after an update is exactly the one that must not open
      * holding the last one's references.
      */
     if (draft && !draft.pending) {
@@ -129,7 +129,7 @@ export function useAssetFields(
    *
    * A form nobody has sent is not a draft: it is what someone is typing, and it
    * lives in React state where typing belongs. Persisting it is what made a
-   * dismissed scene walk back into the next "New scene" with its references and
+   * dismissed scene walk back into the next "New place" with its references and
    * its Direction, which reads as the app ignoring the fact that you left.
    */
   const remember = useCallback(

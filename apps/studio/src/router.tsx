@@ -12,7 +12,7 @@ import {
 import { Button, Flex } from '@radix-ui/themes';
 import { AppShell } from './app/AppShell.js';
 import { BrandLayout, useBrand } from './app/BrandLayout.js';
-import { P, hubPath, rewriteLegacyPath, setPath } from './routes.js';
+import { P, hubPath, rewriteLegacyPath, rewriteRenamedPath, setPath } from './routes.js';
 import { RootRedirect } from './app/RootRedirect.js';
 import { BrandSetup } from './views/BrandSetup.js';
 import { HomeView } from './views/Home.js';
@@ -147,6 +147,12 @@ function LegacyRedirect() {
   return <Navigate to={rewriteLegacyPath(pathname, search)} replace />;
 }
 
+/** /:brand/presenters/… and /:brand/scenes/…, the addresses People and Places had before 0.22. */
+function RenamedRedirect() {
+  const { pathname, search, hash } = useLocation();
+  return <Navigate to={rewriteRenamedPath(pathname, search, hash)} replace />;
+}
+
 /** /:brandSlug/kit → the brand's home with the Brand kit pane open. */
 function KitRedirect() {
   const { brandSlug } = useParams();
@@ -243,6 +249,8 @@ export const router = createBrowserRouter([
             element: <PresenterRoute />,
             children: [{ path: P.presenterEdit, element: <PresenterEditRoute /> }],
           },
+          { path: P.legacyPresenters, element: <RenamedRedirect /> },
+          { path: P.legacyScenes, element: <RenamedRedirect /> },
         ],
       },
       { path: P.notFound, element: <Navigate to={P.root} replace /> },

@@ -47,7 +47,7 @@ const wallTop = async (p: Page) => {
 test.describe('the library pages, cold', () => {
   test('scenes: the row is on the wall before the first bookmark, not after it', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/scenes`);
+    await page.goto(`/${brand.slug}/places`);
 
     // The offer still leads, and still owns the only CTA on the page.
     await expect(page.locator('.sc-canvas-empty')).toBeVisible();
@@ -70,7 +70,7 @@ test.describe('the library pages, cold', () => {
     await expect(tab).toHaveAttribute('aria-selected', 'true');
     await expect(page.locator('.sc-lib-zero')).toHaveCount(0);
     await expect(page.locator('.sc-coll').first()).toBeVisible();
-    const all = page.getByRole('tab', { name: /All scenes/ });
+    const all = page.getByRole('tab', { name: /All places/ });
     await all.click();
     await expect(all).toHaveAttribute('aria-selected', 'true');
     await expect(page).not.toHaveURL(/[?&]bookmarked=1/);
@@ -99,7 +99,7 @@ test.describe('the library pages, cold', () => {
 
   test('scenes: searching does not take the row away with the sections', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/scenes`);
+    await page.goto(`/${brand.slug}/places`);
 
     // Searching flips the wall from collection sections to one flat grid. The
     // row used to live inside that branch, so typing in it unmounted it.
@@ -117,7 +117,7 @@ test.describe('the library pages, cold', () => {
     // The tab keeps the catalog up here, so a search can still empty the wall.
     // Suppressing both messages left this state completely silent — a blank
     // page under a filled-in search box.
-    await page.goto(`/${brand.slug}/scenes?bookmarked=1&q=zzzzz`);
+    await page.goto(`/${brand.slug}/places?bookmarked=1&q=zzzzz`);
     const zero = page.locator('.sc-lib-zero');
     await expect(zero).toBeVisible();
     await expect(zero).toContainText('zzzzz');
@@ -128,17 +128,17 @@ test.describe('the library pages, cold', () => {
   test('scenes: a deep-linked vertical shows which tab it landed on', async ({ page }) => {
     const brand = await currentBrand(page);
     // Without a row this narrowed the wall with nothing on screen saying so.
-    await page.goto(`/${brand.slug}/scenes?vertical=Beauty`);
+    await page.goto(`/${brand.slug}/places?vertical=Beauty`);
     await expect(page.getByRole('tab', { name: /Beauty/ })).toHaveAttribute('aria-selected', 'true');
   });
 
   test('presenters: same row, same place', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters`);
+    await page.goto(`/${brand.slug}/people`);
     await expect(page.locator('.sc-canvas-empty')).toBeVisible();
     await expect(page.locator('.sc-filterbar')).toBeVisible();
     await expect(page.locator('.sc-filterbar-cta')).toHaveCount(0);
-    await expect(page.getByRole('tab', { name: /All presenters/ })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /All people/ })).toBeVisible();
   });
 
   test('products: same row, same place', async ({ page }) => {

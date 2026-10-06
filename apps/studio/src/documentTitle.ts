@@ -40,10 +40,10 @@ const TITLES: ReadonlyArray<readonly [string, string, boolean]> = [
   [P.whatsNew, "What's new", false],
   [P.product, 'Products', true],
   [P.products, 'Products', false],
-  [P.scene, 'Scenes', true],
-  [P.scenes, 'Scenes', false],
-  [P.presenter, 'Presenters', true],
-  [P.presenters, 'Presenters', false],
+  [P.scene, 'Places', true],
+  [P.scenes, 'Places', false],
+  [P.presenter, 'People', true],
+  [P.presenters, 'People', false],
   [P.brand, 'Home', false],
 ];
 

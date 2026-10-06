@@ -74,7 +74,7 @@ async function standing(p: Page): Promise<number> {
 }
 
 async function start(p: Page) {
-  await p.goto(`/${brand.slug}/scenes/new`);
+  await p.goto(`/${brand.slug}/places/new`);
   await arrived(p, '.sc-pstudio[data-kind="scene"]');
   await expect(turn(p, 'q:source')).toBeVisible();
 }
@@ -253,13 +253,13 @@ test('a shot is read for its place, drawn and used, and the scene keeps the shot
   await picker(page).getByRole('button', { name: 'Cancel' }).click();
   await expect(openQ(page)).toContainText('Here is the place I read in your shot.');
 
-  await openQ(page).getByRole('button', { name: 'Draw the scene', exact: true }).click();
+  await openQ(page).getByRole('button', { name: 'Draw the place', exact: true }).click();
   await line(page).fill('Harbour Place');
   await line(page).press('Enter');
   await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/, { timeout: 30_000 });
-  await openQ(page).getByRole('button', { name: 'Use this scene', exact: true }).click();
+  await openQ(page).getByRole('button', { name: 'Use this place', exact: true }).click();
   await finishSceneSet(page);
-  await page.waitForURL(/\/scenes\/us-/);
+  await page.waitForURL(/\/places\/us-/);
   const saved = ((await api(page, '/api/brands')) as any[])
     .flatMap((b) => b.json?.scenes ?? [])
     .find((s: any) => s.name === 'Harbour Place');
@@ -323,7 +323,7 @@ test('Escape empties a search first, and only then leaves', async ({ page }) => 
   await expect(studio(page)).toBeVisible();
   // an empty field lets Escape through: something was answered, so leaving asks first
   await field(page).press('Escape');
-  await expect(page.getByText('Leave this scene?')).toBeVisible();
+  await expect(page.getByText('Stop making this place?')).toBeVisible();
 });
 
 test('a shot made in a saved scene offers that scene, and taking it opens the scene with nothing drawn', async ({
@@ -343,7 +343,7 @@ test('a shot made in a saved scene offers that scene, and taking it opens the sc
   await expect(reuse).toContainText('This shot was made in Fixture studio.');
   await expect(line(page)).toHaveAttribute('placeholder', 'Choose above.');
   await reuse.getByRole('button', { name: 'Use Fixture studio', exact: true }).click();
-  await page.waitForURL(/\/scenes\/us-e2efixture$/);
+  await page.waitForURL(/\/places\/us-e2efixture$/);
   // nothing was saved here, so nothing says it was
   await expect(page.getByText('Fixture studio saved')).toHaveCount(0);
   expect(jobs).toEqual([]);
@@ -355,9 +355,9 @@ test('a new scene can still be read from a shot made in one, and Back returns to
   await field(page).fill('morning');
   await expect(cards(page)).toHaveCount(1);
   await cards(page).first().click();
-  await turn(page, 'q:reuse').getByRole('button', { name: 'Read a new scene from it', exact: true }).click();
+  await turn(page, 'q:reuse').getByRole('button', { name: 'Read a new place from it', exact: true }).click();
   await expect(openQ(page)).toContainText('Here is the place I read in your shot.', { timeout: 20_000 });
-  await expect(turn(page, 'you:reuse')).toContainText('Read a new scene from it');
+  await expect(turn(page, 'you:reuse')).toContainText('Read a new place from it');
 
   await start(page);
   await turn(page, 'q:source').getByRole('button', { name: 'Add pictures', exact: true }).click();

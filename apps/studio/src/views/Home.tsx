@@ -205,7 +205,7 @@ export function HomeView() {
   const startCompose = () => {
     const marks = bookmarkedScenes(brand.id);
     const sceneId = [...marks].reverse().find((id) => templates.some((t) => t.id === id));
-    toCreate(sceneId ? { scene: sceneId, attach: 'products', compose: '1' } : { attach: 'products', compose: '1' });
+    toCreate(sceneId ? { place: sceneId, attach: 'products', compose: '1' } : { attach: 'products', compose: '1' });
   };
 
   /** The Presenters shelf: the brand's own people lead, the way they do on the
@@ -329,14 +329,14 @@ export function HomeView() {
             />
             <IngredientCard
               tone="presenter"
-              title="Create a presenter"
+              title="Create a person"
               thumbUrl={createThumbs.presenter}
               icon={<User size={22} weight="fill" />}
               onClick={() => createAsset('presenter')}
             />
             <IngredientCard
               tone="scene"
-              title="Create a scene"
+              title="Create a place"
               thumbUrl={createThumbs.scene}
               icon={<Mountains size={22} weight="fill" />}
               onClick={() => createAsset('scene')}
@@ -424,7 +424,7 @@ export function HomeView() {
           {(!presentersLoaded || shelfPresenters.length > 0) && (
             <section>
               <div className="sc-sec-head">
-                <h2 className="sc-sec-title">Presenters</h2>
+                <h2 className="sc-sec-title">People</h2>
               </div>
               {presentersLoaded ? (
                 <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle}>
@@ -440,7 +440,7 @@ export function HomeView() {
               {(!presentersLoaded || allPresenters.length > shelfPresenters.length) && (
                 <div className="sc-lib-more">
                   <Link className="sc-btn sc-btn-ghost" to={presentersPath(brand)}>
-                    {presentersLoaded ? `Show all ${allPresenters.length} presenters` : 'Show all presenters'}
+                    {presentersLoaded ? `Show all ${allPresenters.length} people` : 'Show all people'}
                   </Link>
                 </div>
               )}
@@ -450,7 +450,7 @@ export function HomeView() {
           {(!scenesLoaded || shelfScenes.length > 0) && (
             <section>
               <div className="sc-sec-head">
-                <h2 className="sc-sec-title">Scenes</h2>
+                <h2 className="sc-sec-title">Places</h2>
               </div>
               {scenesLoaded ? (
                 <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle}>
@@ -466,7 +466,7 @@ export function HomeView() {
               {(!scenesLoaded || allScenes.length > shelfScenes.length) && (
                 <div className="sc-lib-more">
                   <Link className="sc-btn sc-btn-ghost" to={scenesPath(brand)}>
-                    {scenesLoaded ? `Show all ${allScenes.length} scenes` : 'Show all scenes'}
+                    {scenesLoaded ? `Show all ${allScenes.length} places` : 'Show all places'}
                   </Link>
                 </div>
               )}

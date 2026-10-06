@@ -45,15 +45,15 @@ test('it asks for what is missing, whatever is already there', async ({ page }) 
   await readTheOpening(page);
   await page.locator('[data-guide="compose.add"]').click();
   await pickFromPicker(page, 'Product');
-  await expect(coachTitle(page)).toHaveText('Choose a presenter');
+  await expect(coachTitle(page)).toHaveText('Choose a person');
   await page.reload();
   // coming back to a brief already begun: no opening, and the same ask
-  await expect(coachTitle(page)).toHaveText('Choose a presenter', { timeout: 20_000 });
+  await expect(coachTitle(page)).toHaveText('Choose a person', { timeout: 20_000 });
 
   // a second product of the same kind still answers the ask it was asked for
   await page.locator('[data-guide="compose.add"]').click();
-  await pickFromPicker(page, 'Presenter');
-  await pickFromPicker(page, 'Scene');
+  await pickFromPicker(page, 'Person');
+  await pickFromPicker(page, 'Place');
   await expect(coachTitle(page)).toHaveText('Say how to shoot it, then make it');
 });
 
@@ -148,12 +148,12 @@ test('a task belongs to its own brand, and another brand is not guided by it', a
   // done there and nowhere else, and brand A's own first shot likewise
   await page.goto(`/${a}`);
   await learnButton(page).click();
-  await expect(lessonRow(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText('5 steps');
+  await expect(lessonRow(page, 'Create a person').locator('.sc-learn-status')).toHaveText('5 steps');
   await expect(lessonRow(page, 'Make your first shot').locator('.sc-learn-status')).toHaveText('Step 2 of 6');
   await page.keyboard.press('Escape');
   await page.goto(`/${b}`);
   await learnButton(page).click();
-  await expect(lessonRow(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText('Step 4 of 5');
+  await expect(lessonRow(page, 'Create a person').locator('.sc-learn-status')).toHaveText('Step 4 of 5');
   await expect(lessonRow(page, 'Make your first shot').locator('.sc-learn-status')).toHaveText('6 steps');
 });
 
@@ -198,7 +198,7 @@ test('in the walk a chip comes in through its ask and leaves only through Back; 
   await page.keyboard.press('Enter');
   await expect(page.locator('.sc-attachpanel')).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`/${slug}/create$`));
-  for (const kind of ['Product', 'Presenter', 'Scene'] as const) await pickFromPicker(page, kind);
+  for (const kind of ['Product', 'Person', 'Place'] as const) await pickFromPicker(page, kind);
   await expect(coachTitle(page)).toHaveText('Say how to shoot it, then make it');
   // a sigil is a character while the walk is on: no menu, no chip
   await page.keyboard.type(' $ @');

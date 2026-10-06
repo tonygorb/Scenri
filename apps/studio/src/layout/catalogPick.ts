@@ -30,8 +30,8 @@ export function catalogPickVerb(kind: CatalogPickKind, count: number): CatalogPi
       danger: true,
     };
   }
-  const one = kind === 'presenter' ? 'Delete presenter' : kind === 'product' ? 'Delete product' : 'Delete scene';
-  const many = kind === 'presenter' ? 'presenters' : kind === 'product' ? 'products' : 'scenes';
+  const one = kind === 'presenter' ? 'Delete person' : kind === 'product' ? 'Delete product' : 'Delete place';
+  const many = kind === 'presenter' ? 'people' : kind === 'product' ? 'products' : 'places';
   return {
     tool: 'Delete',
     menu: count > 1 ? `Delete ${count} ${many}` : one,
@@ -54,8 +54,8 @@ export function deleteLeaves(kind: Exclude<CatalogPickKind, 'draft'>, count: num
   const many = count > 1;
   if (kind === 'owned-scene')
     return many
-      ? 'Shots already made here keep their images. Their recipe will say these scenes are gone, and building from one again will miss them.'
-      : 'Shots already made here keep their images. Their recipe will say this scene is gone, and building from one again will miss it.';
+      ? 'Shots already made here keep their images. Their recipe will say these places are gone, and building from one again will miss them.'
+      : 'Shots already made here keep their images. Their recipe will say this place is gone, and building from one again will miss it.';
   if (kind === 'product')
     return many
       ? 'Shots already made with them keep their images. Their recipe loses these products, and building from one again will miss them.'
@@ -64,6 +64,9 @@ export function deleteLeaves(kind: Exclude<CatalogPickKind, 'draft'>, count: num
     ? 'Shots already made with them keep their images. Their recipe loses these people, and building from one again will miss them.'
     : 'Shots already made with them keep their images. Their recipe loses this person, and building from one again will miss them.';
 }
+
+/** What each wall's plural is called where a person reads it. */
+const PLURAL = { scenes: 'places', presenters: 'people', products: 'products' } as const;
 
 /** The dock tooltip and the menu line for Keepers, in the shot's words. */
 export function keepersLine(
@@ -76,8 +79,8 @@ export function keepersLine(
     menu:
       count > 1
         ? allKept
-          ? `Remove ${count} ${noun} from Keepers`
-          : `Add ${count} ${noun} to Keepers`
+          ? `Remove ${count} ${PLURAL[noun]} from Keepers`
+          : `Add ${count} ${PLURAL[noun]} to Keepers`
         : allKept
           ? 'Remove from Keepers'
           : 'Add to Keepers',

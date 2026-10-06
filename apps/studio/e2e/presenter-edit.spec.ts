@@ -113,9 +113,9 @@ test('the editor opens on the record, repairs one view, and Save changes writes 
   const before = await preview(person.id);
   expect(before).toHaveLength(3);
 
-  await page.goto(`/${brand.slug}/presenters/${person.id}`);
-  await page.getByRole('link', { name: 'Edit presenter' }).click();
-  await expect(page).toHaveURL(new RegExp(`/presenters/${person.id}/edit$`));
+  await page.goto(`/${brand.slug}/people/${person.id}`);
+  await page.getByRole('link', { name: 'Edit person' }).click();
+  await expect(page).toHaveURL(new RegExp(`/people/${person.id}/edit$`));
   await expect(log(page)).toContainText('What would you like to change about Maren?');
   await expect(page.locator('.sc-pstudio-slot')).toHaveCount(3);
   // opening spends nothing
@@ -133,7 +133,7 @@ test('the editor opens on the record, repairs one view, and Save changes writes 
   expect((await recordOf(page.request, brand.id, person.id)).shots.map((s: any) => s.file)).toEqual(person.shots);
 
   await answer(page, 'Save changes').click();
-  await expect(page).toHaveURL(/\/presenters\/up-[a-f0-9]+$/, { timeout: 20_000 });
+  await expect(page).toHaveURL(/\/people\/up-[a-f0-9]+$/, { timeout: 20_000 });
   const headId = page.url().split('/').pop() as string;
   expect(headId).not.toBe(person.id);
   const old = await recordOf(page.request, brand.id, person.id);
@@ -149,8 +149,8 @@ test('the editor opens on the record, repairs one view, and Save changes writes 
   expect(await preview(person.id)).toEqual(before);
   expect(await preview(headId)).not.toEqual(before);
   // the old address lands on the current one
-  await page.goto(`/${brand.slug}/presenters/${person.id}`);
-  await expect(page).toHaveURL(new RegExp(`/presenters/${headId}$`));
+  await page.goto(`/${brand.slug}/people/${person.id}`);
+  await expect(page).toHaveURL(new RegExp(`/people/${headId}$`));
 });
 
 test('a brief parked with a person who is edited since comes back, and sends, as they are now', async ({ page }) => {
@@ -160,7 +160,7 @@ test('a brief parked with a person who is edited since comes back, and sends, as
   const chip = (id: string) => page.locator(`.sc-brief [data-tok^="h:${id}"]`);
 
   // the person goes into a brief, which waits in the composer's saved draft
-  await page.goto(`/${brand.slug}/presenters/${person.id}`);
+  await page.goto(`/${brand.slug}/people/${person.id}`);
   await page.getByRole('button', { name: 'Use in a shot' }).click();
   await expect(page).toHaveURL(/\/create/);
   await expect(chip(person.id)).toHaveCount(1);
@@ -199,7 +199,7 @@ test('a change to the person is decided first, then the views built on the face 
   test.setTimeout(60_000);
   const brand = await currentBrand(page);
   const person = await seedPresenter(page.request, brand.id, 'Idan');
-  await page.goto(`/${brand.slug}/presenters/${person.id}/edit`);
+  await page.goto(`/${brand.slug}/people/${person.id}/edit`);
   await expect(log(page)).toContainText('What would you like to change about Idan?');
   await send(page, 'Make his hair shorter');
   await expect(log(page)).toContainText('Here is Idan with the change', { timeout: 20_000 });
@@ -219,7 +219,7 @@ test('a change to the person is decided first, then the views built on the face 
   expect(d.views.front.conditionedOn).toContain(d.views.portrait.hash);
   expect(d.views['three-quarter'].status).toBe('approved');
   await answer(page, 'Save changes').click();
-  await expect(page).toHaveURL(/\/presenters\/up-[a-f0-9]+$/, { timeout: 20_000 });
+  await expect(page).toHaveURL(/\/people\/up-[a-f0-9]+$/, { timeout: 20_000 });
   const headId = page.url().split('/').pop() as string;
   const head = await recordOf(page.request, brand.id, headId);
   expect(head.identityEdits).toEqual(['Make his hair shorter']);
@@ -229,21 +229,21 @@ test('a change to the person is decided first, then the views built on the face 
 test('Discard leaves the record as it was, and a sentence for Create generates nothing', async ({ page }) => {
   const brand = await currentBrand(page);
   const person = await seedPresenter(page.request, brand.id);
-  await page.goto(`/${brand.slug}/presenters/${person.id}/edit`);
+  await page.goto(`/${brand.slug}/people/${person.id}/edit`);
   await expect(log(page)).toContainText('What would you like to change');
   let calls = 0;
   page.on('request', (r) => {
     if (r.url().includes('/views/') && r.method() === 'POST') calls++;
   });
   await send(page, 'Put Maren in a red dress in Paris holding my perfume');
-  await expect(log(page)).toContainText('Use Create for wardrobe, products and scenes.');
+  await expect(log(page)).toContainText('Use Create for wardrobe, products and places.');
   await page.waitForTimeout(600);
   expect(calls).toBe(0);
   // with a body view on the stage, a sentence about the face reads both ways
   await page.locator('.sc-pstudio-slot[data-view="front"]').click();
   await send(page, 'her face looks wrong with the shorter hair');
   await expect(log(page)).toContainText('Apply this to:');
-  await answer(page, 'The presenter').click();
+  await answer(page, 'The person').click();
   await expect(log(page)).toContainText('with the change', { timeout: 20_000 });
   await answer(page, 'Use this').click();
   // the full body is rebuilt from the new face and is decided by hand too
@@ -252,7 +252,7 @@ test('Discard leaves the record as it was, and a sentence for Create generates n
   await expect(log(page)).toContainText('Save changes when you are done.', { timeout: 30_000 });
   await page.getByRole('button', { name: 'Discard changes', exact: true }).click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Discard changes', exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/presenters/${person.id}$`));
+  await expect(page).toHaveURL(new RegExp(`/people/${person.id}$`));
   expect((await recordOf(page.request, brand.id, person.id)).shots.map((s: any) => s.file)).toEqual(person.shots);
   expect((await (await page.request.get(`/api/brands/${brand.id}/presenter-drafts`)).json()).drafts).toHaveLength(0);
 });
@@ -264,7 +264,7 @@ test('a refresh mid-edit resumes the session, and a save after the record moved 
   test.setTimeout(60_000);
   const brand = await currentBrand(page);
   const person = await seedPresenter(page.request, brand.id, 'Noa');
-  await page.goto(`/${brand.slug}/presenters/${person.id}/edit`);
+  await page.goto(`/${brand.slug}/people/${person.id}/edit`);
   await page.locator('.sc-pstudio-slot[data-view="front"]').click();
   await send(page, 'turn slightly more to camera');
   await expect(log(page)).toContainText('Redrew the full body.', {
@@ -283,7 +283,7 @@ test('a refresh mid-edit resumes the session, and a save after the record moved 
   expect(r.ok()).toBe(true);
   // a rename patches in place, so the head is the same record and the session still saves
   await answer(page, 'Save changes').click();
-  await expect(page).toHaveURL(/\/presenters\/up-[a-f0-9]+$/, { timeout: 20_000 });
+  await expect(page).toHaveURL(/\/people\/up-[a-f0-9]+$/, { timeout: 20_000 });
   await other.close();
 });
 
@@ -304,9 +304,9 @@ test('a legacy one-photo presenter opens, is offered its missing views, and save
       data: { name: 'Kwame', shotHashes: [hash], sourceHashes: [hash] },
     })
   ).json();
-  await page.goto(`/${brand.slug}/presenters/${made.presenter.id}`);
+  await page.goto(`/${brand.slug}/people/${made.presenter.id}`);
   await expect(page.locator('.sc-refset li')).toHaveCount(1);
-  await page.getByRole('link', { name: 'Edit presenter' }).click();
+  await page.getByRole('link', { name: 'Edit person' }).click();
   await expect(log(page)).toContainText('Kwame has one reference. Build the full body and three-quarter view from it?');
   await answer(page, 'Not now').click();
   await expect(log(page)).not.toContainText('Build the full body');

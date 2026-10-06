@@ -220,7 +220,7 @@ export function startAssetBuild(deps: AssetBuildDeps, input: StartBuildInput): {
   if (!brand) throw Object.assign(new Error('brand not found'), { statusCode: 404 });
 
   const prior = input.sceneId ? brandSceneById(brand.json, input.sceneId) : undefined;
-  if (input.sceneId && !prior) throw Object.assign(new Error('scene not found'), { statusCode: 404 });
+  if (input.sceneId && !prior) throw Object.assign(new Error('place not found'), { statusCode: 404 });
   // A re-read is filed with no new uploads: its evidence is what it was built from.
   const supplied = input.imageHashes.length
     ? input.imageHashes
@@ -235,7 +235,7 @@ export function startAssetBuild(deps: AssetBuildDeps, input: StartBuildInput): {
     id: `ab-${randomUUID().slice(0, 8)}`,
     brandId: brand.id,
     kind: input.kind,
-    name: str(input.name, 60) || 'New scene',
+    name: str(input.name, 60) || 'New place',
     stage: 'queued',
     step: 0,
     steps: 1,
@@ -820,7 +820,7 @@ async function runSceneBuild(
 
   const built = sceneRecordFrom(
     {
-      name: job.name || draft?.name || 'New scene',
+      name: job.name || draft?.name || 'New place',
       promptName: draft?.promptName,
       lighting: draft?.lighting,
       description: draft?.description ?? instruction,
@@ -861,7 +861,7 @@ async function runSceneBuild(
       patch(job, { step: 1, previewHash });
     } catch (err: any) {
       if (signal.aborted) throw err;
-      patch(job, { warnings: [...job.warnings, 'The preview could not be drawn. The scene is still usable.'] });
+      patch(job, { warnings: [...job.warnings, 'The preview could not be drawn. The place is still usable.'] });
     }
   }
   if (signal.aborted) throw new Error('cancelled');
@@ -875,7 +875,7 @@ async function runSceneBuild(
     // A re-read revises a record that exists. If that record was deleted while
     // the analyzer ran, appending it here would bring the scene back after the
     // person had watched it go, so the read ends as a failure instead.
-    if (at < 0 && job.sceneId) throw new Error('This scene was deleted while it was being read again.');
+    if (at < 0 && job.sceneId) throw new Error('This place was deleted while it was being read again.');
     // Same id in the same slot on a re-read; appended when it is genuinely new.
     json.scenes = at >= 0 ? rows.map((s, i) => (i === at ? scene : s)) : [...rows, scene];
   });

@@ -24,7 +24,7 @@ export function PresenterDraftCard({
   return (
     <DraftCard
       id={draft.id}
-      name={draft.name.trim() || 'Untitled presenter'}
+      name={draft.name.trim() || 'Untitled person'}
       hash={draft.hash}
       drawing={!!draft.drawing}
       state={draftState(draft)}

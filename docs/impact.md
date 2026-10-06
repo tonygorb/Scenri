@@ -6,7 +6,7 @@ A release note does not update a guide. What's New says what changed. The docs s
 
 ## Classes
 
-**Docs required.** A person using Scenri would do something differently, or a page would be wrong if left alone. New or removed workflow, navigation, install requirement, provider, platform, Product, Presenter, Scene, import, local data, CLI command, or a renamed concept.
+**Docs required.** A person using Scenri would do something differently, or a page would be wrong if left alone. New or removed workflow, navigation, install requirement, provider, platform, Product, Person, Place, import, local data, CLI command, or a renamed concept.
 
 **Docs maybe.** A user might notice, and someone has to look. Wording, an error message, a limit, a default.
 
@@ -20,8 +20,8 @@ The script `packages/cli/scripts/docs-impact.mjs` reads the lines below. One are
 
 - Install: packages/cli/src/desktop, packages/cli/src/index.ts, packages/cli/package.json, docs/INSTALL.md, docs/TROUBLESHOOTING.md, docs/QUICKSTART.md, docs/OVERVIEW.md
 - Products: apps/studio/src/views/Product, apps/studio/src/create/Product, packages/catalog, packages/cli/src/catalogImport, packages/cli/src/routes/catalogImport, docs/PRODUCTS.md
-- Presenters: apps/studio/src/create/presenter, apps/studio/src/views/Presenter, docs/PRESENTERS.md
-- Scenes: apps/studio/src/create/scene, apps/studio/src/views/Scene, docs/SCENES.md
+- People: apps/studio/src/create/presenter, apps/studio/src/views/Presenter, docs/PEOPLE.md
+- Places: apps/studio/src/create/scene, apps/studio/src/views/Scene, docs/PLACES.md
 - Create: apps/studio/src/composer, apps/studio/src/views/Create, docs/CREATE.md, docs/CONCEPTS.md
 - Refine: apps/studio/src/layout/detail, apps/studio/src/layout/rendering, docs/REFINE.md
 - Keepers: apps/studio/src/feedRules.ts, apps/studio/src/views/create, docs/KEEPERS.md

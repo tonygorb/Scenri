@@ -49,20 +49,20 @@ test('deleting a scene takes its card off the wall and the scene menu without a 
   await seedScene(page.request, brand.id, 'Vanish Loft');
   await seedScene(page.request, brand.id, 'Stays Loft');
 
-  await page.goto(`/${brand.slug}/scenes`);
+  await page.goto(`/${brand.slug}/places`);
   await markSession(page);
   await expect(ownedSceneCard(page, 'Vanish Loft')).toBeVisible();
   await expect(ownedSceneCard(page, 'Stays Loft')).toBeVisible();
 
   await openOwnedScene(page, 'Vanish Loft');
-  await page.getByRole('button', { name: 'Delete scene' }).click();
+  await page.getByRole('button', { name: 'Delete place' }).click();
   await page
     .getByRole('alertdialog')
     .getByRole('button', { name: /Delete/ })
     .click();
 
   // The wall it lands on is drawn from the brand the delete answered with.
-  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/scenes$`));
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/places$`));
   await expect(ownedSceneCard(page, 'Vanish Loft')).toHaveCount(0);
   await expect(ownedSceneCard(page, 'Stays Loft')).toBeVisible();
 
@@ -91,19 +91,19 @@ test('deleting the last scene of your own leaves the wall without that section',
   }
   await seedScene(page.request, brand.id, 'Only Loft');
 
-  await page.goto(`/${brand.slug}/scenes`);
+  await page.goto(`/${brand.slug}/places`);
   await markSession(page);
-  await expect(page.getByRole('heading', { name: 'Your scenes' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your places' })).toBeVisible();
 
   await openOwnedScene(page, 'Only Loft');
-  await page.getByRole('button', { name: 'Delete scene' }).click();
+  await page.getByRole('button', { name: 'Delete place' }).click();
   await page
     .getByRole('alertdialog')
     .getByRole('button', { name: /Delete/ })
     .click();
 
-  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/scenes$`));
-  await expect(page.getByRole('heading', { name: 'Your scenes' })).toHaveCount(0);
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/places$`));
+  await expect(page.getByRole('heading', { name: 'Your places' })).toHaveCount(0);
   await expect(ownedSceneCard(page, 'Only Loft')).toHaveCount(0);
   // the catalog is still there under it, not a blank page
   await expect(page.locator('.sc-lookcard').first()).toBeVisible();
@@ -114,26 +114,26 @@ test('Back after deleting a scene does not land on the page of a scene that is g
   const brand = await currentBrand(page);
   await seedScene(page.request, brand.id, 'Backstep Loft');
 
-  await page.goto(`/${brand.slug}/scenes`);
+  await page.goto(`/${brand.slug}/places`);
   await markSession(page);
   await openOwnedScene(page, 'Backstep Loft');
   const deadPath = new URL(page.url()).pathname;
-  await page.getByRole('button', { name: 'Delete scene' }).click();
+  await page.getByRole('button', { name: 'Delete place' }).click();
   await page
     .getByRole('alertdialog')
     .getByRole('button', { name: /Delete/ })
     .click();
-  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/scenes$`));
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/places$`));
 
   await page.goBack();
   await expect(page).not.toHaveURL(new RegExp(`${deadPath}$`));
-  await expect(page.getByText("This scene isn't here anymore")).toHaveCount(0);
+  await expect(page.getByText("This place isn't here anymore")).toHaveCount(0);
   await expectSameSession(page);
 });
 
 /** Confirm the delete on an open scene page. */
 async function deleteOpenScene(page: import('@playwright/test').Page): Promise<void> {
-  await page.getByRole('button', { name: 'Delete scene' }).click();
+  await page.getByRole('button', { name: 'Delete place' }).click();
   await page
     .getByRole('alertdialog')
     .getByRole('button', { name: /Delete/ })
@@ -150,9 +150,9 @@ test('the first scene you build appears on the wall as it lands, and can be dele
     if (id) await page.request.delete(`/api/brands/${brand.id}/scenes/${id}`);
   }
 
-  await page.goto(`/${brand.slug}/scenes`);
+  await page.goto(`/${brand.slug}/places`);
   await markSession(page);
-  await expect(page.getByRole('heading', { name: 'Your scenes' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Your places' })).toHaveCount(0);
 
   // built the way a person builds one: the studio, a sentence, one draw
   await buildScene(page, 'A bright loft with pale concrete and one tall window.', 'First Light Loft');
@@ -160,14 +160,14 @@ test('the first scene you build appears on the wall as it lands, and can be dele
   // the section and the card arrive with the build, not with a reload
   await goScenes(page);
   await expect(ownedSceneCard(page, 'First Light Loft')).toBeVisible({ timeout: 45_000 });
-  await expect(page.getByRole('heading', { name: 'Your scenes' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your places' })).toBeVisible();
 
   // and it can be opened and deleted straight away
   await openOwnedScene(page, 'First Light Loft');
   await deleteOpenScene(page);
-  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/scenes$`));
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/places$`));
   await expect(ownedSceneCard(page, 'First Light Loft')).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Your scenes' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Your places' })).toHaveCount(0);
   await expectSameSession(page);
 });
 
@@ -175,7 +175,7 @@ test('a rename reaches the wall and the scene menu without a reload', async ({ p
   const brand = await currentBrand(page);
   await seedScene(page.request, brand.id, 'Rename Me Loft');
 
-  await page.goto(`/${brand.slug}/scenes`);
+  await page.goto(`/${brand.slug}/places`);
   await markSession(page);
   await openOwnedScene(page, 'Rename Me Loft');
   const saved = page.waitForResponse((r) => r.request().method() === 'PATCH' && r.url().includes('/scenes/'));
@@ -201,7 +201,7 @@ test('the name and the filing are saved in one write', async ({ page }) => {
   const brand = await currentBrand(page);
   await seedScene(page.request, brand.id, 'Two Fields Loft');
 
-  await page.goto(`/${brand.slug}/scenes`);
+  await page.goto(`/${brand.slug}/places`);
   await markSession(page);
   await openOwnedScene(page, 'Two Fields Loft');
   const saved = page.waitForResponse((r) => r.request().method() === 'PATCH' && r.url().includes('/scenes/'));
@@ -234,7 +234,7 @@ test('a read that lands elsewhere updates the open page', async ({ page }) => {
     description: 'Before the read',
   });
 
-  await page.goto(`/${brand.slug}/scenes`);
+  await page.goto(`/${brand.slug}/places`);
   await markSession(page);
   await openOwnedScene(page, 'Reread Loft');
   await expect(page.getByText('Before the read')).toBeVisible();
@@ -256,7 +256,7 @@ test('a scene in the brief that is then deleted leaves the brief with a note, no
   const brand = await currentBrand(page);
   const id = await seedScene(page.request, brand.id, 'Chip Loft');
 
-  await page.goto(`/${brand.slug}/scenes`);
+  await page.goto(`/${brand.slug}/places`);
   await markSession(page);
   await ownedSceneCard(page, 'Chip Loft').hover();
   await ownedSceneCard(page, 'Chip Loft').getByRole('button', { name: 'Use in a shot' }).click();
@@ -275,10 +275,10 @@ test('a scene in the brief that is then deleted leaves the brief with a note, no
   await goScenes(page);
   await openOwnedScene(page, 'Chip Loft');
   await deleteOpenScene(page);
-  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/scenes$`));
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/places$`));
 
   await goCreate(page);
-  const note = page.locator('.sc-toast', { hasText: 'That scene is no longer available' });
+  const note = page.locator('.sc-toast', { hasText: 'That place is no longer available' });
   await expect(note).toBeVisible();
   await expect(note).toContainText('Removed from the brief.');
   await expect(chip).toHaveCount(0);
@@ -296,16 +296,16 @@ test('a double press on delete sends one delete and shows no error', async ({ pa
     if (r.method() === 'DELETE' && r.url().includes('/scenes/')) deletes.push(r.url());
   });
 
-  await page.goto(`/${brand.slug}/scenes`);
+  await page.goto(`/${brand.slug}/places`);
   await markSession(page);
   await openOwnedScene(page, 'Twice Loft');
-  await page.getByRole('button', { name: 'Delete scene' }).click();
+  await page.getByRole('button', { name: 'Delete place' }).click();
   await page
     .getByRole('alertdialog')
     .getByRole('button', { name: /Delete/ })
     .dblclick();
 
-  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/scenes$`));
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/places$`));
   await expect(ownedSceneCard(page, 'Twice Loft')).toHaveCount(0);
   await page.waitForTimeout(500);
   expect(deletes).toHaveLength(1);
@@ -322,14 +322,14 @@ test('a delete the server refuses keeps the scene and says why', async ({ page }
       : route.fallback(),
   );
 
-  await page.goto(`/${brand.slug}/scenes`);
+  await page.goto(`/${brand.slug}/places`);
   await markSession(page);
   await openOwnedScene(page, 'Refused Loft');
   await deleteOpenScene(page);
 
   await expect(page.locator('.sc-assetform-err')).toHaveText('disk is full');
-  await expect(page).toHaveURL(/\/scenes\/us-/);
-  await expect(page.getByRole('button', { name: 'Delete scene' })).toBeEnabled();
+  await expect(page).toHaveURL(/\/places\/us-/);
+  await expect(page.getByRole('button', { name: 'Delete place' })).toBeEnabled();
   await goScenes(page);
   await expect(ownedSceneCard(page, 'Refused Loft')).toBeVisible();
   expect(await sceneNames(page.request, brand.id)).toContain('Refused Loft');
@@ -340,7 +340,7 @@ test('leaving while a delete is still out is not undone when it answers', async 
   const brand = await currentBrand(page);
   await seedScene(page.request, brand.id, 'Leaving Loft');
 
-  await page.goto(`/${brand.slug}/scenes`);
+  await page.goto(`/${brand.slug}/places`);
   await markSession(page);
   await openOwnedScene(page, 'Leaving Loft');
   const held = await holdNext(page, /\/scenes\/us-[a-z0-9]+$/, 'DELETE');
@@ -371,7 +371,7 @@ test('a brand switch while a delete is out stays on the other brand, and only th
   await seedScene(page.request, brand.id, 'Switch Loft');
   await seedScene(page.request, other, 'Elsewhere Loft');
 
-  await page.goto(`/${brand.slug}/scenes`);
+  await page.goto(`/${brand.slug}/places`);
   await markSession(page);
   await openOwnedScene(page, 'Switch Loft');
   const held = await holdNext(page, /\/scenes\/us-[a-z0-9]+$/, 'DELETE');
@@ -404,7 +404,7 @@ test('a slow read of the brands that started before a delete cannot bring the sc
   const brand = await currentBrand(page);
   await seedScene(page.request, brand.id, 'Doomed Loft');
 
-  await page.goto(`/${brand.slug}/scenes`);
+  await page.goto(`/${brand.slug}/places`);
   await markSession(page);
   // a scene landing is what makes the bell read the brands again
   const held = await holdNext(page, /\/api\/brands$/);
@@ -415,7 +415,7 @@ test('a slow read of the brands that started before a delete cannot bring the sc
   await goScenes(page);
   await openOwnedScene(page, 'Doomed Loft');
   await deleteOpenScene(page);
-  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/scenes$`));
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/places$`));
   await expect(ownedSceneCard(page, 'Doomed Loft')).toHaveCount(0);
 
   held.release();
@@ -430,7 +430,7 @@ test('a rename answer that lands after the delete cannot bring the scene back', 
   const brand = await currentBrand(page);
   await seedScene(page.request, brand.id, 'Crossed Loft');
 
-  await page.goto(`/${brand.slug}/scenes`);
+  await page.goto(`/${brand.slug}/places`);
   await markSession(page);
   await openOwnedScene(page, 'Crossed Loft');
   const held = await holdNext(page, /\/scenes\/us-[a-z0-9]+$/, 'PATCH');
@@ -442,7 +442,7 @@ test('a rename answer that lands after the delete cannot bring the scene back', 
   await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await deleteOpenScene(page);
-  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/scenes$`));
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/places$`));
 
   held.release();
   await page.waitForTimeout(1_000);
@@ -472,7 +472,7 @@ test('a rename and a delete reach the Home shelf too', async ({ page }) => {
   await goScenes(page);
   await openOwnedScene(page, 'Shelf Loft Renamed');
   await deleteOpenScene(page);
-  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/scenes$`));
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/places$`));
   await mainNav(page).getByRole('link', { name: 'Home', exact: true }).click();
   await expect(shelf('Shelf Loft Renamed')).toHaveCount(0);
   await expectSameSession(page);
@@ -481,12 +481,12 @@ test('a rename and a delete reach the Home shelf too', async ({ page }) => {
 test('Forward after Back stays off the dead page, and a reload afterwards still agrees', async ({ page }) => {
   const brand = await currentBrand(page);
   await seedScene(page.request, brand.id, 'Forward Loft');
-  await page.goto(`/${brand.slug}/scenes`);
+  await page.goto(`/${brand.slug}/places`);
   await markSession(page);
   await openOwnedScene(page, 'Forward Loft');
   const dead = new URL(page.url()).pathname;
   await deleteOpenScene(page);
-  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/scenes$`));
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/places$`));
   await page.goBack();
   await page.goForward();
   await expect(page).not.toHaveURL(new RegExp(`${dead}$`));
@@ -508,7 +508,7 @@ test('an edit the server refuses keeps what was typed and says why', async ({ pa
       ? route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'disk is full' }) })
       : route.fallback(),
   );
-  await page.goto(`/${brand.slug}/scenes`);
+  await page.goto(`/${brand.slug}/places`);
   await markSession(page);
   await openOwnedScene(page, 'Refused Edit Loft');
   await page.getByRole('button', { name: 'Edit name, filing and ways' }).click();
@@ -527,7 +527,7 @@ test('an edit the server refuses keeps what was typed and says why', async ({ pa
 test('a background read of the brands that fails leaves the studio on screen', async ({ page }) => {
   test.setTimeout(90_000);
   const brand = await currentBrand(page);
-  await page.goto(`/${brand.slug}/scenes`);
+  await page.goto(`/${brand.slug}/places`);
   await markSession(page);
   await page.route(/\/api\/brands$/, (route) =>
     route.request().method() === 'GET'

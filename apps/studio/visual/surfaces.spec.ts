@@ -57,27 +57,27 @@ test('one product', async ({ page }) => {
 
 test('presenters library', async ({ page }) => {
   await prep(page);
-  await page.goto(`/${d.slug}/presenters`);
+  await page.goto(`/${d.slug}/people`);
   await shot(page, 'presenters');
 });
 
 test('one presenter', async ({ page }) => {
   test.skip(!d.presenterId, 'no presenter on the fixture');
   await prep(page);
-  await page.goto(`/${d.slug}/presenters/${d.presenterId}`);
+  await page.goto(`/${d.slug}/people/${d.presenterId}`);
   await shot(page, 'presenter');
 });
 
 test('scenes library', async ({ page }) => {
   await prep(page);
-  await page.goto(`/${d.slug}/scenes`);
+  await page.goto(`/${d.slug}/places`);
   await shot(page, 'scenes');
 });
 
 test('one scene', async ({ page }) => {
   test.skip(!d.sceneId, 'no scene on the fixture');
   await prep(page);
-  await page.goto(`/${d.slug}/scenes/${d.sceneId}`);
+  await page.goto(`/${d.slug}/places/${d.sceneId}`);
   await shot(page, 'scene');
 });
 

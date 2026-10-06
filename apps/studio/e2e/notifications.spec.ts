@@ -87,7 +87,7 @@ test('the bell is in the bar on every screen', async ({ page }) => {
   for (const path of [
     `/${brand.slug}`,
     `/${brand.slug}/create`,
-    `/${brand.slug}/scenes`,
+    `/${brand.slug}/places`,
     `/${brand.slug}/kit`,
     `/${brand.slug}/sets/${set.slug}`,
   ]) {
@@ -99,7 +99,7 @@ test('the bell is in the bar on every screen', async ({ page }) => {
 test('an idle panel says nothing about nothing, and both lists show at once when there is work', async ({ page }) => {
   const brand = await currentBrand(page);
   await clearHistory(page);
-  await page.goto(`/${brand.slug}/scenes`);
+  await page.goto(`/${brand.slug}/places`);
 
   // Nothing running and nothing finished: the head, and one sentence. A
   // Notifications heading over that sentence said the same nothing twice.
@@ -165,8 +165,8 @@ test('the panel does not follow you to the next screen', async ({ page }) => {
   await bell(page).click();
   await expect(pop(page)).toBeVisible();
 
-  await page.locator('.sc-nav a', { hasText: 'Scenes' }).click();
-  await page.waitForURL(/\/scenes$/);
+  await page.locator('.sc-nav a', { hasText: 'Places' }).click();
+  await page.waitForURL(/\/places$/);
   await expect(pop(page)).toHaveCount(0);
 });
 
@@ -283,7 +283,7 @@ test('a notification row opens the shot it is about', async ({ page }) => {
   const brand = await currentBrand(page);
   await clearHistory(page);
 
-  await page.goto(`/${brand.slug}/scenes`);
+  await page.goto(`/${brand.slug}/places`);
   const { nodeId } = await fireAndWalkAway(page, brand.id);
   await expect(page.locator('.sc-act-n')).toBeVisible({ timeout: 20_000 });
 

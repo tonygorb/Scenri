@@ -51,9 +51,9 @@ async function tap(q: Locator, name: string) {
 
 /** A scene studio with a place said in full, read back and ready to draw. */
 async function readyToDraw(p: Page, slug: string, sentence: string) {
-  await p.goto(`/${slug}/scenes/new`);
+  await p.goto(`/${slug}/places/new`);
   await arrived(p, '.sc-pstudio[data-kind="scene"]');
-  await p.waitForURL(new RegExp(`/${slug}/scenes/new/[a-f0-9]+$`));
+  await p.waitForURL(new RegExp(`/${slug}/places/new/[a-f0-9]+$`));
   await say(p, sentence);
   await expect(openQ(p)).toHaveAttribute('data-turn', /^q:agree-/, { timeout: 15_000 });
   return new URL(p.url()).pathname;
@@ -85,7 +85,7 @@ test('a scene draw goes on while you are elsewhere, and Activity brings you back
   // look is the idle one, five seconds on, and this four-second draw fits inside
   // that wait. The studio says it started, so the bell has it anyway.
   await page.waitForResponse((r) => new URL(r.url()).pathname.endsWith('/activity'));
-  await tap(openQ(page), 'Draw the scene');
+  await tap(openQ(page), 'Draw the place');
   await expect(openQ(page)).toHaveAttribute('data-turn', 'q:name');
   await say(page, 'Flash Cyc');
 
@@ -102,7 +102,7 @@ test('a scene draw goes on while you are elsewhere, and Activity brings you back
   await page.keyboard.press('Escape');
 
   // and away through the app, the way a person would wander off
-  for (const name of ['Home', 'Products', 'Presenters', 'Scenes', 'Create']) {
+  for (const name of ['Home', 'Products', 'People', 'Places', 'Create']) {
     await mainNav(page).getByRole('link', { name, exact: true }).click();
   }
 
@@ -127,7 +127,7 @@ test('a finish on the studio page itself is said on the stage, and nowhere else'
     slug,
     'A white cyclorama under hard flash, seen straight on, on a low plinth, mist lying low',
   );
-  await tap(openQ(page), 'Draw the scene');
+  await tap(openQ(page), 'Draw the place');
   await say(page, 'Stage Only');
   await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/, { timeout: 20_000 });
   // give the bell a poll or two to have had its chance
@@ -146,7 +146,7 @@ test('Stop is in reach while the name is asked, stops the draw, and Draw finishe
     slug,
     'A white cyclorama under hard flash, seen straight on, on a low plinth, mist lying low',
   );
-  await tap(openQ(page), 'Draw the scene');
+  await tap(openQ(page), 'Draw the place');
   await expect(openQ(page)).toHaveAttribute('data-turn', 'q:name');
   // the line is the name's, and while it is empty the pill is Stop
   await expect(pill(page)).toHaveText('Stop');
@@ -167,7 +167,7 @@ test('Stop is in reach while the name is asked, stops the draw, and Draw finishe
   await page.waitForTimeout(1500);
   expect(sent).toHaveLength(0);
 
-  await tap(openQ(page), 'Draw the scene');
+  await tap(openQ(page), 'Draw the place');
   await say(page, 'Second Go');
   await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/, { timeout: 20_000 });
   await expect(studio(page).locator('.sc-pstudio-well img')).toHaveCount(1);
@@ -175,7 +175,7 @@ test('Stop is in reach while the name is asked, stops the draw, and Draw finishe
 
 test('a stopped read asks, and does not read again on its own after a reload', async ({ page }) => {
   const slug = await brandSlug(page);
-  await page.goto(`/${slug}/scenes/new`);
+  await page.goto(`/${slug}/places/new`);
   await arrived(page, '.sc-pstudio[data-kind="scene"]');
   const sent = starts(page);
   await say(page, 'A white cyclorama under hard flash, seen straight on, on a low plinth, mist lying low');
@@ -197,7 +197,7 @@ test('a stopped read asks, and does not read again on its own after a reload', a
 
 test('a presenter face can be stopped while its name is asked, and drawn again', async ({ page }) => {
   const slug = await brandSlug(page);
-  await page.goto(`/${slug}/presenters/new`);
+  await page.goto(`/${slug}/people/new`);
   await arrived(page);
   await say(page, 'Late 30s woman, Mediterranean appearance, dark shoulder-length hair, slim build, elegant.');
   await page.getByRole('log').getByRole('button', { name: 'Nothing else', exact: true }).click();
@@ -235,7 +235,7 @@ test('a presenter set goes on after the studio closes, and the bell says so once
     await page.request.post(`${base}/${draft.id}/views/${view}/approve`);
   }
   // the studio starts the part of the set that decides itself; then the person leaves
-  await page.goto(`/${slug}/presenters/new/${draft.id}`);
+  await page.goto(`/${slug}/people/new/${draft.id}`);
   await arrived(page);
   await expect
     .poll(async () => (await (await page.request.get(`${base}/${draft.id}`)).json()).activeView, { timeout: 15_000 })
@@ -261,10 +261,10 @@ test('a scene closed while it draws stays on the Scenes wall, drawing, then draw
     slug,
     'A white cyclorama under hard flash, seen straight on, on a low plinth, mist lying low',
   );
-  await tap(openQ(page), 'Draw the scene');
+  await tap(openQ(page), 'Draw the place');
   await say(page, 'Wall Cyc');
   await studio(page).getByRole('button', { name: 'Close', exact: true }).click();
-  await page.waitForURL(new RegExp(`/${slug}/scenes$`));
+  await page.waitForURL(new RegExp(`/${slug}/places$`));
 
   // first on the wall, marked as a draft, and saying it is drawing
   const card = page.locator('.sc-lookcard[data-build]', { hasText: 'Wall Cyc' });
@@ -280,12 +280,12 @@ test('a scene closed while it draws stays on the Scenes wall, drawing, then draw
   await card.getByRole('link', { name: 'Continue Wall Cyc' }).click();
   await page.waitForURL((u) => u.pathname === at);
   await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
-  await tap(openQ(page), 'Use this scene');
+  await tap(openQ(page), 'Use this place');
   // the conversation goes on to the place in use, and ends on one press
   await finishSceneSet(page);
-  await page.waitForURL(/\/scenes\/us-/);
+  await page.waitForURL(/\/places\/us-/);
 
   // used, it is a scene of its own and no longer a draft
-  await page.goto(`/${slug}/scenes`);
+  await page.goto(`/${slug}/places`);
   await expect(page.locator('.sc-lookcard[data-build]', { hasText: 'Wall Cyc' })).toHaveCount(0);
 });

@@ -124,8 +124,8 @@ test('every screen cold-loads from its own URL', async ({ page }) => {
   await page.goto(`/${brand.slug}/kit`);
   await page.waitForURL(/\?settings=brand/);
 
-  await page.goto(`/${brand.slug}/scenes`);
-  await expect(activeNav(page)).toHaveText('Scenes');
+  await page.goto(`/${brand.slug}/places`);
+  await expect(activeNav(page)).toHaveText('Places');
   await expect(page.locator('.sc-lookcard').first()).toBeVisible();
 
   // A scene page cold-loads from its own URL, which is what this test is
@@ -133,7 +133,7 @@ test('every screen cold-loads from its own URL', async ({ page }) => {
   // the card's centre belongs to the hover "Use in a shot" action, and the
   // collection name list it used to click was removed.
   const scene = (await (await page.request.get('/api/scenes')).json()).scenes[0];
-  await page.goto(`/${brand.slug}/scenes/${scene.id}`);
+  await page.goto(`/${brand.slug}/places/${scene.id}`);
   await expect(page.locator('.sc-lookpage h1')).toHaveText(scene.name);
 
   await page.goto(`/${brand.slug}/sets/${set.slug}`);
@@ -466,7 +466,7 @@ test('Create is never inert, wherever it is pressed from', async ({ page }) => {
 
   // it used to do nothing at all whenever a project was already open, and to
   // open a picker otherwise. It now lands the caret in the brief either way.
-  await page.goto(`/${brand.slug}/scenes`);
+  await page.goto(`/${brand.slug}/places`);
   await page.locator('.sc-nav a', { hasText: 'Create' }).click();
   await page.waitForURL(new RegExp(`/${brand.slug}/create`));
   await expect(activeNav(page)).toHaveText('Create');
@@ -493,8 +493,8 @@ test('every shape the old /b/ scheme could spell still lands', async ({ page }) 
   await page.goto(`/b/${brand.slug}/brand`);
   await page.waitForURL(/\?settings=brand/);
 
-  await page.goto(`/b/${brand.slug}/scenes`);
-  await page.waitForURL(`**/${brand.slug}/scenes`);
+  await page.goto(`/b/${brand.slug}/places`);
+  await page.waitForURL(`**/${brand.slug}/places`);
 
   await page.goto(`/b/${brand.slug}/create/n/${nodeId}`);
   await page.waitForURL(`**/${brand.slug}/create/shots/${nodeId}`);
@@ -524,9 +524,9 @@ test('the address bar spells names, not uuids', async ({ page }) => {
   expect(set.slug).not.toMatch(UUID);
 
   // an id still resolves, and rewrites itself to the readable spelling
-  await page.goto(`/${brand.id}/scenes`);
-  await page.waitForURL(`**/${brand.slug}/scenes`);
-  await expect(activeNav(page)).toHaveText('Scenes');
+  await page.goto(`/${brand.id}/places`);
+  await page.waitForURL(`**/${brand.slug}/places`);
+  await expect(activeNav(page)).toHaveText('Places');
 
   // including deeper in the path, where the rest of it has to survive
   await page.goto(`/${brand.id}/sets/${set.id}/shots/${nodeId}`);
@@ -539,9 +539,9 @@ test('an unknown brand or path lands somewhere real', async ({ page }) => {
 
   // the brand is not one this machine holds, but /scenes is still a real page —
   // so the tail rides along rather than being dropped at the brand root
-  await page.goto('/does-not-exist/scenes');
-  await page.waitForURL(`**/${brand.slug}/scenes`);
-  await expect(activeNav(page)).toHaveText('Scenes');
+  await page.goto('/does-not-exist/places');
+  await page.waitForURL(`**/${brand.slug}/places`);
+  await expect(activeNav(page)).toHaveText('Places');
 
   await page.goto('/total/nonsense/path');
   await page.waitForURL(`**/${brand.slug}`);
@@ -660,7 +660,7 @@ test('a scene chip says "scene" the same way in the brief line and on the shot',
         };
       });
 
-  await page.goto(`/${brand.slug}/create?scene=${scene.id}`);
+  await page.goto(`/${brand.slug}/create?place=${scene.id}`);
   await expect(page.locator('.sc-token[data-tinted]')).toBeVisible();
   const composer = await chipStyle('.sc-token[data-tinted]');
 

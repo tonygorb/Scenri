@@ -51,10 +51,10 @@ async function legacyPresenter(p: Page, brandId: string, name: string): Promise<
 test('a legacy record opens on its page, with its pictures and no broken frame', async ({ page }) => {
   const brand = await currentBrand(page);
   const id = await legacyPresenter(page, brand.id, 'Ancient');
-  await page.goto(`/${brand.slug}/presenters/${id}`);
+  await page.goto(`/${brand.slug}/people/${id}`);
   await expect(page.getByLabel('Their name').or(page.getByRole('heading', { level: 1 }))).toBeVisible();
   await expect(page.locator('.sc-refset li')).toHaveCount(2);
-  await expect(page.getByRole('link', { name: 'Edit presenter' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Edit person' })).toBeVisible();
 });
 
 /**
@@ -68,7 +68,7 @@ test('a legacy record opens on its page, with its pictures and no broken frame',
 test('the editor does not claim changes nobody made', async ({ page }) => {
   const brand = await currentBrand(page);
   const id = await legacyPresenter(page, brand.id, 'Untouched');
-  await page.goto(`/${brand.slug}/presenters/${id}/edit`);
+  await page.goto(`/${brand.slug}/people/${id}/edit`);
   await expect(log(page)).toContainText('What would you like to change', { timeout: 30_000 });
   await expect(page.getByRole('button', { name: 'Discard changes' })).toHaveCount(0);
 });
@@ -84,7 +84,7 @@ test('a record that says nothing about them can still be drawn, from a sentence'
   test.setTimeout(90_000);
   const brand = await currentBrand(page);
   const id = await legacyPresenter(page, brand.id, 'Wordless');
-  await page.goto(`/${brand.slug}/presenters/${id}/edit`);
+  await page.goto(`/${brand.slug}/people/${id}/edit`);
   await expect(log(page)).toContainText('What would you like to change', { timeout: 30_000 });
   // nothing to build them from, so no build is offered and the line is open
   await expect(answer(page, 'Build them')).toHaveCount(0);

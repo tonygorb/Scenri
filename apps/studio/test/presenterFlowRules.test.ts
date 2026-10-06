@@ -146,12 +146,12 @@ describe('the transcript is a function of state', () => {
     const q = open(T);
     expect(q?.id).toBe('agree');
     // the ask is short; the whole person is set apart above it, to be read or taken
-    expect(q?.kind === 'confirm' && q.prompt).toBe('Here is the presenter, in full. Ready to draw?');
+    expect(q?.kind === 'confirm' && q.prompt).toBe('Here is the person, in full. Ready to draw?');
     expect(q?.kind === 'confirm' && q.quote).toBe(
       'A Mediterranean woman in their 30s with long brown hair, green eyes, olive skin, tall with a lean build.',
     );
     // one way on, and it says what is being drawn
-    expect(q?.kind === 'confirm' && q.options.map((o) => o.label)).toEqual(['Draw the presenter']);
+    expect(q?.kind === 'confirm' && q.options.map((o) => o.label)).toEqual(['Draw the person']);
     // and everything that is always true of them is in that last word too
     const withDetails = turns(
       state({
@@ -297,7 +297,7 @@ describe('the transcript is a function of state', () => {
     const T = turns(state({ source: { door: 'scratch', via: 'taps' } }), null, false);
     const q = open(T);
     expect(q?.id).toBe('noengine');
-    expect(q?.prompt).toBe('Drawing a presenter needs image generation, which is not set up yet.');
+    expect(q?.prompt).toBe('Drawing a person needs image generation, which is not set up yet.');
     // "Add photos instead" was the way round, and photographs with nothing to
     // draw from them were saved as the face: a logo became a presenter
     expect(q?.kind === 'confirm' && q.options.map((o) => o.label)).toEqual(['Set up']);
@@ -317,7 +317,7 @@ describe('the transcript is a function of state', () => {
     const T = turns(state(p, { held: true }), null, false);
     const gate = open(T);
     expect(gate?.id).toBe('noengine');
-    expect(gate?.prompt).toBe('Drawing a presenter needs image generation, which is not set up yet.');
+    expect(gate?.prompt).toBe('Drawing a person needs image generation, which is not set up yet.');
     expect(gate?.kind === 'confirm' && gate.options.map((o) => o.id)).toEqual(['setup', 'change']);
     const you = T.find((t) => t.kind === 'you' && t.id === 'photos');
     expect(you?.kind === 'you' && you.photos).toEqual(['h1', 'h2']);
@@ -336,7 +336,7 @@ describe('the transcript is a function of state', () => {
     expect(open(turns(state(typed, { held: true }), null, false))?.id).toBe('noengine');
     const q = open(turns(state(typed, { held: true }), null, true));
     expect(q?.id).toBe('agree');
-    expect(q?.kind === 'confirm' && q.options.map((o) => o.label)).toEqual(['Draw the presenter']);
+    expect(q?.kind === 'confirm' && q.options.map((o) => o.label)).toEqual(['Draw the person']);
     expect(q?.quote).toContain('shoulder-length black hair');
   });
 

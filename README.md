@@ -23,9 +23,9 @@ npx scenri
 
 <sub>The first start downloads the Scenri library of example imagery, about 155 MB. New to any of this? The [install guide](https://github.com/tonygorb/scenri/blob/main/docs/INSTALL.md) walks through every step.</sub>
 
-<img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/demo.gif" alt="Scenri's Create page: in the composer a dollar sign picks the product Cropped Puffer, an at sign picks the presenter Kwame, a slash picks the Container Blue scene, and a line of written direction follows the three chips. Generate turns a new card into a dithered swirl where the picture is being made, the swirl develops into a man in an orange puffer jacket leaning on a cobalt shipping container, and the shot opens beside the prompt that made it" width="820">
+<img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/demo.gif" alt="Scenri's Create page: in the composer a dollar sign picks the product Cropped Puffer, an at sign picks the person Kwame, a slash picks the place Container Blue, and a line of written direction follows the three chips. Generate turns a new card into a dithered swirl where the picture is being made, the swirl develops into a man in an orange puffer jacket leaning on a cobalt shipping container, and the shot opens beside the prompt that made it" width="820">
 
-<sub>Pick a product, pick a presenter, pick a scene, then write the direction. That is the prompt.</sub>
+<sub>Pick a product, pick a person, pick a place, then write the direction. That is the prompt.</sub>
 
 </div>
 
@@ -35,7 +35,7 @@ npx scenri
 
 Most AI image tools give you a prompt box and a slot machine. Scenri gives you the part that actually takes the time: **art direction**.
 
-You save a brand's ingredients once: its products from real photos, the people who appear in its shots (Scenri calls them Presenters), its places (Scenes) and its brand kit. Then a shot is one line. In the composer, `$` picks a product (what), `@` a person (who) and `/` a scene (where), and you write the direction in the same line. Open the shot, say what to change, and **Refine** keeps every step on a trail under the picture, so the original and every step stay one click apart.
+You save a brand's ingredients once: its products from real photos, the people who appear in its shots, its places and its brand kit. Then a shot is one line. In the composer, `$` picks a product (what), `@` a person (who) and `/` a place (where), and you write the direction in the same line. Open the shot, say what to change, and **Refine** keeps every step on a trail under the picture, so the original and every step stay one click apart.
 
 Every shot also keeps its recipe: the prompt, the chips and the settings that made it. Refine any step again, or use **Reuse setup** to start a new shot from the same prompt and chips, so the next one matches.
 
@@ -47,7 +47,7 @@ The words Scenri uses are defined once in [Concepts](https://github.com/tonygorb
 
 ## What a prompt produces
 
-The film above ends on one of the examples from the Home wall: the Cropped Puffer product, the presenter Kwame, the Container Blue scene, and a short paragraph of written direction, of which the film types the first line. The chips carry the identity; the words do the art direction. Here are eight more shots from the Home wall, each built the same way from chips and written direction:
+The film above ends on one of the examples from the Home wall: the Cropped Puffer product, the person Kwame, the place Container Blue, and a short paragraph of written direction, of which the film types the first line. The chips carry the identity; the words do the art direction. Here are eight more shots from the Home wall, each built the same way from chips and written direction:
 
 <!-- One paragraph, no whitespace between the tags: a newline here renders as
 a fixed word-space, and 4 x 24.5% plus three spaces overflows a phone screen
@@ -57,9 +57,9 @@ All 110 examples on the Home wall work the same way. Open one and it loads back 
 
 ## What you get out of the box
 
-<img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/library.gif" alt="Scenri's Home for a new brand: the four ways to start and the example tabs over the wall of finished shots, a slow scroll down the wall, then the Presenters library and the Scenes library, each opening with its offer to make your own above the catalog" width="820">
+<img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/library.gif" alt="Scenri's Home for a new brand: the four ways to start and the example tabs over the wall of finished shots, a slow scroll down the wall, then the People library and the Places library, each opening with its offer to make your own above the catalog" width="820">
 
-A library of 42 scenes, 19 presenters and 30 demo products, so the app is useful before you have uploaded anything of your own. Filter by category and star what fits the brand. Add your own products from their photos, and make your own presenters and scenes in a short conversation: describe a person or a place, or start from photos, and approve what Scenri draws before it is saved.
+A library of 42 places, 19 people and 30 demo products, so the app is useful before you have uploaded anything of your own. Filter by category and star what fits the brand. Add your own products from their photos, and make your own people and places in a short conversation: describe a person or a place, or start from photos, and approve what Scenri draws before it is saved.
 
 The brand kit lives in Settings and is the part that keeps output consistent. Name, mark, palette and rules, set once and carried into every shot that asks for them.
 
