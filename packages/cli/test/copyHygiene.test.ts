@@ -86,7 +86,9 @@ const STUDIO = SOURCE.filter((f) => f.startsWith('apps/studio/src/'));
 function visibleStrings(source: string): { line: number; text: string }[] {
   const out: { line: number; text: string }[] = [];
   const code = source.replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, ''));
-  for (const [i, raw] of code.split('\n').entries()) {
+  // A Windows checkout ends every line with \r, which `.` does not match: a
+  // comment whose line kept it would not be stripped (seen on the Windows leg).
+  for (const [i, raw] of code.split(/\r?\n/).entries()) {
     const line = raw.replace(/(^|[^:\\])\/\/.*$/, '$1');
     const literals = line.match(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`/g) ?? [];
     const jsx = [...line.matchAll(/>([^<>{}]+)</g)].map((m) => m[1]).filter((t) => !/[(=?&|]/.test(t));
@@ -147,7 +149,7 @@ describe('public copy hygiene', () => {
 
   it.each(TERM_DOCS)('%s says People and Places', (rel) => {
     let fenced = false;
-    for (const [i, line] of readFileSync(join(ROOT, rel), 'utf8').split('\n').entries()) {
+    for (const [i, line] of readFileSync(join(ROOT, rel), 'utf8').split(/\r?\n/).entries()) {
       if (/^\s*```/.test(line)) fenced = !fenced;
       if (fenced || SAYS_IT_IS_OLD.test(line)) continue;
       const prose = line.replace(/`[^`]*`/g, '').replace(/\]\([^)]*\)/g, ']');
