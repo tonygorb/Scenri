@@ -8,7 +8,7 @@
  *
  * It is deliberately not a record of what someone is typing. A form nobody has
  * sent lives in React state and dies with the dialog, because a new creation
- * has to feel new: a dismissed scene walking back into the next "New scene"
+ * has to feel new: a dismissed scene walking back into the next "New place"
  * with its references and its Direction reads as the app ignoring the fact that
  * you left, and for a scene it is worse than untidy — the references and the
  * Direction are read as art direction, so the wrong ones quietly change what
@@ -16,7 +16,7 @@
  *
  * So the lifetime rule is one line: a draft is written when an attempt is sent,
  * and it ends when the asset exists, when the attempt is abandoned, or when the
- * tab does. Photographs from last week refilling a form headed "Create presenter"
+ * tab does. Photographs from last week refilling a form headed "Create person"
  * is how somebody casts a presenter from the previous presenter's face.
  *
  * Sibling of draft.ts, which stays in localStorage on purpose: a brief you are

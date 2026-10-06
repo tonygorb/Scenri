@@ -44,7 +44,7 @@ export interface ReleaseImage {
 }
 
 export interface ReleaseSection {
-  /** A product area, not a commit scope: "Create", "Scenes", "Fixes". */
+  /** A product area, not a commit scope: "Create", "Places", "Fixes". */
   heading: string;
   /** One or two sentences. What it means for the work, not what the diff did. */
   body: string;
