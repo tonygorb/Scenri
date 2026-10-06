@@ -53,7 +53,7 @@ export function readChapters(p: Page): Promise<Chapter[]> {
 
 /** The rule every width keeps: one beat between chapters, the wall's grid all the way down. */
 export function expectOneRhythm([wall, presenters, scenes]: Chapter[]) {
-  expect([presenters.title, scenes.title]).toEqual(['Presenters', 'Scenes']);
+  expect([presenters.title, scenes.title]).toEqual(['People', 'Places']);
   expect(Math.round(presenters.top - wall.bottom)).toBe(46);
   expect(Math.round(scenes.top - presenters.bottom)).toBe(46);
   for (const shelf of [presenters, scenes]) {

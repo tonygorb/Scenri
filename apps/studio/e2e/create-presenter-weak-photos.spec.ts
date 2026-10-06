@@ -22,7 +22,7 @@ test('a read that can use none of them stops, says why, and draws nothing until 
   test.setTimeout(90_000);
   const brands = (await (await page.request.get('/api/brands')).json()) as { id: string; slug: string }[];
   const brand = brands[0];
-  await page.goto(`/${brand.slug}/presenters/new`);
+  await page.goto(`/${brand.slug}/people/new`);
   await log(page).getByRole('button', { name: 'Add photos', exact: true }).click();
   await page.locator('input[type="file"]').setInputFiles([
     { name: 'blurred.png', mimeType: 'image/png', buffer: png },
@@ -30,7 +30,7 @@ test('a read that can use none of them stops, says why, and draws nothing until 
   ]);
   await page.getByRole('checkbox').check();
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
-  await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
+  await expect(page).toHaveURL(/\/people\/new\/pd-/, { timeout: 40_000 });
 
   // it says what is wrong in its own words, and offers the two ways on
   await expect(log(page)).toContainText('I cannot read a face in any of those photos', { timeout: 40_000 });
@@ -58,12 +58,12 @@ test('the other way on throws the draft away rather than keeping a person nobody
   test.setTimeout(90_000);
   const brands = (await (await page.request.get('/api/brands')).json()) as { id: string; slug: string }[];
   const brand = brands[0];
-  await page.goto(`/${brand.slug}/presenters/new`);
+  await page.goto(`/${brand.slug}/people/new`);
   await log(page).getByRole('button', { name: 'Add photos', exact: true }).click();
   await page.locator('input[type="file"]').setInputFiles({ name: 'blurred.png', mimeType: 'image/png', buffer: png });
   await page.getByRole('checkbox').check();
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
-  await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
+  await expect(page).toHaveURL(/\/people\/new\/pd-/, { timeout: 40_000 });
   const draftId = page.url().split('/').pop() as string;
   await expect(log(page)).toContainText('I cannot read a face in any of those photos', { timeout: 40_000 });
 

@@ -76,7 +76,7 @@ test('the editor opens on the record already said, and the panel does not grow w
   const brand = await currentBrand(page);
   const id = await seedPresenter(page.request, brand.id, 'Steady');
 
-  await page.goto(`/${brand.slug}/presenters/${id}/edit`);
+  await page.goto(`/${brand.slug}/people/${id}/edit`);
   const log = page.getByRole('log');
   await expect(log).toBeVisible();
 
@@ -103,7 +103,7 @@ test('a view being drawn is read again every beat without moving what is on scre
   const brand = await currentBrand(page);
   const id = await seedPresenter(page.request, brand.id, 'Placid');
 
-  await page.goto(`/${brand.slug}/presenters/${id}/edit`);
+  await page.goto(`/${brand.slug}/people/${id}/edit`);
   // The editor asks before it offers a composer, so wait for the question.
   await expect(page.getByRole('log')).toContainText('What would you like to change about Placid?');
 
@@ -129,7 +129,7 @@ test('the picture being asked about is in the conversation, on a phone too', asy
   // the phone has no stage at all, so the conversation is the only place a
   // candidate can be looked at
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`/${brand.slug}/presenters/${id}/edit`);
+  await page.goto(`/${brand.slug}/people/${id}/edit`);
   await expect(page.getByRole('log')).toContainText('What would you like to change about Shown?');
   expect(await page.locator('.sc-pstudio-stage').isVisible()).toBe(false);
 

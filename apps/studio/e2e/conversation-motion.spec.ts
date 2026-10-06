@@ -341,7 +341,7 @@ test.describe('the conversation in motion', () => {
   test('doors, reverts, small talk and photos, watched', async ({ page }) => {
     test.setTimeout(120_000);
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await expect(log(page)).toContainText('Who are we making?');
     await settle(page);
     await watch(page);
@@ -399,7 +399,7 @@ test.describe('the conversation in motion', () => {
     await page.getByRole('checkbox').check();
     await settle(page, 400);
     await answer(page, 'Continue').click();
-    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/\/people\/new\/pd-/, { timeout: 20_000 });
     // the photographs are asked once what is always true of them, before the set
     await expect(answer(page, 'Nothing to add')).toBeVisible({ timeout: 20_000 });
     await settle(page);
@@ -420,7 +420,7 @@ test.describe('the conversation in motion', () => {
     // the name is asked across the build, and the save waits on it
     await expect(log(page)).toContainText('What should we call them?', { timeout: 20_000 });
     await send(page, 'Noor');
-    await expect(answer(page, 'Save presenter')).toBeVisible({ timeout: 20_000 });
+    await expect(answer(page, 'Save person')).toBeVisible({ timeout: 20_000 });
     await settle(page);
 
     const { events, initial, maxGap, end } = await record(page);
@@ -432,14 +432,14 @@ test.describe('the conversation in motion', () => {
   test('a person from a sentence, adjusted, built, refined and saved, watched', async ({ page }) => {
     test.setTimeout(120_000);
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await expect(log(page)).toContainText('Who are we making?');
     await settle(page);
     await watch(page);
 
     await send(page, 'Late 30s woman, Mediterranean, dark shoulder-length hair, slim, warm and composed');
     await answer(page, 'Nothing else').click();
-    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/\/people\/new\/pd-/, { timeout: 20_000 });
     // the demo engine lands the face before a name can be typed: the decision comes first
     await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 20_000 });
     await settle(page);
@@ -464,7 +464,7 @@ test.describe('the conversation in motion', () => {
     // What somebody is called is their business, so the name is taken as typed
     // whatever it is. That rule has its own test; this walk just names her.
     await send(page, 'Maren');
-    await expect(answer(page, 'Save presenter')).toBeVisible({ timeout: 30_000 });
+    await expect(answer(page, 'Save person')).toBeVisible({ timeout: 30_000 });
     await settle(page);
     await page.locator('.sc-pstudio-slot[data-view="front"]').click();
     await send(page, 'arms relaxed');
@@ -488,15 +488,15 @@ test.describe('the conversation in motion', () => {
     if (bad.length) console.log(trace(events));
     expect(bad).toEqual([]);
 
-    await answer(page, 'Save presenter').click();
-    await expect(page).toHaveURL(/\/presenters\/up-/, { timeout: 20_000 });
+    await answer(page, 'Save person').click();
+    await expect(page).toHaveURL(/\/people\/up-/, { timeout: 20_000 });
   });
 
   test('the editor, watched', async ({ page }) => {
     test.setTimeout(120_000);
     const brand = await currentBrand(page);
     // a person to edit, made the quick way
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await send(page, 'a man in his 40s with a grey beard, broad build, calm');
     await answer(page, 'Nothing else').click();
     await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 20_000 });
@@ -506,10 +506,10 @@ test.describe('the conversation in motion', () => {
     await answer(page, 'Use it').click();
     await expect(answer(page, 'Not now')).toBeVisible({ timeout: 30_000 });
     await answer(page, 'Not now').click();
-    await answer(page, 'Save presenter').click();
-    await expect(page).toHaveURL(/\/presenters\/up-/, { timeout: 20_000 });
+    await answer(page, 'Save person').click();
+    await expect(page).toHaveURL(/\/people\/up-/, { timeout: 20_000 });
 
-    await page.getByRole('link', { name: 'Edit presenter' }).click();
+    await page.getByRole('link', { name: 'Edit person' }).click();
     await expect(log(page)).toContainText('What would you like to change about Idan?');
     await settle(page);
     await watch(page);
@@ -517,13 +517,13 @@ test.describe('the conversation in motion', () => {
     await expect(log(page)).toContainText('Say what should change');
     await settle(page);
     await send(page, 'put him in a red suit in Paris');
-    await expect(log(page)).toContainText('Use Create for wardrobe, products and scenes.');
+    await expect(log(page)).toContainText('Use Create for wardrobe, products and places.');
     await settle(page);
     await page.locator('.sc-pstudio-slot[data-view="front"]').click();
     await send(page, 'his face looks wrong with the shorter beard');
-    await expect(answer(page, 'The presenter')).toBeVisible();
+    await expect(answer(page, 'The person')).toBeVisible();
     await settle(page);
-    await answer(page, 'The presenter').click();
+    await answer(page, 'The person').click();
     await expect(log(page)).toContainText('Here is Idan with the change', { timeout: 20_000 });
     await settle(page);
     await answer(page, 'Use this').click();
@@ -542,7 +542,7 @@ test.describe('the conversation in motion', () => {
   test('reduced motion: nothing moves, everything is simply there', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters/new`);
+    await page.goto(`/${brand.slug}/people/new`);
     await expect(log(page)).toContainText('Who are we making?');
     await watch(page);
     await answer(page, 'Describe someone').click();

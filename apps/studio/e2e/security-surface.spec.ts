@@ -117,12 +117,12 @@ test('names, directions and details with markup, bidi and long words render as i
   const sceneId = ((await scene.json()) as { scene: { id: string } }).scene.id;
 
   const surfaces: [string, string][] = [
-    ['presenters wall', `/${brand.slug}/presenters`],
-    ['presenter page', `/${brand.slug}/presenters/${presenterId}`],
-    ['presenter studio', `/${brand.slug}/presenters/new/${draftId}`],
-    ['scenes wall', `/${brand.slug}/scenes`],
-    ['scene page', `/${brand.slug}/scenes/${sceneId}`],
-    ['scene studio', `/${brand.slug}/scenes/${sceneId}/edit`],
+    ['presenters wall', `/${brand.slug}/people`],
+    ['presenter page', `/${brand.slug}/people/${presenterId}`],
+    ['presenter studio', `/${brand.slug}/people/new/${draftId}`],
+    ['scenes wall', `/${brand.slug}/places`],
+    ['scene page', `/${brand.slug}/places/${sceneId}`],
+    ['scene studio', `/${brand.slug}/places/${sceneId}/edit`],
   ];
   for (const viewport of [
     { width: 1280, height: 800 },
@@ -145,7 +145,7 @@ test('a HEIC photo added to a new presenter is refused, and the studio says to e
   page,
 }) => {
   const brand = await currentBrand(page);
-  await page.goto(`/${brand.slug}/presenters/new`);
+  await page.goto(`/${brand.slug}/people/new`);
   await page.getByRole('log').getByRole('button', { name: 'Add photos', exact: true }).click();
   const upload = page.waitForResponse((r) => /\/api\/images$/.test(r.url()) && r.request().method() === 'POST');
   await page.locator('input[type="file"]').setInputFiles(heic());
@@ -158,7 +158,7 @@ test('a HEIC photo added to a new presenter is refused, and the studio says to e
 
 test('a HEIC picture handed to a new scene is refused with its note, and never sent (SEC2-X1)', async ({ page }) => {
   const brand = await currentBrand(page);
-  await page.goto(`/${brand.slug}/scenes/new`);
+  await page.goto(`/${brand.slug}/places/new`);
   const studio = page.locator('.sc-pstudio[data-kind="scene"]');
   await arrived(page, '.sc-pstudio[data-kind="scene"]');
   await studio.locator('[data-turn="q:source"]').getByRole('button', { name: 'Add pictures', exact: true }).click();

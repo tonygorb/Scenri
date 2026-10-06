@@ -35,7 +35,7 @@ async function brandSlug(p: Page): Promise<string> {
 test('the top bar fits, on every library page', async ({ page }) => {
   const slug = await brandSlug(page);
 
-  for (const path of ['products', 'presenters', 'scenes']) {
+  for (const path of ['products', 'people', 'places']) {
     await page.goto(`/${slug}/${path}`);
     await page.locator('.sc-topbar').waitFor();
     const fit = await page.locator('.sc-topbar').evaluate((el) => ({
@@ -56,13 +56,13 @@ test('the top bar fits, on every library page', async ({ page }) => {
 
 test('the hoisted page action is gone, and New on the bar took its job', async ({ page }) => {
   const slug = await brandSlug(page);
-  await page.goto(`/${slug}/presenters`);
+  await page.goto(`/${slug}/people`);
 
   await expect(page.locator('#sc-page-action')).toHaveCount(0);
   await expect(page.locator('.sc-filterbar-cta')).toHaveCount(0);
   const trigger = page.getByRole('button', { name: 'Other ways to start', exact: true });
   await expect(trigger).toBeVisible();
-  await expect(page.locator('.sc-new-go')).toHaveAccessibleName('New presenter');
+  await expect(page.locator('.sc-new-go')).toHaveAccessibleName('New person');
   // compact widths shorten the same label to "New"; they do not swap in the noun
   if (isPhone(page)) {
     await expect(page.locator('.sc-new-kind')).toBeHidden();
@@ -144,8 +144,8 @@ test('the chooser is usable by touch', async ({ page }) => {
 
   // a scene is a place of its own, not a dialog: the card opens its studio
   await page.locator('[data-kind="scene"]').tap();
-  await expect(page).toHaveURL(new RegExp(`/${slug}/scenes/new/[a-f0-9]+$`));
-  await expect(page.getByRole('dialog', { name: 'Create scene' })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/${slug}/places/new/[a-f0-9]+$`));
+  await expect(page.getByRole('dialog', { name: 'Create place' })).toBeVisible();
 });
 
 /**

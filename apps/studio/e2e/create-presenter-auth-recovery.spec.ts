@@ -13,7 +13,7 @@ import { LOGO, picture } from './pictures.js';
  */
 isolate({ env: { SCENRI_DEMO_BUILDS: '1', SCENRI_DEMO_REFS: '5', SCENRI_DEMO_DELAY_MS: '400' } });
 
-const GATE = 'Drawing a presenter needs image generation, which is not set up yet.';
+const GATE = 'Drawing a person needs image generation, which is not set up yet.';
 const CAPS = '**/api/asset-builds/capabilities';
 
 async function currentBrand(p: Page): Promise<{ slug: string; id: string }> {
@@ -62,7 +62,7 @@ test('a logo held at the setup line carries on after setup, is drawn from on Con
   test.setTimeout(120_000);
   await nothingCanDraw(page);
   const brand = await currentBrand(page);
-  await page.goto(`/${brand.slug}/presenters/new`);
+  await page.goto(`/${brand.slug}/people/new`);
   await answer(page, 'Add photos').click();
   await page.locator('input[type="file"]').setInputFiles(picture('acme-logo.png', LOGO));
   await page.getByRole('checkbox').check();
@@ -76,11 +76,11 @@ test('a logo held at the setup line carries on after setup, is drawn from on Con
   await expect(answer(page, 'Continue')).toBeVisible();
   await page.waitForTimeout(1500);
   expect(await draftsOf(page, brand.id)).toEqual([]);
-  await expect(page).toHaveURL(/\/presenters\/new$/);
+  await expect(page).toHaveURL(/\/people\/new$/);
 
   // the press that was refused, pressed again: now a face is drawn from the logo, never the logo itself
   await answer(page, 'Continue').click();
-  await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
+  await expect(page).toHaveURL(/\/people\/new\/pd-/, { timeout: 40_000 });
   await answer(page, 'Nothing to add').click();
   await expect(log(page)).toContainText('Here is the face', { timeout: 30_000 });
   await answer(page, 'Use this person').click();
@@ -90,8 +90,8 @@ test('a logo held at the setup line carries on after setup, is drawn from on Con
   await answer(page, 'Not now').click();
   await page.locator('.sc-convo-card textarea').fill('Acme');
   await page.locator('.sc-convo-card textarea').press('Enter');
-  await answer(page, 'Save presenter').click();
-  await expect(page).toHaveURL(/\/presenters\/up-/, { timeout: 40_000 });
+  await answer(page, 'Save person').click();
+  await expect(page).toHaveURL(/\/people\/up-/, { timeout: 40_000 });
 
   const brands = await (await page.request.get('/api/brands')).json();
   const person = (brands.find((b: any) => b.id === brand.id).json.characters ?? []).find((c: any) => c.name === 'Acme');
@@ -110,7 +110,7 @@ test('a description said at the setup line is drawn on Draw the presenter once s
   test.setTimeout(90_000);
   await nothingCanDraw(page);
   const brand = await currentBrand(page);
-  await page.goto(`/${brand.slug}/presenters/new`);
+  await page.goto(`/${brand.slug}/people/new`);
   // a whole description typed at the first question: the door and the description in one
   await page
     .locator('.sc-convo-card textarea')
@@ -122,12 +122,12 @@ test('a description said at the setup line is drawn on Draw the presenter once s
   // the conversation carries on where it stopped: what is always true of them, then the read-back
   await answer(page, 'Nothing else').click();
   // the description stands, read back, and waits for its press: the engine arriving is not one
-  await expect(answer(page, 'Draw the presenter')).toBeVisible({ timeout: 15_000 });
+  await expect(answer(page, 'Draw the person')).toBeVisible({ timeout: 15_000 });
   await expect(log(page)).toContainText('shoulder-length black hair');
   await page.waitForTimeout(1500);
   expect(await draftsOf(page, brand.id)).toEqual([]);
 
-  await answer(page, 'Draw the presenter').click();
-  await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
+  await answer(page, 'Draw the person').click();
+  await expect(page).toHaveURL(/\/people\/new\/pd-/, { timeout: 40_000 });
   await expect(log(page)).toContainText('Here is the face', { timeout: 30_000 });
 });

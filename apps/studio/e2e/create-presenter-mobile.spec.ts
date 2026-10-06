@@ -39,7 +39,7 @@ test('the phone is the conversation: no stage, the picture in the log, composer 
 }) => {
   const brand = await currentBrand(page);
   const draftId = await seedCandidate(page, brand.id);
-  await page.goto(`/${brand.slug}/presenters/new/${draftId}`);
+  await page.goto(`/${brand.slug}/people/new/${draftId}`);
   // the iPad project reports itself as mobile; the layout is decided by width
   const phone = page.viewportSize()!.width < 768;
   void isMobile;
@@ -87,7 +87,7 @@ test('the composer stays reachable with the keyboard up', async ({ page }) => {
   test.skip(page.viewportSize()!.width >= 768, 'a phone concern');
   const brand = await currentBrand(page);
   const draftId = await seedCandidate(page, brand.id);
-  await page.goto(`/${brand.slug}/presenters/new/${draftId}`);
+  await page.goto(`/${brand.slug}/people/new/${draftId}`);
   const field = page.locator('.sc-convo-card textarea');
   await expect(field).toBeVisible({ timeout: 20_000 });
   // once the sheet is up: a box read while it is still rising is a box a few
@@ -108,7 +108,7 @@ test('the first question stays above the composer when the keyboard comes up', a
   const brand = await currentBrand(page);
   // a small phone with its browser bars, as Android's resizes-content shrinks it
   await page.setViewportSize({ width: 390, height: 664 });
-  await page.goto(`/${brand.slug}/presenters/new`);
+  await page.goto(`/${brand.slug}/people/new`);
   await arrived(page);
   const q = page.locator('.sc-convo-turn[data-turn="q:source"]');
   await expect(q).toBeVisible({ timeout: 20_000 });
@@ -139,7 +139,7 @@ test('a second picture of a view: the press to put one back stands on the pictur
       break;
     await page.waitForTimeout(50);
   }
-  await page.goto(`/${brand.slug}/presenters/new/${draftId}`);
+  await page.goto(`/${brand.slug}/people/new/${draftId}`);
   const act = page.getByRole('log').locator('.sc-convo-shot-do').first();
   await expect(act).toBeVisible({ timeout: 20_000 });
   // no hover on a finger: what can be done is on the picture, at a finger's size

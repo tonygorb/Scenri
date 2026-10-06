@@ -181,9 +181,9 @@ test('the same scene is added with the guide closed', async ({ page }) => {
   const own = await ownBrand(page, 'No Tutor Scene');
   await page.goto(`/${own}`);
   await page.locator('[data-guide="nav.scenes"]:visible').first().click();
-  await page.waitForURL('**/scenes');
+  await page.waitForURL('**/places');
   await page.locator('[data-guide="library.new"]:visible').first().click();
-  await expect(page).toHaveURL(/\/scenes\/new\/[a-f0-9]+$/);
+  await expect(page).toHaveURL(/\/places\/new\/[a-f0-9]+$/);
   // a place said in full: the studio asks nothing more, reads it back, and draws on a press
   const studio = page.locator('.sc-pstudio[data-kind="scene"]');
   const line = studio.locator('.sc-pstudio-foot textarea');
@@ -191,12 +191,12 @@ test('the same scene is added with the guide closed', async ({ page }) => {
     'A cold hallway in hard side light, seen straight on, a bench against the wall, rain streaking the window',
   );
   await line.press('Enter');
-  await studio.getByRole('button', { name: 'Draw the scene' }).click({ timeout: 30_000 });
+  await studio.getByRole('button', { name: 'Draw the place' }).click({ timeout: 30_000 });
   // The name question stands only while the first picture draws, which the
   // test engine finishes in about a second: a bare name typed after it lands
   // is read as a change. Wait for the picture, then name it in a sentence,
   // which is taken as the name whichever question is on the floor.
-  const use = studio.getByRole('button', { name: 'Use this scene' });
+  const use = studio.getByRole('button', { name: 'Use this place' });
   await expect(use).toBeVisible({ timeout: 30_000 });
   await line.fill('call it Cold hallway');
   await line.press('Enter');

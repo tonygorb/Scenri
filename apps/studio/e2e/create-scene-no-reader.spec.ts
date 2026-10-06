@@ -38,7 +38,7 @@ test('a logo at the picture door stays a picture: Read them stops at the setup l
 }) => {
   test.setTimeout(60_000);
   const brand = await currentBrand(page);
-  await page.goto(`/${brand.slug}/scenes/new`);
+  await page.goto(`/${brand.slug}/places/new`);
   await arrived(page, '.sc-pstudio[data-kind="scene"]');
   await tap(page, 'Add pictures');
   await openQ(page).locator('input[type="file"]').setInputFiles(picture('acme-logo.png', LOGO));
@@ -92,7 +92,7 @@ test('a scene saved as words keeps its upload as what it was read from, never as
   expect(made.status()).toBe(200);
   expect((await made.json()).scene.preview ?? null).toBeNull();
 
-  await page.goto(`/${brand.slug}/scenes`);
+  await page.goto(`/${brand.slug}/places`);
   const card = page.getByRole('link', { name: 'Words Loft', exact: true });
   await expect(card).toBeVisible();
   // the card has no picture: the logo it was read from is not its face

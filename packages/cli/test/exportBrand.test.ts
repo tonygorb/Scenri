@@ -139,6 +139,49 @@ describe('buildBrandBundle', () => {
     );
   });
 
+  // People were Presenters and Places were Scenes until 0.22. Only the words a
+  // person reads changed: a bundle keeps `characters[]` and `scenes[]`, so one
+  // written by 0.21 and one written now are the same format, and either opens
+  // in the other.
+  it('keeps people under characters[] and places under scenes[], and reads back whole', async () => {
+    const face = core.images.save(Buffer.from('a face'));
+    const place = core.images.save(Buffer.from('a place'));
+    const legacy = {
+      specVersion: '0.1',
+      meta: { name: 'Legacy Co' },
+      characters: [{ id: 'up-1a2b3c4d', name: 'Lena', shots: [{ file: `asset:${face}` }] }],
+      scenes: [
+        {
+          id: 'us-5e6f7a8b',
+          name: 'Loft',
+          lighting: 'Window light',
+          description: 'A loft.',
+          subject: 'either',
+          prompt: 'A pale loft with tall windows.',
+          width: 1024,
+          height: 1280,
+          preview: `asset:${place}`,
+          cover: 'place',
+        },
+      ],
+    };
+    expect(validateBrand(legacy).errors).toEqual([]);
+    const brand = core.store.createBrand(legacy as any);
+    const json = await doc(await open((await buildBrandBundle(core, brand.id)).zip));
+    expect(Object.keys(json)).toEqual(expect.arrayContaining(['characters', 'scenes']));
+    expect(Object.keys(json)).not.toEqual(expect.arrayContaining(['people']));
+    expect(Object.keys(json)).not.toEqual(expect.arrayContaining(['places']));
+    expect(validateBrand(json).errors).toEqual([]);
+    expect(json.characters.map((c: any) => [c.id, c.name])).toEqual([['up-1a2b3c4d', 'Lena']]);
+    expect(json.scenes.map((s: any) => [s.id, s.name, s.cover])).toEqual([['us-5e6f7a8b', 'Loft', 'place']]);
+
+    // the exported document is a brand Scenri takes back as it is
+    const again = core.store.createBrand(json);
+    const stored = core.store.getBrand(again.id)?.json as any;
+    expect(stored.characters.map((c: any) => c.name)).toEqual(['Lena']);
+    expect(stored.scenes.map((s: any) => s.prompt)).toEqual(['A pale loft with tall windows.']);
+  });
+
   it('produces a document that still validates as a .brand', async () => {
     const logo = core.images.save(Buffer.from('logo'));
     const brand = core.store.createBrand({

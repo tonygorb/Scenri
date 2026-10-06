@@ -335,7 +335,7 @@ test('Undo on "Started a new shot" after a brand switch gives the brief back to 
   await page.goto(`/${own}/create`);
   await line.click();
   await page.keyboard.type('a brief the first brand put aside');
-  await page.goto(`/${own}/scenes/clay-court`);
+  await page.goto(`/${own}/places/clay-court`);
   await page.locator('.sc-lookpage-acts .sc-btn-primary').click();
   const toast = page.locator('.sc-toast', { hasText: 'Started a new shot' });
   await expect(toast).toBeVisible();

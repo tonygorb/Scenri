@@ -36,7 +36,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('every category opens three across and closes to the quick row of four', async ({ page }) => {
-  for (const name of ['Products', 'Presenters', 'Scenes', 'Recent shots']) {
+  for (const name of ['Products', 'People', 'Places', 'Recent shots']) {
     const g = group(page, name);
     if ((await g.count()) === 0) continue; // a section with nothing in it draws nothing
     const head = g.locator('.sc-agroup-t');
@@ -59,14 +59,14 @@ test('a rail tile ticks when its chip is in, and its click takes the chip out ag
   await expect(chips(page)).toHaveCount(0);
   await expect(product).toHaveAttribute('aria-pressed', 'false');
 
-  const presenter = tiles(page, 'Presenters').first();
+  const presenter = tiles(page, 'People').first();
   await presenter.click();
   await expect(chips(page).first()).toHaveAttribute('data-kind', 'character');
   await expect(presenter).toHaveAttribute('aria-pressed', 'true');
   await presenter.click();
   await expect(chips(page)).toHaveCount(0);
 
-  const scene = tiles(page, 'Scenes').first();
+  const scene = tiles(page, 'Places').first();
   await scene.click();
   await expect(chips(page).first()).toHaveAttribute('data-kind', 'template');
   await expect(scene).toHaveAttribute('aria-pressed', 'true');

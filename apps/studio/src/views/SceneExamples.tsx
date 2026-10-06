@@ -242,7 +242,7 @@ export function SceneExamples({
           busy={covering}
         />
       </span>
-      <SceneViewCaption label="The place" isCover={coverView === 'place'} />
+      <SceneViewCaption label={COPY.emptyLabel} isCover={coverView === 'place'} />
     </li>
   ) : null;
 

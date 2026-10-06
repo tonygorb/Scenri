@@ -51,7 +51,7 @@ test('the page is the record: tiles by role that open at full size, two actions,
 }) => {
   const brand = await currentBrand(page);
   const id = await seedPresenter(page.request, brand.id);
-  await page.goto(`/${brand.slug}/presenters/${id}`);
+  await page.goto(`/${brand.slug}/people/${id}`);
   await expect(page.getByRole('heading', { level: 1 }).or(page.getByLabel('Their name'))).toBeVisible();
   await expect(page.locator('.sc-refset li')).toHaveCount(3);
   await expect(page.locator('.sc-refset-lb')).toHaveText(['Face', 'Full body', 'Three-quarter']);
@@ -59,7 +59,7 @@ test('the page is the record: tiles by role that open at full size, two actions,
   await expect(page.locator('.sc-refset-tile[data-role="front"]')).toHaveCount(1);
   await expect(page.locator('.sc-refset-tile[data-role="three-quarter"]')).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Use in a shot' }).first()).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Edit presenter' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Edit person' })).toBeVisible();
   // Keepers, the same star a scene and a product page carry
   await page.getByRole('button', { name: 'Add to Keepers' }).click();
   await expect(page.getByRole('button', { name: 'Remove from Keepers' })).toHaveAttribute('aria-pressed', 'true');
@@ -76,7 +76,7 @@ test('the page is the record: tiles by role that open at full size, two actions,
 test('a session under way is offered back, never shown as the presenter', async ({ page }) => {
   const brand = await currentBrand(page);
   const id = await seedPresenter(page.request, brand.id);
-  await page.goto(`/${brand.slug}/presenters/${id}`);
+  await page.goto(`/${brand.slug}/people/${id}`);
   await expect(page.getByRole('link', { name: 'Continue editing' })).toHaveCount(0);
   const before = await (await page.request.get('/api/brands')).json();
   const shots = before.find((b: any) => b.id === brand.id).json.characters.find((c: any) => c.id === id).shots;
@@ -98,6 +98,6 @@ test('a session under way is offered back, never shown as the presenter', async 
     .evaluateAll((imgs) => imgs.map((i) => (i as HTMLImageElement).src));
   expect(tiles.some((src) => src.includes(shots[1].file.replace('asset:', '')))).toBe(true);
   await page.getByRole('link', { name: 'Continue editing' }).click();
-  await expect(page).toHaveURL(new RegExp(`/presenters/${id}/edit$`));
+  await expect(page).toHaveURL(new RegExp(`/people/${id}/edit$`));
   await expect(page.getByRole('log')).toContainText('to camera');
 });

@@ -265,7 +265,7 @@ test('a scene collection shows pictures, not a list of its own names', async ({ 
   test.skip(!isPhone(page), 'the index still serves as a quick jump on a wide screen');
 
   const brand = new URL(page.url()).pathname.split('/')[1];
-  await page.goto(`/${brand}/scenes`);
+  await page.goto(`/${brand}/places`);
   await expect(page.locator('.sc-coll').first()).toBeVisible();
 
   await expect(page.locator('.sc-coll-names').first()).toBeHidden();
@@ -554,7 +554,7 @@ async function closeAttach(p: Page) {
 /** Put one scene chip in the brief, whatever width we are at. */
 async function seedScene(p: Page) {
   await p.locator('.sc-canvas-dock .sc-attach-toggle').click();
-  await p.locator('.sc-ap-tabs button', { hasText: /scenes/i }).click();
+  await p.locator('.sc-ap-tabs button', { hasText: /places/i }).click();
   await p.locator('.sc-ap-card:not(.sc-ap-add)').first().click();
   await expect(briefChips(p)).not.toHaveCount(0);
   await closeAttach(p);
@@ -921,7 +921,7 @@ test.describe('the attach panel on a phone', () => {
 
   test('every attach tile is big enough for a thumb', async ({ page }) => {
     await openAttach(page);
-    await page.locator('.sc-ap-tabs button', { hasText: 'Presenters' }).tap();
+    await page.locator('.sc-ap-tabs button', { hasText: 'People' }).tap();
     const cards = page.locator('.sc-ap-card:not(.sc-ap-add)');
     await cards.first().waitFor();
     const n = Math.min(await cards.count(), 8);
@@ -943,7 +943,7 @@ test.describe('the attach panel on a phone', () => {
     // still open: the second pick is one tap away
     await expect(panel(page)).toBeVisible();
     await expect(page.locator('.sc-ap-card[data-on]')).toHaveCount(1);
-    await page.locator('.sc-ap-tabs button', { hasText: 'Presenters' }).tap();
+    await page.locator('.sc-ap-tabs button', { hasText: 'People' }).tap();
     await cards.first().tap();
     await expect(briefChips(page)).toHaveCount(2);
     // the same tile again: out it comes

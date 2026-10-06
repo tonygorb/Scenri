@@ -323,7 +323,7 @@ test.describe('brand kit', () => {
 
   test('scenes are kept from the card, not from a wizard', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/scenes`);
+    await page.goto(`/${brand.slug}/places`);
     const first = page.locator('.sc-coll .sc-lookcard').first();
     const href = await first.locator('a').first().getAttribute('href');
     await first.click({ button: 'right' });
@@ -352,7 +352,7 @@ test.describe('brand kit', () => {
   // outside this file sees it.
   test('the Keepers tab is always on the rail and filters the wall to what you kept', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/scenes`);
+    await page.goto(`/${brand.slug}/places`);
 
     // Present at zero: the rail must not change shape as you keep things.
     const bmTab = page.getByRole('tab', { name: /Keepers/ });
@@ -362,7 +362,7 @@ test.describe('brand kit', () => {
     // Empty, it says what fills it — this is not a failed search.
     await bmTab.click();
     await expect(page.locator('.sc-lib-zero')).toContainText('Nothing in Keepers yet');
-    await page.getByRole('button', { name: 'Browse every scene' }).click();
+    await page.getByRole('button', { name: 'Browse every place' }).click();
     await expect(page).not.toHaveURL(/[?&]bookmarked=1/);
 
     await page.locator('.sc-coll .sc-lookcard').first().click({ button: 'right' });
@@ -385,14 +385,14 @@ test.describe('brand kit', () => {
     await page.getByRole('menuitem', { name: 'Remove from Keepers' }).click();
     await expect(page.locator('.sc-lib-zero')).toContainText('Nothing in Keepers yet');
     await expect(bmTab).toContainText('0');
-    await page.getByRole('button', { name: 'Browse every scene' }).click();
+    await page.getByRole('button', { name: 'Browse every place' }).click();
     await expect(page).not.toHaveURL(/[?&]bookmarked=1/);
     await expect(page.locator('.sc-coll').first()).toBeVisible();
   });
 
   test('picking a vertical clears the Keepers tab rather than stacking with it', async ({ page }) => {
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/scenes`);
+    await page.goto(`/${brand.slug}/places`);
     await page.locator('.sc-coll .sc-lookcard').first().click({ button: 'right' });
     await page.getByRole('menuitem', { name: 'Add to Keepers' }).click();
     await page.getByRole('tab', { name: /Keepers/ }).click();

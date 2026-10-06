@@ -70,7 +70,7 @@ export function Danger({ onDone, thisComputer }: { onDone: () => void; thisCompu
             <span className="txt">
               <b>Delete generated shots</b>
               <small data-prose="">
-                Removes every set and every generated shot, in every brand. Brands, cast and scenes stay.
+                Removes every set and every generated shot, in every brand. Brands, products, people and places stay.
               </small>
             </span>
             <Confirm

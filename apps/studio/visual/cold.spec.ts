@@ -16,6 +16,6 @@ test.beforeAll(async ({ request }) => {
 
 test('scenes library, cold', async ({ page }) => {
   await prep(page);
-  await page.goto(`/${d.slug}/scenes`);
+  await page.goto(`/${d.slug}/places`);
   await shot(page, 'scenes-cold');
 });

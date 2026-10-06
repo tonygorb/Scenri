@@ -27,12 +27,12 @@ const answer = (p: Page, label: string) => log(p).getByRole('button', { name: la
 test('a face the engine refused leaves the logo a photo, the stage empty, and nothing saved', async ({ page }) => {
   test.setTimeout(90_000);
   const brand = await currentBrand(page);
-  await page.goto(`/${brand.slug}/presenters/new`);
+  await page.goto(`/${brand.slug}/people/new`);
   await answer(page, 'Add photos').click();
   await page.locator('input[type="file"]').setInputFiles(picture('acme-logo.png', LOGO));
   await page.getByRole('checkbox').check();
   await answer(page, 'Continue').click();
-  await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
+  await expect(page).toHaveURL(/\/people\/new\/pd-/, { timeout: 40_000 });
   await answer(page, 'Nothing to add').click();
 
   // the refusal is said, with the way on
@@ -46,7 +46,7 @@ test('a face the engine refused leaves the logo a photo, the stage empty, and no
   expect(d.views.portrait.error).toBeTruthy();
   await expect(page.locator('.sc-pstudio-well img')).toHaveCount(0);
   await expect(answer(page, 'Use this person')).toHaveCount(0);
-  await expect(answer(page, 'Save presenter')).toHaveCount(0);
+  await expect(answer(page, 'Save person')).toHaveCount(0);
   const brands = await (await page.request.get('/api/brands')).json();
   const theirs = (brands.find((b: any) => b.id === brand.id).json.characters ?? []).filter((c: any) =>
     String(c.id).startsWith('up-'),

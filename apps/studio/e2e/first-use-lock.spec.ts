@@ -52,8 +52,8 @@ test('only the one action', async ({ page }) => {
   await expect(page.locator('.sc-attachpanel .sc-ap-add')).toHaveCount(0);
 
   await pickFromPicker(page, 'Product');
-  await pickFromPicker(page, 'Presenter');
-  await pickFromPicker(page, 'Scene');
+  await pickFromPicker(page, 'Person');
+  await pickFromPicker(page, 'Place');
   // The last moment is both halves of one act: write the line, then make it.
   // Those two are usable, the rest of the page is not.
   await expect(coachTitle(page)).toHaveText('Say how to shoot it, then make it');

@@ -431,7 +431,7 @@ export function ScenePage() {
           )}
           {owned && (
             <Link className="sc-btn sc-btn-ghost" to={sceneEditPath(brand, owned.id)}>
-              Edit scene
+              Edit place
             </Link>
           )}
           <RecordKeep kind="scene" brandId={brandId} id={scene.id} />
@@ -527,7 +527,7 @@ export function ScenePage() {
         )}
 
         {/* What a shot made here is told, in the three keys that are real. The
-            set prose behind them is the studio's, and Edit scene is the way to
+            set prose behind them is the studio's, and Edit place is the way to
             it: it is eight hundred characters long and it is changed by
             re-reading the place, never by reading it here. */}
         {owned && (

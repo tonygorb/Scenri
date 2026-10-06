@@ -67,7 +67,7 @@ test('a reload while a face is drawing comes back to the same draw, and does not
   const brand = await currentBrand(page);
   const id = await drawing(page.request, brand.id);
 
-  await page.goto(`/${brand.slug}/presenters/new/${id}`);
+  await page.goto(`/${brand.slug}/people/new/${id}`);
   await expect(stage(page)).toContainText('Drawing the face', { timeout: 20_000 });
   const attempts = (await row(page.request, brand.id, id)).views.portrait.attempts;
 
@@ -90,13 +90,13 @@ test('leaving while a face is drawing leaves the draw alone, and the wall says s
   const brand = await currentBrand(page);
   const id = await drawing(page.request, brand.id);
 
-  await page.goto(`/${brand.slug}/presenters/new/${id}`);
+  await page.goto(`/${brand.slug}/people/new/${id}`);
   await expect(stage(page)).toContainText('Drawing the face', { timeout: 20_000 });
   await page.keyboard.press('Escape');
-  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters$`));
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/people$`));
 
   // the card is on the wall and says it is working
-  const card = page.locator(`.sc-lookcard:has(a[href$="/presenters/new/${id}"])`);
+  const card = page.locator(`.sc-lookcard:has(a[href$="/people/new/${id}"])`);
   await expect(card).toContainText('Drawing');
 
   // and the work really did carry on
@@ -106,7 +106,7 @@ test('leaving while a face is drawing leaves the draw alone, and the wall says s
 
 test('a reload mid-conversation comes back to the same question, with nothing said twice', async ({ page }) => {
   const brand = await currentBrand(page);
-  await page.goto(`/${brand.slug}/presenters/new`);
+  await page.goto(`/${brand.slug}/people/new`);
   await answer(page, 'Describe someone').click();
   await answer(page, 'Woman').click();
   await answer(page, '30s').click();
@@ -139,24 +139,24 @@ test('back and forward walk the library, a presenter and the studio without stra
   const id = await drawing(page.request, brand.id);
   await settle(page.request, brand.id, id);
 
-  await page.goto(`/${brand.slug}/presenters`);
-  await page.getByRole('button', { name: 'New presenter' }).click();
-  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new$`));
+  await page.goto(`/${brand.slug}/people`);
+  await page.getByRole('button', { name: 'New person' }).click();
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/people/new$`));
 
   await page.goBack();
-  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters$`));
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/people$`));
   await expect(page.locator('.sc-pstudio')).toHaveCount(0);
 
   await page.goForward();
-  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new$`));
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/people/new$`));
   // forward into the studio is a conversation, not a resumed one
   await expect(answer(page, 'Describe someone')).toBeVisible({ timeout: 20_000 });
 
   // and a draft reached from the wall goes back to the wall
   await page.goBack();
-  await page.locator(`a[href$="/presenters/new/${id}"]`).click();
-  await expect(page).toHaveURL(new RegExp(`/presenters/new/${id}$`));
+  await page.locator(`a[href$="/people/new/${id}"]`).click();
+  await expect(page).toHaveURL(new RegExp(`/people/new/${id}$`));
   await page.goBack();
-  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters$`));
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/people$`));
   await expect(page.locator('.sc-pstudio')).toHaveCount(0);
 });

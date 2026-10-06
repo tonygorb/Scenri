@@ -292,7 +292,7 @@ test('0.17.2-presenter-prompt', async ({ page, request }) => {
   const kwame = ids.get('Kwame') as string;
   await page.setViewportSize(WINDOW);
   await prep(page, 'dark');
-  await page.goto(`/${slug}/presenters/${amara}`);
+  await page.goto(`/${slug}/people/${amara}`);
   await page.getByRole('button', { name: 'Use in a shot' }).click();
   await expect(page).toHaveURL(/\/create/);
   const card = page.locator('.sc-canvas-dock .sc-promptcard');
@@ -322,7 +322,7 @@ test('0.17.1-presenter-identity', async ({ page, request }) => {
   const ids = await presenters(request);
   await page.setViewportSize(WINDOW);
   await prep(page, 'dark');
-  await page.goto(`/${slug}/presenters/${ids.get('Kwame')}`);
+  await page.goto(`/${slug}/people/${ids.get('Kwame')}`);
   const main = page.locator('main.sc-presenterpage');
   await expect(main.locator('h1')).toHaveText('Kwame');
   await expect(main.locator('.sc-lookpage-lede')).toHaveText('Lifestyle · twists and fade · athletic build');
@@ -353,7 +353,7 @@ test('0.17.0-select-several', async ({ page, request }) => {
   // a scene card is labelled with the scene's description
   const told = new Map<string, string>();
   for (const s of [...[...LAST_ROW].reverse(), ...ABOVE]) told.set(s, (await seedScene(request, id, s)).description);
-  await page.goto(`/${slug}/scenes`);
+  await page.goto(`/${slug}/places`);
   const compact = page.getByRole('radio', { name: /Compact/ });
   if (!(await compact.isChecked())) await compact.click();
   const cards = page.locator('.sc-owned .sc-lookcard');

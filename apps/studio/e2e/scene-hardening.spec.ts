@@ -50,7 +50,7 @@ async function tap(q: Locator, name: string) {
 /** A new scene conversation, on its first question. */
 async function start(p: Page): Promise<string> {
   const { slug } = await currentBrand(p);
-  await p.goto(`/${slug}/scenes/new`);
+  await p.goto(`/${slug}/places/new`);
   await arrived(p, '.sc-pstudio[data-kind="scene"]');
   await expect(turn(p, 'q:source')).toBeVisible();
   return slug;
@@ -92,7 +92,7 @@ async function guide(p: Page) {
 async function draw(p: Page) {
   const agree = openQ(p);
   await expect(agree).toContainText('What your shots are told');
-  await tap(agree, 'Draw the scene');
+  await tap(agree, 'Draw the place');
 }
 
 /** Drawn and named: the decide question on the floor. */
@@ -133,7 +133,7 @@ async function toSetStart(p: Page, sentence: string, name: string) {
   await place(p, sentence);
   await draw(p);
   await named(p, name);
-  await tap(openQ(p), 'Use this scene');
+  await tap(openQ(p), 'Use this place');
   await expect(openQ(p)).toHaveAttribute('data-turn', 'q:set-start', { timeout: 30_000 });
   return { slug, ...(await sceneRef(p, name)) };
 }
@@ -209,7 +209,7 @@ test.describe('a press still on its way', () => {
     await start(page);
     await guide(page);
     const held = await holdNext(page, START, 'POST');
-    await tap(openQ(page), 'Draw the scene');
+    await tap(openQ(page), 'Draw the place');
     // the server has the draw; its answer has not reached the page when the page goes
     await held.caught;
     await page.reload();
@@ -231,10 +231,10 @@ test.describe('a press still on its way', () => {
       await route.fetch();
       await route.abort('connectionreset');
     });
-    await tap(openQ(page), 'Use this scene');
+    await tap(openQ(page), 'Use this place');
     await expect.poll(() => scenesNamed(page, 'Lost Lobby')).toBe(1);
     // the studio says it did not work and offers Use again
-    const use = openQ(page).getByRole('button', { name: 'Use this scene', exact: true });
+    const use = openQ(page).getByRole('button', { name: 'Use this place', exact: true });
     await expect(use).toBeEnabled({ timeout: 10_000 });
     await use.click();
     await expect(turn(page, 'scenri:saved')).toBeVisible({ timeout: 15_000 });
@@ -249,12 +249,12 @@ test.describe('a press still on its way', () => {
     await draw(page);
     await named(page, 'Plinth X1');
     const held = await holdNext(page, /\/api\/brands\/[^/]+\/scenes$/, 'POST');
-    await tap(openQ(page), 'Use this scene');
+    await tap(openQ(page), 'Use this place');
     await held.caught;
     await line(page).focus();
     await page.keyboard.press('Escape');
     held.release();
-    await page.waitForURL(new RegExp(`/${slug}/scenes`));
+    await page.waitForURL(new RegExp(`/${slug}/places`));
     await page.waitForTimeout(1500);
     expect(await scenesNamed(page, 'Plinth X1')).toBe(1);
     await expect(page.locator(`.sc-lookcard[data-build]:has(a[href$="${convo}"])`)).toHaveCount(0);
@@ -266,13 +266,13 @@ test.describe('a press still on its way', () => {
     await guide(page);
     await draw(page);
     await named(page, 'Way Hall H14');
-    await tap(openQ(page), 'Use this scene');
+    await tap(openQ(page), 'Use this place');
     await expect(floorQ(page)).toHaveAttribute('data-turn', 'q:set-start', { timeout: 30_000 });
     await tap(floorQ(page), 'Draw it');
     await expect(floorQ(page)).toHaveAttribute('data-turn', /^q:set-(more|done)$/, { timeout: 60_000 });
     if ((await floorQ(page).getAttribute('data-turn')) === 'q:set-more') await tap(floorQ(page), 'Not now');
-    await tap(floorQ(page), 'Open scene');
-    await page.waitForURL(new RegExp(`/${slug}/scenes/us-[^/]+$`));
+    await tap(floorQ(page), 'Open place');
+    await page.waitForURL(new RegExp(`/${slug}/places/us-[^/]+$`));
     await page
       .getByRole('button', { name: /^Close-up.*, open$/ })
       .first()
@@ -367,7 +367,7 @@ test.describe('two tabs, and a second browser', () => {
     await draw(page);
     await expect(pill(page)).toHaveText('Stop');
     const wall = await context.newPage();
-    await wall.goto(`/${slug}/scenes`);
+    await wall.goto(`/${slug}/places`);
     const card = wall.locator(`.sc-lookcard[data-build]:has(a[href$="${convo}"])`);
     await expect(card).toBeVisible();
     await card.hover();
@@ -389,11 +389,11 @@ test.describe('leaving, and what is said afterwards', () => {
     const { slug } = await currentBrand(page);
     await goScenes(page);
     await page.locator('.sc-new-go').click();
-    await page.waitForURL(new RegExp(`/${slug}/scenes/new/[a-f0-9]+$`));
+    await page.waitForURL(new RegExp(`/${slug}/places/new/[a-f0-9]+$`));
     await arrived(page, '.sc-pstudio[data-kind="scene"]');
     await expect(turn(page, 'q:source')).toBeVisible();
     await studio(page).getByRole('button', { name: 'Close', exact: true }).click();
-    await page.waitForURL(new RegExp(`/${slug}/scenes$`));
+    await page.waitForURL(new RegExp(`/${slug}/places$`));
     await page.goBack();
     // one Back from the wall goes to where the wall was opened from, not to the wall again
     await expect(page).toHaveURL(new RegExp(`/${slug}$`));
@@ -406,7 +406,7 @@ test.describe('leaving, and what is said afterwards', () => {
     await draw(page);
     await named(page, 'Gone Hall');
     const at = new URL(page.url()).pathname;
-    await tap(openQ(page), 'Use this scene');
+    await tap(openQ(page), 'Use this place');
     await expect(live(page)).toHaveAttribute('data-turn', /^q:set-/, { timeout: 30_000 });
     const brand = await currentBrand(page);
     const scene = ((await brandJson(page.request, brand.id)).scenes ?? []).find((s: any) => s.name === 'Gone Hall');
@@ -439,13 +439,13 @@ test.describe('leaving, and what is said afterwards', () => {
     );
     await tap(openQ(page), 'Try again');
     const jobId = `scene:${(await (await startedAgain).json()).jobId}`;
-    const use = studio(page).getByRole('button', { name: 'Use this scene', exact: true });
+    const use = studio(page).getByRole('button', { name: 'Use this place', exact: true });
     await expect(use).toBeVisible({ timeout: 10_000 });
     await use.click();
     // saved at once; the person leaves while the new picture is still drawing
     await expect(turn(page, 'you:use')).toBeVisible({ timeout: 10_000 });
     await studio(page).getByRole('button', { name: 'Close', exact: true }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/scenes/new/'));
+    await page.waitForURL((u) => !u.pathname.includes('/places/new/'));
     const { brandId, sceneId } = await sceneRef(page, 'Six Hall');
     const row = async () =>
       ((await (await page.request.get(`/api/brands/${brandId}/activity`)).json()).studio as any[]).find(
@@ -459,7 +459,7 @@ test.describe('leaving, and what is said afterwards', () => {
     const bellRow = page.locator('.sc-notif-scroll a.sc-notif-row', { hasText: 'Six Hall' }).first();
     await expect(bellRow).toBeVisible();
     await bellRow.click();
-    await expect(page).toHaveURL(new RegExp(`/${slug}/scenes/${sceneId}$`));
+    await expect(page).toHaveURL(new RegExp(`/${slug}/places/${sceneId}$`));
     await expect(studio(page)).toHaveCount(0);
   });
 });
@@ -496,13 +496,13 @@ test.describe('a read that fails once', () => {
     await place(page, 'A marble bath ledge with a brass tap by a steamy window');
     await draw(page);
     await named(page, 'Ten Bath');
-    await tap(openQ(page), 'Use this scene');
+    await tap(openQ(page), 'Use this place');
     const offerSet = studio(page).locator('[data-turn="q:set-start"]:not([data-picked])');
     const done = studio(page).locator('[data-turn="q:set-done"]:not([data-picked])');
     await expect(offerSet.or(done)).toBeVisible({ timeout: 30_000 });
     if (await offerSet.isVisible()) await offerSet.getByRole('button', { name: 'Not now', exact: true }).click();
-    await done.getByRole('button', { name: 'Open scene', exact: true }).click({ timeout: 30_000 });
-    await page.waitForURL(new RegExp(`/${slug}/scenes/us-`));
+    await done.getByRole('button', { name: 'Open place', exact: true }).click({ timeout: 30_000 });
+    await page.waitForURL(new RegExp(`/${slug}/places/us-`));
     const offer = page.getByRole('button', { name: /^Draw it in use|^Draw them again/ });
     await expect(offer).toBeVisible({ timeout: 15_000 });
 
@@ -546,7 +546,7 @@ test.describe('a read that fails once', () => {
     });
     expect(ask.ok(), await ask.text()).toBe(true);
     // the page opened on a run already under way
-    await page.goto(`/${brand.slug}/scenes/${sceneId}`);
+    await page.goto(`/${brand.slug}/places/${sceneId}`);
     await expect(page.locator('.sc-scenepage, main').first()).toBeVisible();
     const atLoad = brandReads;
     let job: any;
@@ -579,9 +579,9 @@ test('a draw that fails to start hands the question back', async ({ page }) => {
     }
     return route.fallback();
   });
-  await tap(openQ(page), 'Draw the scene');
+  await tap(openQ(page), 'Draw the place');
   await expect.poll(() => failed).toBe(1);
-  const again = floorQ(page).getByRole('button', { name: 'Draw the scene', exact: true });
+  const again = floorQ(page).getByRole('button', { name: 'Draw the place', exact: true });
   await expect(again).toBeEnabled({ timeout: 10_000 });
   await expect(floorQ(page)).not.toHaveAttribute('data-picked');
   await again.click();

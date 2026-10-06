@@ -50,12 +50,12 @@ test('Learn is a quiet button beside the bell, and every lesson is in it', async
     'Make your first shot',
     'Add your product',
     'Use it again',
-    'Create a presenter',
-    'Build a scene',
+    'Create a person',
+    'Build a place',
     'Refine a shot',
   ]);
   // where each stands, in a few words: a count of steps, never a time
-  await expect(card(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText('5 steps');
+  await expect(card(page, 'Create a person').locator('.sc-learn-status')).toHaveText('5 steps');
   await expect(card(page, 'Make your first shot').locator('.sc-learn-next')).toHaveText('Next');
   await expect(learn(page).locator('.sc-learn-next')).toHaveCount(1);
   // nothing of their own to use again yet, so that one says what it starts from
@@ -67,19 +67,19 @@ test('Learn is a quiet button beside the bell, and every lesson is in it', async
 
   // one lesson beside the list: its steps as outcomes, and the one step
   // that can be pressed, which is how it begins
-  await card(page, 'Create a presenter').click();
-  await expect(page).toHaveURL(/learn=presenter/);
-  await expect(card(page, 'Create a presenter')).toHaveAttribute('aria-current', 'true');
+  await card(page, 'Create a person').click();
+  await expect(page).toHaveURL(/learn=person/);
+  await expect(card(page, 'Create a person')).toHaveAttribute('aria-current', 'true');
   // the lesson's steps are the walk's own moments, one for one
   await expect(learn(page).locator('.sc-learn-step-name')).toHaveText([
-    'Find where your presenters live',
+    'Find where your people live',
     'Start a new one',
     'Describe someone, or add photos',
     'Decide the face',
     'Save them to the brand',
   ]);
   await expect(learn(page).locator('button.sc-learn-step')).toHaveCount(1);
-  await expect(action(page, 'Start')).toHaveAccessibleName('Start: Find where your presenters live');
+  await expect(action(page, 'Start')).toHaveAccessibleName('Start: Find where your people live');
   // choosing another lesson moves nothing: the picture and the steps hold their place
   const at = async () => [
     await learn(page).locator('.sc-learn-hero').boundingBox(),
@@ -91,8 +91,8 @@ test('Learn is a quiet button beside the bell, and every lesson is in it', async
   await expect(learn(page).locator('.sc-learn-title')).toHaveText('Refine a shot');
   expect(await at()).toEqual(before);
   // a link to one lesson opens that lesson, and Escape closes it all
-  await page.goto(`/${slug}?learn=scene`);
-  await expect(learn(page).locator('.sc-learn-title')).toHaveText('Build a scene');
+  await page.goto(`/${slug}?learn=place`);
+  await expect(learn(page).locator('.sc-learn-title')).toHaveText('Build a place');
   await page.keyboard.press('Escape');
   await expect(learn(page)).toHaveCount(0);
   await expect(learnButton(page)).toBeFocused();
@@ -100,12 +100,12 @@ test('Learn is a quiet button beside the bell, and every lesson is in it', async
 });
 
 test('a lesson begun in Learn is paused and continued as it was', async ({ page }) => {
-  await page.goto(`/${slug}?learn=presenter`);
+  await page.goto(`/${slug}?learn=person`);
   await action(page, 'Start').click();
-  await walkTheWay(page, 'presenters', 'Your presenters live here');
-  await page.waitForURL('**/presenters');
-  await startNew(page, 'Start a new presenter');
-  await page.waitForURL('**/presenters/new**');
+  await walkTheWay(page, 'presenters', 'Your people live here');
+  await page.waitForURL('**/people');
+  await startNew(page, 'Start a new person');
+  await page.waitForURL('**/people/new**');
   await expect(page.locator('.sc-pstudio .sc-coach-title')).toHaveText('Describe someone, or start from photos', {
     timeout: 20_000,
   });
@@ -120,16 +120,16 @@ test('a lesson begun in Learn is paused and continued as it was', async ({ page 
   // they have found the studio: Learn says Continue on the question in hand
   await page.goto(`/${slug}`);
   await learnButton(page).click();
-  await expect(card(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText('Step 3 of 5');
+  await expect(card(page, 'Create a person').locator('.sc-learn-status')).toHaveText('Step 3 of 5');
   // Next stays on the first lesson that is not done, not the later one in hand
   await expect(card(page, 'Make your first shot').locator('.sc-learn-next')).toHaveText('Next');
-  await expect(card(page, 'Create a presenter').locator('.sc-learn-next')).toHaveCount(0);
-  await card(page, 'Create a presenter').click();
+  await expect(card(page, 'Create a person').locator('.sc-learn-next')).toHaveCount(0);
+  await card(page, 'Create a person').click();
   await expect(action(page, 'Continue')).toHaveAccessibleName('Continue: Describe someone, or add photos');
   // and taking it up again keeps the window it began with rather than
   // starting a new one: what the row says is not what the record holds
   await action(page, 'Continue').click();
-  await page.waitForURL('**/presenters/new**');
+  await page.waitForURL('**/people/new**');
   await expect(page.locator('.sc-pstudio .sc-coach-title')).toHaveText('Describe someone, or start from photos', {
     timeout: 20_000,
   });
@@ -140,25 +140,25 @@ test('a lesson begun in Learn is paused and continued as it was', async ({ page 
 
 test('a lesson done from Learn is done there, and can be done again', async ({ page }) => {
   test.setTimeout(90_000);
-  await page.goto(`/${slug}?learn=scene`);
+  await page.goto(`/${slug}?learn=place`);
   await action(page, 'Start').click();
-  await walkTheWay(page, 'scenes', 'Your scenes live here');
-  await page.waitForURL('**/scenes');
-  await startNew(page, 'Start a new scene');
-  await expect(page).toHaveURL(/\/scenes\/new\/[a-f0-9]+$/);
+  await walkTheWay(page, 'scenes', 'Your places live here');
+  await page.waitForURL('**/places');
+  await startNew(page, 'Start a new place');
+  await expect(page).toHaveURL(/\/places\/new\/[a-f0-9]+$/);
   await expect(coachTitle(page)).toHaveText('Describe the place, or start from pictures');
   const line = page.locator('.sc-pstudio[data-kind="scene"] .sc-pstudio-foot textarea');
   await line.fill('A quiet stone terrace in low sun, the subject resting on the balustrade, mist lying low');
   await line.press('Enter');
-  await page.getByRole('button', { name: 'Draw the scene' }).click();
-  await page.getByRole('button', { name: 'Use this scene' }).click();
+  await page.getByRole('button', { name: 'Draw the place' }).click();
+  await page.getByRole('button', { name: 'Use this place' }).click();
   await expect.poll(async () => (await guideRecord(page)).done.scene, { timeout: 60_000 }).toBeTruthy();
   await expect.poll(async () => (await guideRecord(page)).active, { timeout: 20_000 }).toBeNull();
 
   await page.goto(`/${slug}`);
   await learnButton(page).click();
-  await expect(card(page, 'Build a scene').locator('.sc-learn-status')).toHaveText('Done');
-  await card(page, 'Build a scene').click();
+  await expect(card(page, 'Build a place').locator('.sc-learn-status')).toHaveText('Done');
+  await card(page, 'Build a place').click();
   await expect(learn(page).locator('.sc-learn-step[data-state="done"]')).toHaveCount(5);
   await expect(action(page, 'Start again')).toBeVisible();
 });
@@ -245,7 +245,7 @@ test('using a saved product again is its own walk: the product, a place, the wor
   await page.locator('[data-guide="compose.add"]').click();
   await pickFromPicker(page, 'Product');
   await expect(coachTitle(page)).toHaveText('Put it somewhere else');
-  await pickFromPicker(page, 'Scene');
+  await pickFromPicker(page, 'Place');
   await expect(coachTitle(page)).toHaveText('Say how to shoot it, then make it');
   await page.keyboard.type('on a cold morning');
   await page.keyboard.press('Enter');
