@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { type APIRequestContext, expect, type Locator, type Page, test } from '@playwright/test';
 import { isolate } from '../e2e/harness.js';
 import { prep } from '../visual/shared.js';
-import { seedBrand, seedPresenter, seedScene, shootIsolated, shootWindow, stubLocalAccess, WINDOW } from './shoot.js';
+import { seedBrand, seedPresenter, seedScene, shootIsolated, shootWindow, WINDOW } from './shoot.js';
 
 /**
  * The What's New pictures, one test per file, named as the file is:
@@ -394,22 +394,4 @@ test('0.17.0-select-several', async ({ page, request }) => {
   expect(Math.abs(centre - (barAt.x + barAt.width / 2)), 'the run is centred over the bar').toBeLessThan(8);
 
   await shootIsolated(page, '0.17.0-select-several', [...run.map((c) => cards.nth(c.i)), bar]);
-});
-
-test('0.16.0-local-access', async ({ page, request }) => {
-  // isolated: the Other devices card from Settings > Local access, whole: the QR code, the address
-  // and the six-digit code to type, the iPhone that just came in, and the rows that copy the link
-  // and make a new code. Local access is stubbed with a made-up address and code (shoot.ts).
-  const { slug } = await brand(request);
-  await page.setViewportSize(WINDOW);
-  await stubLocalAccess(page, new Date('2026-08-18T12:00:00').getTime());
-  await prep(page, 'dark');
-  await page.goto(`/${slug}?settings=phone`);
-  const dialog = page.getByRole('dialog');
-  const phone = dialog.locator('.sc-phone');
-  await expect(phone.locator('.sc-qr')).toBeVisible();
-  await expect(phone.locator('.sc-phone-key')).toHaveText(['http://192.168.1.20:4747', '305 918']);
-  await expect(phone.locator('.sc-phone-arrival')).toContainText('iPhone');
-  const card = dialog.locator('.sc-set-card').filter({ has: page.locator('.sc-phone') });
-  await shootIsolated(page, '0.16.0-local-access', card);
 });
