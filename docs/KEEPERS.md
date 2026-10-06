@@ -6,7 +6,7 @@ Both live in Create. Neither is a place in the top bar.
 
 A Keeper is a Shot you marked. In Create, the **Keepers** tab shows only those, inside whatever you are already looking at: all Shots, or one Set.
 
-The same mark exists on a Product, a Presenter, and a Scene. On those pages the tab is also called **Keepers**. It is a shortlist for that library, not a copy of the Shot.
+The same mark exists on a Product, a Person, and a Place. On those pages the tab is also called **Keepers**. It is a shortlist for that library, not a copy of the Shot.
 
 Archiving a Shot clears the Keeper mark. Restore it from **Archived** if you put it away by mistake.
 

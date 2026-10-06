@@ -21,7 +21,7 @@ The full statement of what is stored and what is sent is [Privacy](../PRIVACY.md
 
 Your Brands, Shots, and keys stay in `.scenri`. Scenri does not upload them to itself.
 
-When you generate, the prompt and its reference images go from this computer to the one provider you connected, and nowhere else. That includes Product photos, Presenter views, the Scene, and a logo chip. Say that plainly: the pictures do leave the machine, to your provider, for that Shot.
+When you generate, the prompt and its reference images go from this computer to the one provider you connected, and nowhere else. That includes Product photos, Person views, the Place, and a logo chip. Say that plainly: the pictures do leave the machine, to your provider, for that Shot.
 
 On its own, Scenri makes two optional requests: a version check against npm every six hours, and the download of the example library from GitHub. Both can be turned off. Privacy names the smaller cases, including a Product's first photo going to Codex once so a size can be read.
 

@@ -4,7 +4,7 @@ The words Scenri uses. How to do each thing is on its own page.
 
 ## Brand
 
-**Brand.** One client or label. It has its own kit, Products, Presenters, Scenes, and Shots.
+**Brand.** One client or label. It has its own kit, Products, People, Places, and Shots.
 
 **Brand kit.** Name, logos, colours, and a short list of things the brand never shows. It lives in Settings, **Brand kit**. [Brand kit](BRAND.md).
 
@@ -14,15 +14,17 @@ The words Scenri uses. How to do each thing is on its own page.
 
 **Product.** Something the brand sells, saved from its own photos or imported from a store. A Shot sends those photos as reference images. The model redraws the Product from them. [Products](PRODUCTS.md).
 
-**Presenter.** A person the brand uses again. You describe someone, or start from photos, then approve the face Scenri draws. These docs say Presenter, which is the word in the app. [Presenters](PRESENTERS.md).
+**Person.** Someone the brand uses again. You describe someone, or start from photos, then approve the face Scenri draws. [People](PEOPLE.md).
 
-**Scene.** The place, the light, and the treatment. It is not the person. A Scene can be shot with nobody in it. [Scenes](SCENES.md).
+**Place.** The setting, the light, and the treatment. It is not the person. A Place can be shot with nobody in it. [Places](PLACES.md).
 
-**Library.** What you can pick: 30 Products, 19 Presenters, and 42 Scenes that ship with Scenri, plus the ones you make. The Home wall has 110 example Shots made from that library. Open one and it loads back into the line.
+Before version 0.22, People were called Presenters and Places were called Scenes. Nothing you made changed.
+
+**Library.** What you can pick: 30 Products, 19 People, and 42 Places that ship with Scenri, plus the ones you make. The Home wall has 110 example Shots made from that library. Open one and it loads back into the line.
 
 ## A Shot
 
-**The line.** What you write in Create. `$` is a Product, `@` a Presenter, `/` a Scene, `#` a colour. Each becomes a chip. **+** adds a logo, a finished Shot, or a picture of your own. One Shot holds up to 12 of those identities together. [Create a Shot](CREATE.md).
+**The line.** What you write in Create. `$` is a Product, `@` a Person, `/` a Place, `#` a colour. Each becomes a chip. **+** adds a logo, a finished Shot, or a picture of your own. One Shot holds up to 12 of those identities together. [Create a Shot](CREATE.md).
 
 **Shot.** One picture, one card. Asking for 2, 3, or 4 makes that many cards.
 
@@ -32,7 +34,7 @@ The words Scenri uses. How to do each thing is on its own page.
 
 ## Order
 
-**Keepers.** Shots you mark, and the same mark on a Product, Presenter, or Scene. Create has a Keepers tab. Each library page has one too. [Keepers and sets](KEEPERS.md).
+**Keepers.** Shots you mark, and the same mark on a Product, Person, or Place. Create has a Keepers tab. Each library page has one too. [Keepers and sets](KEEPERS.md).
 
 **Archived.** Put away, not deleted. An archived Shot leaves All and Keepers until you restore it.
 

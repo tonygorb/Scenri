@@ -17,7 +17,7 @@ Images then run on the ChatGPT plan you already pay for. Scenri adds nothing to 
 
 Scenri needs Codex CLI 0.157.1 or newer. It uses `gpt-6-sol` when your plan offers that model, and Codex's own default when it does not. If your CLI is older, the check says so and shows the update command. [Troubleshooting](TROUBLESHOOTING.md) covers a CLI that looks installed but is too old, and the Windows cases.
 
-Codex carries up to 5 reference images on a Shot. That is why it is the one to use when a Shot has to hold a Product and a Presenter.
+Codex carries up to 5 reference images on a Shot. That is why it is the one to use when a Shot has to hold a Product and a Person.
 
 ## A key, if you do not have a ChatGPT plan
 
@@ -29,9 +29,9 @@ Settings, **Providers**. Pick one and paste the key. You create the key on the p
 | fal | [fal.ai/dashboard/keys](https://fal.ai/dashboard/keys) | none | about $0.006 an image, billed per megapixel |
 | Replicate | [replicate.com/account/api-tokens](https://replicate.com/account/api-tokens) | none | about $0.003 an image |
 
-OpenRouter draws with `google/gemini-2.5-flash-image`. Pick it when the Shot names a Product or a Presenter and you are not on Codex.
+OpenRouter draws with `google/gemini-2.5-flash-image`. Pick it when the Shot names a Product or a Person and you are not on Codex.
 
-Replicate and fal carry no reference images. Scenri refuses a Shot that names a Product or a Presenter on them, rather than drawing a stand-in. A logo on those two rides as words, and the composer says so before you send.
+Replicate and fal carry no reference images. Scenri refuses a Shot that names a Product or a Person on them, rather than drawing a stand-in. A logo on those two rides as words, and the composer says so before you send.
 
 You pay the provider directly. A monthly spend cap per paid provider is on the same Settings page. Generation stops before a cap is crossed.
 

@@ -19,10 +19,10 @@ Anything that would break one of those is out of scope, however useful it sounds
 - Brand kits, drafted from a website URL (name, logo, palette, and the site's products when it sells any) or built from scratch
 - The `.brand` open format, with a JSON Schema and a validator
 - Products from your own photos, or imported from a store: Shopify, WooCommerce, Webflow, and a generic sitemap and JSON-LD reader
-- Presenters made in a short conversation: describe a person or start from photos of one, approve the face, then the views built from it; edits are saved as revisions
-- Scenes made the same way, from a sentence, a few guided questions, pictures of a place or one of your own shots, drawn as the place and the place in use
-- A library to start from: demo products, presenters and scenes, and a wall of worked examples on Home that each reopen as the prompt that made them
-- A composer where `$` reaches for a product, `@` a presenter, `/` a scene and `#` a colour
+- People made in a short conversation: describe a person or start from photos of one, approve the face, then the views built from it; edits are saved as revisions
+- Places made the same way, from a sentence, a few guided questions, pictures of a place or one of your own shots, drawn as the place and the place in use
+- A library to start from: demo products, people and places, and a wall of worked examples on Home that each reopen as the prompt that made them
+- A composer where `$` reaches for a product, `@` a person, `/` a place and `#` a colour
 - Refinement: say what to change, and every step stays on the shot's trail; star the keepers
 - Downloads of any picture, an export of the whole library, and `.brand` export
 - The cost of each shot on paid providers, and a monthly spend cap per provider
@@ -42,7 +42,7 @@ Anything that would break one of those is out of scope, however useful it sounds
 
 - Choosing by hand the region an edit may change (today a local edit finds its region itself, and restores everything outside it from the original)
 - Batch generation across a product catalog
-- A documented plugin surface for scenes
+- A documented plugin surface for places
 - A published `.brand` spec site, so the format can be adopted independently of this app
 
 ## Not planned
