@@ -3,6 +3,7 @@ import { WarningCircle } from '@phosphor-icons/react';
 import { api, type SceneView, thumbOf, tileSrcSet } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useApplyScene } from '../app/useApplyScene.js';
+import { COPY } from '../create/scene/sceneCopy.js';
 import { type CustomScene, coverViewOf } from '../brandAssets.js';
 import { ImageLightbox } from '../composer/ImageLightbox.js';
 import { FRAMINGS, SETUPS_MAX } from '../create/scene/sceneSetups.js';
@@ -143,7 +144,7 @@ export function SceneExamples({
   const place: Open | null = scene.placeUrl
     ? {
         src: scene.placeUrl,
-        label: 'The place',
+        label: COPY.emptyLabel,
         view: 'place',
         ...(scene.previewHash ? { hash: scene.previewHash } : {}),
       }

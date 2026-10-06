@@ -34,7 +34,7 @@ export function PresenterStudioRoute() {
   const { brand } = useBrand();
   const navigate = useNavigate();
   const { announce, caps } = useCreateFlow();
-  useTitleEntity('Create presenter');
+  useTitleEntity('Create person');
   // A save resolves after an await. If the studio was closed meanwhile, the
   // person is somewhere else now, and the answer must not pull them back.
   const mounted = useRef(false);

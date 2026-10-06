@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router';
 import { api, type ActivityNode, type AssetBuild, type Brand, type StudioWork } from '../api.js';
 import { spendAssetDraft } from '../createDraft.js';
 import { useToasts } from '../toasts.js';
-import { hubPath } from '../routes.js';
+import { hubPath, seedQuery } from '../routes.js';
 import { freshSeed } from '../draft.js';
 import { useAppData } from './AppShell.js';
 import {
@@ -434,14 +434,14 @@ export function TaskCenterProvider({
           actions: href
             ? [
                 {
-                  label: n.kind === 'presenter' ? 'View presenter' : 'View scene',
+                  label: n.kind === 'presenter' ? 'View person' : 'View place',
                   onClick: () => navRef.current(href),
                 },
                 {
                   label: 'Use in a shot',
                   onClick: () =>
                     navRef.current(
-                      `${hub}?${n.kind === 'presenter' ? 'presenter' : 'scene'}=${assetId}&compose=1${freshSeed()}`,
+                      `${hub}?${seedQuery(n.kind === 'presenter' ? 'presenter' : 'scene', assetId ?? '')}&compose=1${freshSeed()}`,
                     ),
                 },
               ]

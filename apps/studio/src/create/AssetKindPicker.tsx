@@ -28,20 +28,36 @@ const KINDS: {
   label: string;
   line: string;
   noun: string;
+  nouns: string;
   icon: typeof Package;
 }[] = [
-  { kind: 'product', label: 'Product', line: 'What you are photographing', noun: 'product', icon: Package },
+  {
+    kind: 'product',
+    label: 'Product',
+    line: 'What you are photographing',
+    noun: 'product',
+    nouns: 'products',
+    icon: Package,
+  },
   {
     kind: 'presenter',
-    label: 'Presenter',
+    label: 'Person',
     line: 'Who appears in the shot',
-    noun: 'presenter',
+    noun: 'person',
+    nouns: 'people',
     icon: IdentificationBadge,
   },
-  { kind: 'scene', label: 'Scene', line: 'Where it takes place', noun: 'scene', icon: FilmSlate },
+  {
+    kind: 'scene',
+    label: 'Place',
+    line: 'Where it happens, and its light',
+    noun: 'place',
+    nouns: 'places',
+    icon: FilmSlate,
+  },
 ];
 
-const held = (n: number, noun: string) => (n === 0 ? 'None yet' : `${n} ${noun}${n === 1 ? '' : 's'}`);
+const held = (n: number, noun: string, nouns: string) => (n === 0 ? 'None yet' : `${n} ${n === 1 ? noun : nouns}`);
 
 export function AssetKindPicker({ suggest, onPick }: { suggest: CreateKind | null; onPick: (k: CreateKind) => void }) {
   const listRef = useRef<HTMLDivElement>(null);
@@ -77,7 +93,7 @@ export function AssetKindPicker({ suggest, onPick }: { suggest: CreateKind | nul
 
       <div className="sc-newdlg-body">
         <div className="sc-pickgrid" ref={listRef}>
-          {KINDS.map(({ kind, label, line, noun, icon: Icon }) => {
+          {KINDS.map(({ kind, label, line, noun, nouns, icon: Icon }) => {
             const { url, count, own } = preview[kind];
             return (
               <button
@@ -86,7 +102,7 @@ export function AssetKindPicker({ suggest, onPick }: { suggest: CreateKind | nul
                 className="sc-pick"
                 data-kind={kind}
                 onClick={() => onPick(kind)}
-                aria-label={`${label}. ${line}. ${held(count, noun)}.`}
+                aria-label={`${label}. ${line}. ${held(count, noun, nouns)}.`}
               >
                 <span className="sc-pick-media">
                   {url ? (
@@ -104,7 +120,7 @@ export function AssetKindPicker({ suggest, onPick }: { suggest: CreateKind | nul
                   <b>{label}</b>
                   <small>{line}</small>
                 </span>
-                <span className="sc-pick-count">{held(count, noun)}</span>
+                <span className="sc-pick-count">{held(count, noun, nouns)}</span>
               </button>
             );
           })}

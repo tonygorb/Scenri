@@ -28,19 +28,25 @@ export const P = {
   kit: '/:brandSlug/kit',
   products: '/:brandSlug/products',
   product: '/:brandSlug/products/:productId',
-  scenes: '/:brandSlug/scenes',
   /**
-   * The scene studio, a place like the presenter's: the picture has to be
+   * Places. In code a place is still a scene (the brand document's `scenes[]`,
+   * the API, the types): only the words a person reads and the address they
+   * hold moved, in 0.22. The old `/scenes` address redirects (`legacyScenes`).
+   */
+  scenes: '/:brandSlug/places',
+  /**
+   * The scene studio, a page like the presenter's: the picture has to be
    * judged at a size a dialog cannot give it, and editing a scene is the same
    * surface, so both have an address. The static `new` outranks `:sceneId`.
    * The last segment is the conversation, minted on the way in: work started in
    * it outlives the page, and Back, a reload or Activity lands on it again.
    */
-  sceneStudio: '/:brandSlug/scenes/new/:convoId?',
-  scene: '/:brandSlug/scenes/:sceneId',
+  sceneStudio: '/:brandSlug/places/new/:convoId?',
+  scene: '/:brandSlug/places/:sceneId',
   /** The same studio over a saved scene's own page, seeded from its record. */
-  sceneEdit: '/:brandSlug/scenes/:sceneId/edit/:convoId?',
-  presenters: '/:brandSlug/presenters',
+  sceneEdit: '/:brandSlug/places/:sceneId/edit/:convoId?',
+  /** People. In code a person is still a presenter, the way a place is a scene. */
+  presenters: '/:brandSlug/people',
   /**
    * The presenter studio is a place, not a dialog: a person takes minutes,
    * five drawn views and a draft that outlives the session, so the draft
@@ -49,10 +55,10 @@ export const P = {
    * draft keeps the studio mounted and the sentence in it. The static `new`
    * outranks `:presenterId`, so the two never collide.
    */
-  presenterStudio: '/:brandSlug/presenters/new/:draftId?',
-  presenter: '/:brandSlug/presenters/:presenterId',
+  presenterStudio: '/:brandSlug/people/new/:draftId?',
+  presenter: '/:brandSlug/people/:presenterId',
   /** The editor: the same studio surface over the presenter's own page, with a session seeded from the record. */
-  presenterEdit: '/:brandSlug/presenters/:presenterId/edit',
+  presenterEdit: '/:brandSlug/people/:presenterId/edit',
   hub: '/:brandSlug/create',
   hubShot: '/:brandSlug/create/shots/:shotId',
   set: '/:brandSlug/sets/:setSlug',
@@ -66,6 +72,9 @@ export const P = {
   whatsNew: '/:brandSlug/whats-new',
   /** The whole of the old `/b/` scheme. Only the redirect shim matches it. */
   legacy: '/b/*',
+  /** The addresses People and Places had before 0.22. Only the redirect shim matches them. */
+  legacyPresenters: '/:brandSlug/presenters/*',
+  legacyScenes: '/:brandSlug/scenes/*',
   notFound: '*',
 } as const;
 
@@ -150,8 +159,44 @@ function legacyTail(rest: string[]): string {
   if (head === 'p') return '/create';
   // a shot that predates the overlay moving under the hub
   if (head === 'n' && a) return `/create/shots/${a}`;
-  // scenes (formerly looks) were always spelled out, and anything unrecognised
-  // is left alone so a future segment does not have to be taught to this
-  // function to survive it
-  return rest.length ? `/${rest.join('/')}` : '';
+  // people and places were always spelled out (once as presenters and scenes,
+  // and scenes once as looks), and anything unrecognised is left alone so a
+  // future segment does not have to be taught to this function to survive it
+  return rest.length ? `/${[RENAMED[head] ?? head, ...rest.slice(1)].join('/')}` : '';
+}
+
+/**
+ * The words a link seeds a brief with. Since 0.22 a link says `?person=` and
+ * `?place=`; one from before says `?presenter=` and `?scene=`, and still works.
+ * Read a seed through `seedParam`, never `params.get`, and drop it through
+ * `SEED_KEYS`, so neither spelling is left behind in the address.
+ */
+const SEED = { presenter: 'person', scene: 'place' } as const;
+export const seedParam = (params: URLSearchParams, kind: keyof typeof SEED): string | null =>
+  params.get(SEED[kind]) ?? params.get(kind);
+export const SEED_KEYS = ['person', 'presenter', 'place', 'scene'] as const;
+/** `?person=<id>`: the canonical spelling every writer uses. */
+export const seedQuery = (kind: keyof typeof SEED, id: string): string => `${SEED[kind]}=${encodeURIComponent(id)}`;
+
+/** `?attach=places` opens the add panel on Places; `scenes` is the spelling from before 0.22. */
+export const attachTabOf = (value: string | null): 'Places' | 'Products' | undefined =>
+  value === 'places' || value === 'scenes' ? 'Places' : value === 'products' ? 'Products' : undefined;
+
+/** `?new=person` and `?new=place` (and `presenter`/`scene` from before 0.22): the studios have addresses now. */
+export const studioOfNew = (value: string | null): 'presenter' | 'scene' | null =>
+  value === 'person' || value === 'presenter' ? 'presenter' : value === 'place' || value === 'scene' ? 'scene' : null;
+
+/** The sections renamed in 0.22, by the segment they used to have. */
+const RENAMED: Record<string, string> = { presenters: 'people', scenes: 'places' };
+
+/**
+ * `/<brand>/presenters/…` and `/<brand>/scenes/…`, as `/<brand>/people/…` and
+ * `/<brand>/places/…`. Everything after the section (an id, `new`, a draft or a
+ * conversation, `edit`) and the query and hash travel unchanged, because only
+ * the section's name changed. Stored notification hrefs and bookmarks from
+ * 0.21 and earlier are the reason this exists.
+ */
+export function rewriteRenamedPath(pathname: string, search = '', hash = ''): string {
+  const [, brandSlug, head, ...rest] = pathname.split('/');
+  return `/${[brandSlug, RENAMED[head] ?? head, ...rest].join('/')}${search}${hash}`;
 }

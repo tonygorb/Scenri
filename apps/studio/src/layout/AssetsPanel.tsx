@@ -325,7 +325,7 @@ export function AssetsPanel({
 
       <Section
         kind="presenter"
-        title="Presenters"
+        title="People"
         items={found.presenter}
         attached={attached.presenter}
         mode={modeOf('presenter')}
@@ -333,14 +333,14 @@ export function AssetsPanel({
         onPick={(id) => onToken({ t: 'character', id })}
         onUnpick={(id) => offToken({ t: 'character', id })}
         full={full}
-        moreLabel="presenters"
-        createLabel="Create presenter"
+        moreLabel="people"
+        createLabel="Create person"
         onCreate={() => createAsset('presenter', { onCreated: () => reveal('presenter') })}
       />
 
       <Section
         kind="scene"
-        title="Scenes"
+        title="Places"
         items={found.scene}
         attached={attached.scene ? [attached.scene] : []}
         mode={modeOf('scene')}
@@ -348,8 +348,8 @@ export function AssetsPanel({
         onPick={onTemplate}
         onUnpick={() => offTemplate()}
         full={full}
-        moreLabel="scenes"
-        createLabel="Create scene"
+        moreLabel="places"
+        createLabel="Create place"
         onCreate={() =>
           createAsset('scene', {
             onCreated: (made) => {

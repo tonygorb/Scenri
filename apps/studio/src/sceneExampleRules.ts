@@ -25,13 +25,20 @@ export const EXAMPLE_LABEL: Record<SceneExampleRole, string> = {
  * one short word each, since the chip already shows the picture.
  */
 export const VIEW_CHIP_NAME: Record<SceneView, string> = {
-  place: 'Place',
+  place: 'Empty',
   hero: 'Hero',
   close: 'Close-up',
   hands: 'Hands',
   angle: 'Angle',
   bold: 'Bold',
 };
+
+/**
+ * A chip's view name as a person reads it today. A brief keeps the name its
+ * chip was given, and the empty picture was "Place" until 0.22, when the
+ * Scene it belongs to became a Place: that one reads as today's word.
+ */
+export const chipViewName = (stored: string): string => (stored === 'Place' ? VIEW_CHIP_NAME.place : stored);
 
 /** What the role is called inside a sentence ("Drawing the close-up"). */
 const IN_A_SENTENCE: Record<SceneExampleRole, string> = {

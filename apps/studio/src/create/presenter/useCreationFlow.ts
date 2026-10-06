@@ -1476,7 +1476,7 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
         ? () => void s.revert(view)
         : null,
     surface: {
-      title: 'Create presenter',
+      title: 'Create person',
       // one conversation per draft: a second person started in the same tab is
       // a new conversation and arrives line by line, not already said
       memoryKey: `presenter-create:${brand.id}:${convoKey}`,

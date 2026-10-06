@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useBrand } from './BrandLayout.js';
-import { hubPath } from '../routes.js';
+import { hubPath, seedQuery } from '../routes.js';
 import { freshSeed } from '../draft.js';
 import type { SceneView } from '../api.js';
 
@@ -32,7 +32,7 @@ export function useApplyScene(): (sceneId: string, setup?: string, picture?: str
       // chosen, and the chip carries it from there.
       const way = setup ? `&setup=${encodeURIComponent(setup)}` : '';
       const pic = picture ? `&ref=${encodeURIComponent(picture)}${view ? `&view=${view}` : ''}` : '';
-      navigate(`${hub}?scene=${encodeURIComponent(sceneId)}${way}${pic}&compose=1${freshSeed()}`);
+      navigate(`${hub}?${seedQuery('scene', sceneId)}${way}${pic}&compose=1${freshSeed()}`);
     },
     [hub, navigate],
   );

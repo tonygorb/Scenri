@@ -641,7 +641,7 @@ function setTurns(T: Turn[], args: FlowArgs) {
  */
 function setQuestion(args: FlowArgs): Question | null {
   const { set, studio } = args;
-  const name = studio.name.trim() || current(studio)?.reading.name || 'The scene';
+  const name = studio.name.trim() || current(studio)?.reading.name || 'The place';
   if (!set) return null;
   if (set.running || !set.read) return null;
   const cameWith = heroCameWith(args);

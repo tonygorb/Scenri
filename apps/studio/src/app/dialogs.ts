@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { SETTINGS_INDEX } from '../views/settingsPages.js';
+import { lessonAddress } from '../lessons.js';
 import { useDialogParam } from './AppShell.js';
 
 /**
@@ -70,7 +71,7 @@ export const learnOpener = { current: null as 'help' | null };
 /** Learn: every lesson, or one of them by its task (views/LearnDialog.tsx). */
 export function useOpenLearn() {
   const { open } = useDialogParam('learn');
-  return useCallback((lesson: string = 'lessons') => open(lesson), [open]);
+  return useCallback((lesson: string = 'lessons') => open(lessonAddress(lesson)), [open]);
 }
 
 const DEFAULT_SETUP_ENGINE = 'codex-cli';

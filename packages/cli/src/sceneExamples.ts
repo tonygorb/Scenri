@@ -669,7 +669,7 @@ export function createSceneExamples(deps: SceneExamplesDeps): SceneExamples {
       .map((s) => hashOf(s.file))
       .filter((h): h is string => !!h && deps.core.images.has(h))
       .slice(0, 3);
-    if (!refs.length) throw new Error("Scenri's library of demo presenters has not downloaded yet.");
+    if (!refs.length) throw new Error("Scenri's library of demo people has not downloaded yet.");
     return {
       refs,
       name: String(who?.promptName ?? who?.name ?? 'the person'),
@@ -967,14 +967,14 @@ export function createSceneExamples(deps: SceneExamplesDeps): SceneExamples {
     placeChanged,
     start(brandId, sceneId, roles, named = false) {
       const scene = sceneOf(brandId, sceneId);
-      if (!scene) throw Object.assign(new Error('scene not found'), { statusCode: 404 });
+      if (!scene) throw Object.assign(new Error('place not found'), { statusCode: 404 });
       if (!scene.preview)
-        throw Object.assign(new Error('this scene has no picture to draw from yet'), { statusCode: 409 });
+        throw Object.assign(new Error('this place has no picture to draw from yet'), { statusCode: 409 });
       const job = begin(brandId, sceneId, [...new Set(roles)], scene, named);
       if (!job) {
         const why = standInsOf(scene, deps.demoProducts, deps.presenters)
           ? "Scenri's library has not downloaded yet, so it cannot be shown in use for now."
-          : "Nothing in Scenri's library fits this scene yet.";
+          : "Nothing in Scenri's library fits this place yet.";
         throw Object.assign(new Error(why), { statusCode: 409 });
       }
       return job;

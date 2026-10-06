@@ -83,8 +83,8 @@ export function briefChanges(from: Brief, to: Brief, names: TokenNames): string[
   };
 
   swapped('product', names.product, 'product', 'a product');
-  swapped('character', names.person, 'presenter', 'a presenter');
-  swapped('template', names.scene, 'scene', 'a scene');
+  swapped('character', names.person, 'person', 'a person');
+  swapped('template', names.scene, 'place', 'a place');
 
   // colours and references are counted rather than named: a hex is not a thing
   // anyone recognises in a sentence, and "two references" is the useful fact
@@ -160,9 +160,9 @@ export function briefProse(node: FeedNode, names: ProseNames): string {
         case 'product':
           return names.product(String(t.id)) ?? 'a product';
         case 'character':
-          return names.person(String(t.id)) ?? 'a presenter';
+          return names.person(String(t.id)) ?? 'a person';
         case 'template':
-          return names.scene(String(t.id)) ?? 'a scene';
+          return names.scene(String(t.id)) ?? 'a place';
         case 'color':
           return String(t.name ?? t.hex ?? '');
         case 'ref':

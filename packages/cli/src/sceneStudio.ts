@@ -234,7 +234,7 @@ export function nameFromWords(words: string): string {
     .filter(Boolean)
     .slice(0, 4)
     .join(' ');
-  if (!cut) return 'New scene';
+  if (!cut) return 'New place';
   return (cut.charAt(0).toUpperCase() + cut.slice(1)).slice(0, 60);
 }
 
@@ -248,7 +248,7 @@ export function nameFromWords(words: string): string {
 export function readingFrom(raw: unknown): { ok: true; reading: SceneReading } | { ok: false; error: string } {
   const r = (raw ?? {}) as Record<string, any>;
   const built = sceneRecordFrom({
-    name: oneLine(r.name, 60) || 'New scene',
+    name: oneLine(r.name, 60) || 'New place',
     promptName: r.promptName,
     prompt: r.prompt,
     lighting: r.lighting,
@@ -587,7 +587,7 @@ export function startSceneStudioJob(deps: AssetBuildDeps, input: StudioJobInput)
     attachFrom: null,
     conversation,
     sceneId: oneLine(input.sceneId, 80) || null,
-    label: oneLine(input.label, 60) || reading?.name || nameFromWords(instruction) || 'New scene',
+    label: oneLine(input.label, 60) || reading?.name || nameFromWords(instruction) || 'New place',
   };
   jobs.set(job.id, job);
   prune(input.brandId);
@@ -760,9 +760,9 @@ async function run(deps: AssetBuildDeps, job: SceneStudioJob, input: StudioJobIn
       if (job.attachTo) {
         const landed = landOn(deps, job.brandId, job.attachTo, hash, job.attachFrom, job.anchor, heroOf(job));
         if (landed === 'gone')
-          patch(job, { warnings: [...job.warnings, 'The scene was gone before its picture landed.'] });
+          patch(job, { warnings: [...job.warnings, 'The place was gone before its picture landed.'] });
         if (landed === 'moved')
-          patch(job, { warnings: [...job.warnings, 'The scene had a new picture by then, so it kept that one.'] });
+          patch(job, { warnings: [...job.warnings, 'The place had a new picture by then, so it kept that one.'] });
       }
     }
     patch(job, { status: 'done', phase: null, finishedAt: now() });

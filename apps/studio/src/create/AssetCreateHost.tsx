@@ -5,7 +5,16 @@ import { useAppData, useDialogParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import type { CreateKind, PendingState } from '../createDraft.js';
-import { P, hubPath, presenterStudioPath, productPath, scenePath, sceneStudioPath } from '../routes.js';
+import {
+  P,
+  hubPath,
+  presenterStudioPath,
+  productPath,
+  scenePath,
+  sceneStudioPath,
+  seedQuery,
+  studioOfNew,
+} from '../routes.js';
 import { useToasts } from '../toasts.js';
 import { AssetKindPicker } from './AssetKindPicker.js';
 import { ProductForm } from './ProductForm.js';
@@ -40,7 +49,7 @@ import { freshSeed } from '../draft.js';
 
 const CHOOSER = '1';
 /** What each flow is called in a sentence about what just happened. */
-const LABEL: Record<CreateKind, string> = { product: 'Product', presenter: 'Presenter', scene: 'Scene' };
+const LABEL: Record<CreateKind, string> = { product: 'Product', presenter: 'Person', scene: 'Place' };
 const KINDS = ['product', 'presenter', 'scene'] as const;
 const isKind = (v: string | null): v is CreateKind => !!v && (KINDS as readonly string[]).includes(v);
 
@@ -157,8 +166,9 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
   // the address the studio had before it was a place: forwarded, so a
   // bookmark, a notification or an older link still lands in it
   useEffect(() => {
-    if (value === 'presenter') navigate(presenterStudioPath(brand), { replace: true });
-    if (value === 'scene') navigate(sceneStudioPath(brand), { replace: true });
+    const studio = studioOfNew(value);
+    if (studio === 'presenter') navigate(presenterStudioPath(brand), { replace: true });
+    if (studio === 'scene') navigate(sceneStudioPath(brand), { replace: true });
   }, [value, navigate, brand]);
 
   const close = useCallback(() => {
@@ -297,7 +307,7 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
           actions: [
             {
               label: 'Use in a shot',
-              onClick: () => navigate(`${hubPath(brand)}?presenter=${made.id}&compose=1${freshSeed()}`),
+              onClick: () => navigate(`${hubPath(brand)}?${seedQuery('presenter', made.id)}&compose=1${freshSeed()}`),
             },
           ],
         });
@@ -316,7 +326,7 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
           { label: 'Open', onClick: () => navigate(scenePath(brand, made.id)) },
           {
             label: 'Use in a shot',
-            onClick: () => navigate(`${hubPath(brand)}?scene=${made.id}&compose=1${freshSeed()}`),
+            onClick: () => navigate(`${hubPath(brand)}?${seedQuery('scene', made.id)}&compose=1${freshSeed()}`),
           },
         ],
       });

@@ -47,8 +47,8 @@ export const LESSONS: readonly Lesson[] = [
     milestones: [
       { label: 'Open Create', moments: ['go'] },
       { label: 'Choose a product', moments: ['product'] },
-      { label: 'Choose a presenter', moments: ['presenter'] },
-      { label: 'Choose a scene', moments: ['scene'] },
+      { label: 'Choose a person', moments: ['presenter'] },
+      { label: 'Choose a place', moments: ['scene'] },
       { label: 'Say how to shoot it, then make it', moments: ['make', 'sending', 'waiting', 'failed'] },
       { label: 'Open your shot', moments: ['result'] },
     ],
@@ -80,11 +80,11 @@ export const LESSONS: readonly Lesson[] = [
   },
   {
     id: 'presenter',
-    title: 'Create a presenter',
+    title: 'Create a person',
     summary:
       'One person Scenri keeps, invented question by question or built from photos of someone real, who stays the same face across every shot you put them in.',
     milestones: [
-      { label: 'Find where your presenters live', moments: ['go'] },
+      { label: 'Find where your people live', moments: ['go'] },
       { label: 'Start a new one', moments: ['new'] },
       { label: 'Describe someone, or add photos', moments: ['start'] },
       { label: 'Decide the face', moments: ['face'] },
@@ -93,10 +93,10 @@ export const LESSONS: readonly Lesson[] = [
   },
   {
     id: 'scene',
-    title: 'Build a scene',
-    summary: 'A place and its light, saved to shoot in again, from pictures of it or a few questions.',
+    title: 'Build a place',
+    summary: 'A setting and its light, saved to shoot in again, from pictures of it or a few questions.',
     milestones: [
-      { label: 'Find where your scenes live', moments: ['go'] },
+      { label: 'Find where your places live', moments: ['go'] },
       { label: 'Start a new one', moments: ['new'] },
       { label: 'Describe the place, or add pictures', moments: ['start'] },
       { label: 'Read what your shots are told', moments: ['words'] },
@@ -133,8 +133,17 @@ export const NEEDS: Record<'shot' | 'product', { note: string; action: string; s
 };
 
 export function lessonOf(id: string | null | undefined): Lesson | null {
-  return LESSONS.find((l) => l.id === id) ?? null;
+  return LESSONS.find((l) => l.id === id || lessonAddress(l.id) === id) ?? null;
 }
+
+/**
+ * A lesson's address (`?learn=<address>`). It is the lesson's id, except for
+ * the two whose section was renamed in 0.22: their ids stay `presenter` and
+ * `scene` because progress is kept under them, and the address says what the
+ * page says. `lessonOf` reads either spelling, so an older link still opens.
+ */
+const RENAMED_ADDRESS: Record<string, string> = { presenter: 'person', scene: 'place' };
+export const lessonAddress = (id: string): string => RENAMED_ADDRESS[id] ?? id;
 
 export type LessonState = 'new' | 'active' | 'done';
 

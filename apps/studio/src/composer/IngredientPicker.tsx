@@ -23,7 +23,7 @@ import { presenterPath, productPath, scenePath } from '../routes.js';
 import { thumbOf, type SceneView } from '../api.js';
 import type { SceneViewOption } from './useSceneViews.js';
 import { panelStyle, placePanel, SCENE_PANEL_MAX_H, type Placed } from './anchorPanel.js';
-import { NOUN, PAGE, pickList, type Candidate, type IngredientKind } from './ingredientOptions.js';
+import { NOUN, NOUNS, PAGE, pickList, type Candidate, type IngredientKind } from './ingredientOptions.js';
 
 /**
  * Change the product, presenter or scene a chip already holds.
@@ -82,7 +82,7 @@ export interface PickerProps {
   onRemove?: () => void;
   onClose: (reason: CloseReason) => void;
   /** For a scene warned that it builds around a product or a person. */
-  onAttachRequest?: (tab: 'Products' | 'Presenters') => void;
+  onAttachRequest?: (tab: 'Products' | 'People') => void;
   /** Step the chip through the sentence; the sheet's touch reorder path. */
   onMove?: (dir: -1 | 1) => void;
   /**
@@ -254,6 +254,7 @@ function PickerBody({
   };
 
   const noun = NOUN[kind];
+  const nouns = NOUNS[kind];
   /**
    * Whether a card carries a second line.
    *
@@ -284,8 +285,8 @@ function PickerBody({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={`Search ${noun}s`}
-            aria-label={`Search ${noun}s`}
+            placeholder={`Search ${nouns}`}
+            aria-label={`Search ${nouns}`}
             autoComplete="off"
             spellCheck={false}
           />
@@ -367,13 +368,14 @@ function PickerBody({
             </fieldset>
             <div className="sc-ap-sec sc-swap-sec-others">
               <span className="sc-ap-sec-title">
-                Other {noun}s<span className="sc-ap-sec-n">{list.total}</span>
+                Other {nouns}
+                <span className="sc-ap-sec-n">{list.total}</span>
               </span>
             </div>
           </>
         )}
         {list.items.length === 0 && (
-          <p className="sc-swap-empty">{query.trim() ? `Nothing matches “${query.trim()}”.` : `No other ${noun}s.`}</p>
+          <p className="sc-swap-empty">{query.trim() ? `Nothing matches “${query.trim()}”.` : `No other ${nouns}.`}</p>
         )}
 
         <div className="sc-swap-grid" ref={gridRef} role="listbox" aria-label={`Choose a ${noun}`}>
@@ -430,7 +432,7 @@ function PickerBody({
         {warning && <p className="sc-swap-warn">{warning}</p>}
         {warning && onAttachRequest && kind === 'scene' && (
           <div className="sc-swap-attach">
-            {/* The one warning a click can genuinely fix is on a scene that
+            {/* The one warning a click can genuinely fix is on a place that
                 builds around something the brief has not got. It used to
                 hijack the chip's own click; now it is an action that says so. */}
             {warning.includes('product') && (
@@ -439,8 +441,8 @@ function PickerBody({
               </button>
             )}
             {warning.includes('person') && (
-              <button type="button" className="sc-btn" onClick={() => onAttachRequest('Presenters')}>
-                Attach a presenter
+              <button type="button" className="sc-btn" onClick={() => onAttachRequest('People')}>
+                Attach a person
               </button>
             )}
           </div>
@@ -516,7 +518,7 @@ function WholeSceneTile({
         ))}
       </span>
       <span className="sc-ap-cap">
-        <b>Whole scene</b>
+        <b>Whole place</b>
       </span>
       <Puck />
     </button>

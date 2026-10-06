@@ -372,10 +372,10 @@ export function sceneRecordFrom(
 ): { ok: true; scene: CustomScene } | { ok: false; error: string } {
   const has = (k: keyof SceneInput) => input[k] !== undefined;
   const prompt = has('prompt') ? phrase(input.prompt, 2000) : (base?.prompt ?? '');
-  if (!prompt) return { ok: false, error: 'a scene needs a prompt describing the place' };
-  if (/\{[^}]*\}/.test(prompt)) return { ok: false, error: 'a scene prompt cannot contain a {placeholder}' };
+  if (!prompt) return { ok: false, error: 'a place needs a prompt describing it' };
+  if (/\{[^}]*\}/.test(prompt)) return { ok: false, error: 'a place prompt cannot contain a {placeholder}' };
   const name = has('name') ? str(input.name, 60) : (base?.name ?? '');
-  if (!name) return { ok: false, error: 'a scene needs a name' };
+  if (!name) return { ok: false, error: 'a place needs a name' };
   const subjectRaw = has('subject') ? str(input.subject, 20).toLowerCase() : (base?.subject ?? 'either');
   if (!SUBJECTS.has(subjectRaw as SceneSubject)) {
     return { ok: false, error: 'subject must be product, person or either' };
@@ -521,7 +521,7 @@ export function presenterRecordFrom(
 ): { ok: true; presenter: CustomPresenter } | { ok: false; error: string } {
   const has = (k: keyof PresenterInput) => input[k] !== undefined;
   const name = has('name') ? str(input.name, 60) : (base?.name ?? '');
-  if (!name) return { ok: false, error: 'a presenter needs a name' };
+  if (!name) return { ok: false, error: 'a person needs a name' };
   // Angles ride with the files when the caller knows them. Without this the
   // portrait frame is indistinguishable from a standing view once stored, and
   // the identity crop would happily carve a forehead out of it.
@@ -540,7 +540,7 @@ export function presenterRecordFrom(
           return angle ? { file, angle, locked: true } : { file, locked: true };
         })
     : (base?.shots ?? []);
-  if (!shots.length) return { ok: false, error: 'a presenter needs at least one photo' };
+  if (!shots.length) return { ok: false, error: 'a person needs at least one photo' };
   const sources = has('sourceHashes')
     ? strList(input.sourceHashes, 8, 64)
         .map((h) => assetRef(h))
@@ -670,8 +670,8 @@ export function duplicatePresenter(
   if (!brand) return { ok: false, error: 'brand not found', status: 404 };
   const id = headOf(brand.json, presenterId);
   const source = brandCharacters(brand.json).find((c) => c?.id === id);
-  if (!source) return { ok: false, error: 'presenter not found', status: 404 };
-  if (!isCustomPresenter(source)) return { ok: false, error: 'this presenter is not editable', status: 400 };
+  if (!source) return { ok: false, error: 'person not found', status: 404 };
+  if (!isCustomPresenter(source)) return { ok: false, error: 'this person is not editable', status: 400 };
   const built = duplicatePresenterRecord(source, name);
   if (!built.ok) return { ok: false, error: built.error, status: 400 };
   commit(core, brand.id, (json) => {
@@ -712,7 +712,7 @@ export function lintSceneProse(brandJson: any, scene: CustomScene): string[] {
   for (const c of brandCharacters(brandJson)) consider(c?.name);
   return named.size
     ? [
-        `This scene names ${[...named].join(', ')}. A scene is a place, so whatever you stage in it later has to argue with that.`,
+        `This place names ${[...named].join(', ')}. A place is a setting, so whatever you stage in it later has to argue with that.`,
       ]
     : [];
 }

@@ -33,7 +33,7 @@ export function PresenterEdit({ onClose, ...args }: EditingFlowArgs & { onClose:
           label="Discard changes"
           tone="quiet"
           title="Discard the changes?"
-          body="The views redrawn in this session are thrown away. The saved presenter stays as it was."
+          body="The views redrawn in this session are thrown away. The saved person stays as they were."
           busy={f.leaving}
           onConfirm={() => void f.discard()}
         />

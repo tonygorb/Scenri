@@ -37,8 +37,8 @@ export const PREVIEW_NOUN: Record<PreviewKind, string> = {
   ref: 'Reference image',
   mark: 'Brand mark',
   product: 'Product',
-  presenter: 'Presenter',
-  scene: 'Scene',
+  presenter: 'Person',
+  scene: 'Place',
   shot: 'Shot',
 };
 

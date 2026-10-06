@@ -97,12 +97,12 @@ export function ActivityPanel({
     if (taskId.startsWith('scene:')) {
       void api
         .cancelSceneStudioJob(brand.id, taskId.slice(6))
-        .catch((e) => push(failureToast(e, 'Could not stop this scene')));
+        .catch((e) => push(failureToast(e, 'Could not stop this place')));
       return;
     }
     if (taskId.startsWith('presenter:')) {
       const draftId = taskId.split(':')[1] ?? '';
-      void api.stopDraft(brand.id, draftId).catch((e) => push(failureToast(e, 'Could not stop this presenter')));
+      void api.stopDraft(brand.id, draftId).catch((e) => push(failureToast(e, 'Could not stop this person')));
       return;
     }
     // A catalog import can be stopped too. The route has always existed and

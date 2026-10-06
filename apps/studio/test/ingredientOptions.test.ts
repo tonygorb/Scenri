@@ -3,6 +3,7 @@ import {
   INSERT_EMPTY,
   insertPageSize,
   NOUN,
+  NOUNS,
   PAGE,
   buildCandidates,
   filterCandidates,
@@ -115,8 +116,12 @@ describe('pickerKind', () => {
 
   it('names each kind for headings and aria labels', () => {
     expect(NOUN.product).toBe('product');
-    expect(NOUN.presenter).toBe('presenter');
-    expect(NOUN.scene).toBe('scene');
+    expect(NOUN.presenter).toBe('person');
+    expect(NOUN.scene).toBe('place');
+  });
+
+  it('says more than one of each as a word of its own, never a noun plus s', () => {
+    expect(NOUNS).toEqual({ product: 'products', presenter: 'people', scene: 'places' });
   });
 });
 
@@ -574,8 +579,8 @@ describe('insertShortlist', () => {
 
   it('insertPageSize is the first page for that sigil', () => {
     expect(insertPageSize('$')).toBe(INSERT_EMPTY.Products);
-    expect(insertPageSize('/')).toBe(INSERT_EMPTY.Scenes);
-    expect(insertPageSize('@')).toBe(INSERT_EMPTY.Presenters);
+    expect(insertPageSize('/')).toBe(INSERT_EMPTY.Places);
+    expect(insertPageSize('@')).toBe(INSERT_EMPTY.People);
     expect(insertPageSize('#')).toBe(INSERT_EMPTY.Colors);
     expect(insertPageSize(undefined)).toBe(INSERT_EMPTY.Products);
   });
@@ -589,20 +594,20 @@ describe('insertShortlist', () => {
     expect(list.remaining).toBe(list.total - list.items.length);
   });
 
-  it('empty / is scenes only, yours first', () => {
+  it('empty / is places only, yours first', () => {
     const list = insertShortlist('/', pools(), { query: '', bookmarked: new Set(['marked']) });
-    expect(list.items.every((r) => r.group === 'Scenes')).toBe(true);
+    expect(list.items.every((r) => r.group === 'Places')).toBe(true);
     expect(choiceIds(list).slice(0, 3)).toEqual(['us-mine', 'marked', 'suited']);
-    expect(list.items.length).toBeLessThanOrEqual(INSERT_EMPTY.Scenes);
+    expect(list.items.length).toBeLessThanOrEqual(INSERT_EMPTY.Places);
     expect(list.total).toBe(15);
     expect(list.remaining).toBe(list.total - list.items.length);
   });
 
-  it('empty @ is presenters only, yours first', () => {
+  it('empty @ is people only, yours first', () => {
     const list = insertShortlist('@', pools(), { query: '' });
-    expect(list.items.every((r) => r.group === 'Presenters')).toBe(true);
+    expect(list.items.every((r) => r.group === 'People')).toBe(true);
     expect(list.items[0]?.token).toMatchObject({ t: 'character', id: 'up-mine' });
-    expect(list.items.length).toBeLessThanOrEqual(INSERT_EMPTY.Presenters);
+    expect(list.items.length).toBeLessThanOrEqual(INSERT_EMPTY.People);
     expect(list.total).toBe(10);
     expect(list.remaining).toBe(list.total - list.items.length);
   });

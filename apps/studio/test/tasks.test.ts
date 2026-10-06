@@ -347,11 +347,11 @@ describe('taskFromAssetBuild', () => {
   it('has nowhere to go until the asset exists, then points at its page', () => {
     expect(taskFromAssetBuild(build(), brand).href).toBeNull();
     expect(taskFromAssetBuild(build({ stage: 'done', finished: true, assetId: 'up-9' }), brand).href).toBe(
-      '/b1/presenters/up-9',
+      '/b1/people/up-9',
     );
     expect(
       taskFromAssetBuild(build({ kind: 'scene', stage: 'done', finished: true, assetId: 'us-9' }), brand).href,
-    ).toBe('/b1/scenes/us-9');
+    ).toBe('/b1/places/us-9');
   });
 
   it('says the error when it failed, and the stage message while it runs', () => {
@@ -702,17 +702,17 @@ describe('studio work in the bell', () => {
   });
 
   it('leads a scene back to the conversation it was started in, new or editing', () => {
-    expect(taskFromStudioWork(w({}), brand).href).toBe('/acme/scenes/new/c1a2b3');
-    expect(taskFromStudioWork(w({ sceneId: 'us-9' }), brand).href).toBe('/acme/scenes/us-9/edit/c1a2b3');
+    expect(taskFromStudioWork(w({}), brand).href).toBe('/acme/places/new/c1a2b3');
+    expect(taskFromStudioWork(w({ sceneId: 'us-9' }), brand).href).toBe('/acme/places/us-9/edit/c1a2b3');
     // no conversation (an API caller): the scene it landed on, else nowhere
-    expect(taskFromStudioWork(w({ conversation: null, attachTo: 'us-4' }), brand).href).toBe('/acme/scenes/us-4');
+    expect(taskFromStudioWork(w({ conversation: null, attachTo: 'us-4' }), brand).href).toBe('/acme/places/us-4');
     expect(taskFromStudioWork(w({ conversation: null }), brand).href).toBeNull();
   });
 
   it('leads a presenter back to its draft, or to the editor when it edits one that exists', () => {
     const p = w({ id: 'presenter:pd-1:r1', kind: 'presenter', step: 'front', draftId: 'pd-1', done: 1, total: 3 });
-    expect(taskFromStudioWork(p, brand).href).toBe('/acme/presenters/new/pd-1');
-    expect(taskFromStudioWork({ ...p, presenterId: 'up-7' }, brand).href).toBe('/acme/presenters/up-7/edit');
+    expect(taskFromStudioWork(p, brand).href).toBe('/acme/people/new/pd-1');
+    expect(taskFromStudioWork({ ...p, presenterId: 'up-7' }, brand).href).toBe('/acme/people/up-7/edit');
     // a set has real counters, so a real bar
     expect(taskFromStudioWork(p, brand).percent).toBe(33);
     expect(taskFromStudioWork(w({}), brand).percent).toBeNull();
@@ -729,7 +729,7 @@ describe('studio work in the bell', () => {
       total: 2,
     });
     const t = taskFromStudioWork(e, brand);
-    expect(t.href).toBe('/acme/scenes/us-9');
+    expect(t.href).toBe('/acme/places/us-9');
     expect(t.kind).toBe('scene');
     expect(t.percent).toBe(50);
     expect(t.subtitle).toBe('Drawing the close-up · 1 of 2');
@@ -741,21 +741,21 @@ describe('studio work in the bell', () => {
   it('says what it is doing, and what came of it', () => {
     expect(studioSubtitle(w({ step: 'reading' }))).toBe('Reading the place');
     expect(studioSubtitle(w({ status: 'done' }))).toBe('The picture is drawn');
-    expect(studioSubtitle(w({ status: 'done', attachTo: 'us-1' }))).toBe('On its scene now');
+    expect(studioSubtitle(w({ status: 'done', attachTo: 'us-1' }))).toBe('On its place now');
     expect(studioSubtitle(w({ status: 'cancelled' }))).toBe('Stopped');
     expect(studioSubtitle(w({ status: 'failed', error: 'codex exited' }))).toBe('codex exited');
     const p = w({ kind: 'presenter', step: null, draftId: 'pd-1', done: 0, total: 3 });
     expect(studioSubtitle(p)).toBe('Reading the photos');
     expect(studioSubtitle({ ...p, status: 'done', step: 'portrait', awaiting: true })).toMatch(/is ready to look at$/);
     expect(studioSubtitle({ ...p, status: 'done', step: 'three-quarter', done: 3 })).toBe('Every view is drawn');
-    expect(taskFromStudioWork(w({ name: '' }), brand).title).toBe('New scene');
+    expect(taskFromStudioWork(w({ name: '' }), brand).title).toBe('New place');
   });
 
   it('knows when the page on screen is the one a task leads to', () => {
-    expect(showingTask('/acme/scenes/new/c1a2b3', '/acme/scenes/new/c1a2b3')).toBe(true);
-    expect(showingTask('/acme/scenes/new/c1a2b3', '/acme/scenes/new/c1a2b3/')).toBe(true);
-    expect(showingTask('/acme/scenes/new/c1a2b3', '/acme/scenes')).toBe(false);
-    expect(showingTask(null, '/acme/scenes')).toBe(false);
+    expect(showingTask('/acme/places/new/c1a2b3', '/acme/places/new/c1a2b3')).toBe(true);
+    expect(showingTask('/acme/places/new/c1a2b3', '/acme/places/new/c1a2b3/')).toBe(true);
+    expect(showingTask('/acme/places/new/c1a2b3', '/acme/places')).toBe(false);
+    expect(showingTask(null, '/acme/places')).toBe(false);
     expect(isStudioTask('scene:j1')).toBe(true);
     expect(isStudioTask('presenter:pd-1:r1')).toBe(true);
     expect(isStudioTask('build:ab-1')).toBe(false);
@@ -770,20 +770,20 @@ describe('studio work in the bell', () => {
 });
 
 describe('examples drawn inside the conversation that asked for them', () => {
-  const ex = { id: 'examples:j1', href: '/harbor/scenes/us-1' };
+  const ex = { id: 'examples:j1', href: '/harbor/places/us-1' };
   it('are on screen in that scene’s edit studio, not in another scene’s', () => {
-    expect(examplesInItsStudio(ex, '/harbor/scenes/us-1/edit/c9', 'b1')).toBe(true);
-    expect(examplesInItsStudio(ex, '/harbor/scenes/us-2/edit/c9', 'b1')).toBe(false);
+    expect(examplesInItsStudio(ex, '/harbor/places/us-1/edit/c9', 'b1')).toBe(true);
+    expect(examplesInItsStudio(ex, '/harbor/places/us-2/edit/c9', 'b1')).toBe(false);
   });
   it('are on screen in a new conversation whose kept record names the scene', () => {
     localStorage.setItem('scenri:scene-studio:b1:c7', JSON.stringify({ sceneId: 'us-1', at: 1 }));
-    expect(examplesInItsStudio(ex, '/harbor/scenes/new/c7', 'b1')).toBe(true);
+    expect(examplesInItsStudio(ex, '/harbor/places/new/c7', 'b1')).toBe(true);
     localStorage.setItem('scenri:scene-studio:b1:c8', JSON.stringify({ sceneId: null, at: 1 }));
-    expect(examplesInItsStudio(ex, '/harbor/scenes/new/c8', 'b1')).toBe(false);
+    expect(examplesInItsStudio(ex, '/harbor/places/new/c8', 'b1')).toBe(false);
   });
   it('are news anywhere else, and only examples are read this way', () => {
     expect(examplesInItsStudio(ex, '/harbor/create', 'b1')).toBe(false);
-    expect(examplesInItsStudio({ id: 'scene:j1', href: '/harbor/scenes/us-1' }, '/harbor/scenes/us-1/edit', 'b1')).toBe(
+    expect(examplesInItsStudio({ id: 'scene:j1', href: '/harbor/places/us-1' }, '/harbor/places/us-1/edit', 'b1')).toBe(
       false,
     );
   });

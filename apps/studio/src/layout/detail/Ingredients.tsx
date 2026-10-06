@@ -137,7 +137,7 @@ export function BriefLine({
       return {
         key: `t${t.id}`,
         kind: 'scene',
-        label: s?.name ?? 'a scene no longer in the catalog',
+        label: s?.name ?? 'a place no longer in the catalog',
         thumb: s?.previewUrl ?? null,
         to: brand && s ? scenePath(brand, s.id) : undefined,
         // The composer tints a scene chip with the scene's own preview
@@ -220,7 +220,7 @@ export function BriefLine({
         data-kind={c.kind}
         data-tinted={tint ? '' : undefined}
         style={style}
-        title={`${c.kind}: ${c.label}`}
+        title={c.label}
       >
         {body}
       </span>

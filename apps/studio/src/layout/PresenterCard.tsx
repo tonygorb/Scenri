@@ -90,7 +90,7 @@ export function PresenterCard({
           onRename: onRename ? () => onRename(presenter.id) : undefined,
           onDuplicate: onDuplicate ? () => onDuplicate(presenter.id) : undefined,
           onEdit: onEdit ? () => onEdit(presenter.id) : undefined,
-          remove: onDelete ? { label: 'Delete presenter', run: () => onDelete(presenter.id) } : undefined,
+          remove: onDelete ? { label: 'Delete person', run: () => onDelete(presenter.id) } : undefined,
         });
   return (
     <CatalogCard

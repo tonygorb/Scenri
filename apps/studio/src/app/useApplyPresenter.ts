@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useBrand } from './BrandLayout.js';
-import { hubPath } from '../routes.js';
+import { hubPath, seedQuery } from '../routes.js';
 import { freshSeed } from '../draft.js';
 
 /**
@@ -20,7 +20,7 @@ export function useApplyPresenter(): (presenterId: string) => void {
 
   return useCallback(
     (presenterId: string) => {
-      navigate(`${hub}?presenter=${encodeURIComponent(presenterId)}&compose=1${freshSeed()}`);
+      navigate(`${hub}?${seedQuery('presenter', presenterId)}&compose=1${freshSeed()}`);
     },
     [hub, navigate],
   );

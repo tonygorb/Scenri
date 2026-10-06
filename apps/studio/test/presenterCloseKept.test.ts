@@ -72,7 +72,7 @@ describe('closing the studio', () => {
     expect(push).toHaveBeenCalledTimes(1);
     expect(push).toHaveBeenCalledWith({
       kind: 'info',
-      title: 'Kept on Presenters',
+      title: 'Kept on People',
       detail: 'Continue it from its card.',
     });
   });

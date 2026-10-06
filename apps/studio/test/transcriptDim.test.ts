@@ -35,7 +35,7 @@ const asked = (id: string, text: string): Turn => ({ kind: 'scenri', id: `asked-
 const said = (id: string, text: string): Turn => ({ kind: 'you', id, text, editable: true });
 
 const ANSWERED: Turn[] = [
-  { kind: 'you', id: 'intent', text: 'Create a presenter' },
+  { kind: 'you', id: 'intent', text: 'Create a person' },
   asked('look-who', 'Who are they?'),
   said('look-who', 'Woman'),
   asked('look-hair', 'What colour is their hair?'),
@@ -47,7 +47,7 @@ const ANSWERED: Turn[] = [
 describe('a line already answered', () => {
   it('carries the time it was said, on both sides', () => {
     render([
-      { kind: 'you', id: 'intent', text: 'Create a presenter' },
+      { kind: 'you', id: 'intent', text: 'Create a person' },
       asked('look-who', 'Who are they?'),
       said('look-who', 'Woman'),
     ]);
@@ -149,13 +149,13 @@ describe('an answer being changed', () => {
       question: { id: 'look-who', kind: 'text', prompt: 'Who are they?', reopened: true },
     };
     const answered = (text: string): Turn[] => [
-      { kind: 'you', id: 'intent', text: 'Create a presenter' },
+      { kind: 'you', id: 'intent', text: 'Create a person' },
       asked('look-who', 'Who are they?'),
       said('look-who', text),
       standing,
     ];
     const editing: Turn[] = [
-      { kind: 'you', id: 'intent', text: 'Create a presenter' },
+      { kind: 'you', id: 'intent', text: 'Create a person' },
       asked('look-who', 'Who are they?'),
       open,
       standing,
@@ -175,7 +175,7 @@ describe('an answer being changed', () => {
 
   it('does the same for a sentence being rewritten where it stands', () => {
     render([
-      { kind: 'you', id: 'intent', text: 'Create a presenter' },
+      { kind: 'you', id: 'intent', text: 'Create a person' },
       asked('describe', 'Describe them.'),
       { kind: 'you', id: 'describe', text: 'a woman in her 30s', editable: true, editing: true },
       asked('traits', 'Anything else that is always true of them?'),

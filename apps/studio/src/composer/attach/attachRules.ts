@@ -15,7 +15,7 @@ import { identityKeyOf, type SentenceToken } from '../line/tokens.js';
  */
 
 /** One order, for the tab rail and for the groups on All alike. */
-export const TABS = ['All', 'Products', 'Presenters', 'Scenes', 'Colors', 'Brand', 'Shots'] as const;
+export const TABS = ['All', 'Products', 'People', 'Places', 'Colors', 'Brand', 'Shots'] as const;
 export type AttachTab = (typeof TABS)[number];
 export type AttachGroup = Exclude<AttachTab, 'All'>;
 export const GROUPS: readonly AttachGroup[] = TABS.filter((t): t is AttachGroup => t !== 'All');
@@ -23,8 +23,8 @@ export const GROUPS: readonly AttachGroup[] = TABS.filter((t): t is AttachGroup 
 /** What the group row says. */
 export const GROUP_LABEL: Record<AttachGroup, string> = {
   Products: 'Products',
-  Presenters: 'Presenters',
-  Scenes: 'Scenes',
+  People: 'People',
+  Places: 'Places',
   Colors: 'Brand colors',
   Brand: 'Brand marks',
   Shots: 'Shots',
@@ -33,8 +33,8 @@ export const GROUP_LABEL: Record<AttachGroup, string> = {
 /** The kind, said once before a tile's name for a screen reader: "Product: Field Watch". */
 export const KIND_ONE: Record<AttachGroup, string> = {
   Products: 'Product',
-  Presenters: 'Presenter',
-  Scenes: 'Scene',
+  People: 'Person',
+  Places: 'Place',
   Colors: 'Brand color',
   Brand: 'Brand mark',
   Shots: 'Reference shot',
@@ -43,8 +43,8 @@ export const KIND_ONE: Record<AttachGroup, string> = {
 /** The plural, for an empty grid and a search with no hits. */
 export const NOUN: Record<AttachGroup, string> = {
   Products: 'products',
-  Presenters: 'presenters',
-  Scenes: 'scenes',
+  People: 'people',
+  Places: 'places',
   Colors: 'brand colors',
   Brand: 'brand marks',
   Shots: 'shots',
@@ -62,8 +62,8 @@ export type TileShape = 'square' | 'swatch';
    Colors tab is the same grid as every other and not a row of chips. */
 export const SHAPE: Record<AttachGroup, TileShape> = {
   Products: 'square',
-  Presenters: 'square',
-  Scenes: 'square',
+  People: 'square',
+  Places: 'square',
   Colors: 'swatch',
   Brand: 'square',
   Shots: 'square',
@@ -83,8 +83,8 @@ export const SHAPE: Record<AttachGroup, TileShape> = {
  */
 export const TILE_MIN: Record<AttachGroup, number> = {
   Products: 132,
-  Presenters: 132,
-  Scenes: 132,
+  People: 132,
+  Places: 132,
   Colors: 132,
   Brand: 132,
   Shots: 132,
@@ -92,8 +92,8 @@ export const TILE_MIN: Record<AttachGroup, number> = {
 /** On a phone the tiles are for a thumb: three across at 375. */
 export const TILE_MIN_PHONE: Record<AttachGroup, number> = {
   Products: 96,
-  Presenters: 96,
-  Scenes: 96,
+  People: 96,
+  Places: 96,
   Colors: 96,
   Brand: 96,
   Shots: 96,
@@ -130,8 +130,8 @@ export interface AttachCard {
 
 const GROUP_OF: Record<IngredientKind, AttachGroup> = {
   product: 'Products',
-  presenter: 'Presenters',
-  scene: 'Scenes',
+  presenter: 'People',
+  scene: 'Places',
 };
 
 /** A product, presenter or scene from the shared candidate model, sized for a picker tile. */

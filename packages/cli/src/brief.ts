@@ -540,7 +540,7 @@ export function compileBrief(input: Brief, ctx: CompileContext): CompiledBrief {
       case 'character': {
         const c = characters.find((x) => x.id === tok.id);
         if (!c) {
-          warnings.push('A presenter in this brief is no longer in your roster.');
+          warnings.push('A person in this brief is no longer in your roster.');
           break;
         }
         hasPerson = true;
@@ -743,12 +743,14 @@ export function compileBrief(input: Brief, ctx: CompileContext): CompiledBrief {
       case 'template': {
         const t = ctx.templateById?.(tok.id);
         if (!t) {
-          warnings.push('A template in this brief is no longer installed.');
+          warnings.push('A place in this brief is no longer installed.');
           break;
         }
         // a brief runs one recipe: later templates are named and ignored
         if (inlineTemplates.length) {
-          warnings.push(`${t.name} was ignored: a brief runs one template, and ${inlineTemplates[0].name} came first.`);
+          warnings.push(
+            `${t.name} was ignored: a shot is made in one place, and ${inlineTemplates[0].name} came first.`,
+          );
           break;
         }
         inlineTemplates.push(t);

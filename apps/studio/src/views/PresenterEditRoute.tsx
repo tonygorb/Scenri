@@ -19,7 +19,7 @@ export function PresenterEditRoute() {
   const { brand } = useBrand();
   const navigate = useNavigate();
   const { caps } = useCreateFlow();
-  useTitleEntity('Edit presenter');
+  useTitleEntity('Edit person');
   // A save or a revert resolves after an await. If the editor was closed
   // meanwhile, the person is somewhere else now, and the answer must not pull
   // them back: the same guard the creation studio keeps.

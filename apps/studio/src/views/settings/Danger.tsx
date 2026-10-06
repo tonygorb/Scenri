@@ -76,7 +76,7 @@ export function Danger({ onDone, thisComputer }: { onDone: () => void; thisCompu
             <Confirm
               label="Delete shots"
               title="Delete every generated shot?"
-              body="Brands, cast and scenes stay. Every set and every generated shot goes."
+              body="Brands, products, people and places stay. Every set and every generated shot goes."
               busy={busy}
               onConfirm={() => void run('shots')}
             />

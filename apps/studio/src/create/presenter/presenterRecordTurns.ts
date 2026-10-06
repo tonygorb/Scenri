@@ -507,7 +507,7 @@ export function recordTurns({ draft: d, ui, afterCoverage, asides, openId, place
     id: 'save',
     kind: 'confirm',
     prompt: `${cap(who)} is ready.${filedLine(d)}`,
-    options: [{ id: 'save', label: 'Save presenter' }],
+    options: [{ id: 'save', label: 'Save person' }],
   });
   return T;
 }

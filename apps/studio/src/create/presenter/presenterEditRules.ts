@@ -79,7 +79,7 @@ export function editIntent(text: string, selected: StudioView, d: DraftLike): Ed
 }
 
 export const OUT_OF_SCOPE_LINE = (name: string) =>
-  `Use Create for wardrobe, products and scenes. Edits here change who ${name} is.`;
+  `Use Create for wardrobe, products and places. Edits here change who ${name} is.`;
 
 export interface EditComposerState {
   chip: { view: StudioView; label: string } | null;
@@ -447,7 +447,7 @@ function shapeEdit(
       prompt: PROMPT_EDIT.scope,
       options: [
         { id: 'view', label: `This view (the ${VIEW_NAME[selected]})` },
-        { id: 'identity', label: 'The presenter' },
+        { id: 'identity', label: 'The person' },
       ],
     });
     return done();

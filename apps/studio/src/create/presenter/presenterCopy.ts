@@ -33,11 +33,11 @@ export const PROMPT = {
   keep: 'Anything else about them?',
   // The last word before a picture is drawn: the whole person is set out above
   // it, so the ask itself is one short question and nothing more.
-  agree: 'Here is the presenter, in full. Ready to draw?',
+  agree: 'Here is the person, in full. Ready to draw?',
   // The one line wherever drawing is what stops: a description, photographs,
   // or a draft with views still to draw. Photographs are only what a presenter
   // is drawn from, so they wait at the same place a description does.
-  noEngine: 'Drawing a presenter needs image generation, which is not set up yet.',
+  noEngine: 'Drawing a person needs image generation, which is not set up yet.',
   // Use draws the rest from this face, and says so: a press that spends should never be a surprise.
   identity: (who: string) =>
     `Here is ${who === 'them' ? 'the face' : who}. Use this person to draw the rest from this face, or change something.`,
@@ -192,7 +192,7 @@ export function stageHint(asking: string | null, photos = 0): string {
   if (asking === 'retry') return 'Try again from the conversation';
   // photographs wait for the same setup a description does: they are only what a face is drawn from
   if (asking === 'noengine') return 'Set up image generation to draw them';
-  return 'Keep describing your presenter';
+  return 'Keep describing your person';
 }
 
 export const gapsPrompt = (n: number): string =>

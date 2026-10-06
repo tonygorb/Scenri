@@ -261,7 +261,7 @@ export function ScenePage() {
     return (
       <ScrollPane>
         <main className="sc-lookpage sc-scenepage" id="main">
-          <h1>Couldn't load this scene</h1>
+          <h1>Couldn't load this place</h1>
           <p className="sc-lookpage-lede">Something went wrong reaching the catalog.</p>
           <div className="sc-lookpage-acts">
             <button type="button" className="sc-btn sc-btn-primary" onClick={() => refetch()}>
@@ -277,14 +277,14 @@ export function ScenePage() {
     return (
       <ScrollPane>
         <main className="sc-lookpage sc-scenepage" id="main">
-          <h1>This scene isn't here anymore</h1>
+          <h1>This place isn't here anymore</h1>
           <p className="sc-lookpage-lede">It may have been removed from the catalog, or the link is out of date.</p>
           <div className="sc-lookpage-acts">
             <Link className="sc-btn sc-btn-primary" to={`${hubPath(brand)}?compose=1`}>
               Start from scratch
             </Link>
             <Link className="sc-btn sc-btn-ghost" to={scenesPath(brand)}>
-              Browse all scenes
+              Browse all places
             </Link>
           </div>
           {recovery.length > 0 && (
@@ -317,14 +317,14 @@ export function ScenePage() {
     ? // by role, never by file: the hero first, then the place, then the rest
       [...views]
         .sort((a, b) => VIEW_ORDER.indexOf(a.view) - VIEW_ORDER.indexOf(b.view))
-        .map((v) => ({ src: v.url, label: v.view === 'place' ? 'The place' : EXAMPLE_LABEL[v.view], view: v.view }))
+        .map((v) => ({ src: v.url, label: v.view === 'place' ? COPY.emptyLabel : EXAMPLE_LABEL[v.view], view: v.view }))
     : refs.length
       ? refs.map((src, i) => ({ src, label: `Example ${i + 1}` }))
       : scene.previewUrl
         ? [
             {
               src: scene.previewUrl,
-              label: scene.cover && scene.cover !== 'place' ? EXAMPLE_LABEL[scene.cover] : 'The place',
+              label: scene.cover && scene.cover !== 'place' ? EXAMPLE_LABEL[scene.cover] : COPY.emptyLabel,
             },
           ]
         : [];
@@ -357,7 +357,8 @@ export function ScenePage() {
    * for what is true about a record. Under the rail it read as a caption to
    * the middle picture.
    */
-  const shownWith = owned?.examples?.find((e) => !e.earlier)?.with ?? owned?.examples?.[0]?.with;
+  const shownWithKind = owned?.examples?.find((e) => !e.earlier)?.with ?? owned?.examples?.[0]?.with;
+  const shownWith = shownWithKind && (shownWithKind === 'presenter' ? 'person' : 'product');
   // What a shot is given, as brief.ts decides it: an anchor goes with every new
   // shot (one with a person in it, only beside a presenter); an older picture
   // only when its figure wears a treatment. Any picture can be picked to shoot
@@ -367,7 +368,7 @@ export function ScenePage() {
   const about = !owned
     ? ''
     : owned.figure && rides
-      ? `The person in it is a stand-in: with a presenter attached, the picture goes with the shot and they take the role.${pick}`
+      ? `The person in it is a stand-in: with a person attached, the picture goes with the shot and they take the role.${pick}`
       : rides
         ? `${shownWith ? `Shown in use with a Scenri demo ${shownWith}. ` : ''}Shots are given its picture as their world and find their own frame in it.${pick}`
         : shownWith
@@ -380,7 +381,7 @@ export function ScenePage() {
   return (
     <ScrollPane>
       <main className="sc-lookpage sc-scenepage" id="main">
-        <RecordCrumb to={scenesPath(brand)} wall="Scenes" where={owned ? 'Yours' : 'Scenri library'} />
+        <RecordCrumb to={scenesPath(brand)} wall="Places" where={owned ? 'Yours' : 'Scenri library'} />
         <h1>{scene.name}</h1>
         {/* Where it is filed, as the app's own chips, above the caption: the
             presenter page's order, and the thing a place is scanned for. */}
@@ -577,7 +578,7 @@ export function ScenePage() {
           <div className="sc-prec">
             {tail && <p className="sc-prec-note">{tail}</p>}
             <Confirm
-              label="Delete scene"
+              label="Delete place"
               title={`Delete ${owned.name}?`}
               body={deleteLeaves('owned-scene', 1)}
               busy={busy}
@@ -597,7 +598,7 @@ export function ScenePage() {
         )}
 
         {near.length > 0 && (
-          <Slider label="Other scenes, similar light">
+          <Slider label="Other places, similar light">
             {near.map((s) => (
               <SceneCard
                 key={s.id}

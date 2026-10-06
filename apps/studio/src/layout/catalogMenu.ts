@@ -111,9 +111,9 @@ export function catalogMenuItems(spec: CatalogMenuSpec): CatalogMenuItem[] {
   }
   if (spec.onRename) items.push({ key: 'rename', icon: 'rename', label: 'Rename', onSelect: spec.onRename });
   if (spec.onDuplicate) {
-    items.push({ key: 'duplicate', icon: 'duplicate', label: 'Duplicate presenter', onSelect: spec.onDuplicate });
+    items.push({ key: 'duplicate', icon: 'duplicate', label: 'Duplicate person', onSelect: spec.onDuplicate });
   }
-  if (spec.onEdit) items.push({ key: 'edit', icon: 'edit', label: 'Edit presenter', onSelect: spec.onEdit });
+  if (spec.onEdit) items.push({ key: 'edit', icon: 'edit', label: 'Edit person', onSelect: spec.onEdit });
   if (spec.remove) {
     items.push({
       key: 'delete',

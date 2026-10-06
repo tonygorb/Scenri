@@ -147,11 +147,11 @@ export const decode = (s: string): SentenceToken | null => {
 
 export const groupOf = (t: SentenceToken): string | null =>
   t.t === 'template'
-    ? 'Scenes'
+    ? 'Places'
     : t.t === 'product'
       ? 'Products'
       : t.t === 'character'
-        ? 'Presenters'
+        ? 'People'
         : t.t === 'color'
           ? 'Brand colors'
           : t.t === 'ref'

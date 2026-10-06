@@ -24,10 +24,10 @@ describe('the tabs', () => {
   it('lists All first and the groups in the same order as the rail', () => {
     expect(TABS[0]).toBe('All');
     expect(GROUPS).toEqual(TABS.slice(1));
-    const items = tabItems({ Products: 2, Presenters: 3, Scenes: 0, Colors: 1, Brand: 0, Shots: 4 });
+    const items = tabItems({ Products: 2, People: 3, Places: 0, Colors: 1, Brand: 0, Shots: 4 });
     expect(items.map((i) => i.label)).toEqual([...TABS]);
     expect(items[0]).toEqual({ value: null, label: 'All', count: 10 });
-    expect(items[2]).toEqual({ value: 'Presenters', label: 'Presenters', count: 3 });
+    expect(items[2]).toEqual({ value: 'People', label: 'People', count: 3 });
   });
 });
 
@@ -172,23 +172,23 @@ describe('arrow keys', () => {
 
 describe('the grid', () => {
   it('predicts auto-fill: how many tiles fit across a width', () => {
-    expect(columnsFor('Presenters', 696, false)).toBe(4);
-    expect(columnsFor('Presenters', 976, false)).toBe(6);
+    expect(columnsFor('People', 696, false)).toBe(4);
+    expect(columnsFor('People', 976, false)).toBe(6);
     // one grid whatever the kind: the count never changes between tabs
     expect(columnsFor('Products', 696, false)).toBe(4);
-    expect(columnsFor('Scenes', 696, false)).toBe(4);
+    expect(columnsFor('Places', 696, false)).toBe(4);
     expect(columnsFor('Shots', 696, false)).toBe(4);
-    expect(columnsFor('Presenters', 347, true)).toBe(3);
-    expect(columnsFor('Scenes', 347, true)).toBe(3);
+    expect(columnsFor('People', 347, true)).toBe(3);
+    expect(columnsFor('Places', 347, true)).toBe(3);
     expect(columnsFor('Colors', 696, false)).toBe(4);
-    expect(columnsFor('Presenters', 0, false)).toBe(1);
+    expect(columnsFor('People', 0, false)).toBe(1);
   });
 });
 
 describe('an empty grid', () => {
   it('names the tab and the query', () => {
-    expect(emptyCopy('Presenters', '')).toBe('No presenters yet.');
-    expect(emptyCopy('Presenters', 'zed')).toBe('No matching presenters.');
+    expect(emptyCopy('People', '')).toBe('No people yet.');
+    expect(emptyCopy('People', 'zed')).toBe('No matching people.');
     expect(emptyCopy('Shots', '')).toBe('No finished shots yet.');
     expect(emptyCopy('Colors', '')).toBe('No brand colors yet.');
     expect(emptyCopy('All', ' zed ')).toBe('Nothing matches “zed”.');

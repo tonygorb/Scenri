@@ -17,7 +17,7 @@ export function registerSceneExampleRoutes(app: FastifyInstance, deps: { core: C
     const brand = core.store.getBrand(String(req.params.id));
     const scene = brand ? brandScenes(brand.json).find((s) => s.id === String(req.params.sceneId)) : undefined;
     if (!brand || !scene) {
-      reply.status(404).send({ error: 'scene not found' });
+      reply.status(404).send({ error: 'place not found' });
       return null;
     }
     return { brandId: brand.id, scene };

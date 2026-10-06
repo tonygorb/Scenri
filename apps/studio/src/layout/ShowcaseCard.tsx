@@ -12,9 +12,9 @@ export type ShowcaseCardSize = CatalogCardSize;
 type CreditKey = 'presenter' | 'product' | 'scene';
 
 const CREDIT_ROLE: Record<CreditKey, string> = {
-  presenter: 'Presenter',
+  presenter: 'Person',
   product: 'Product',
-  scene: 'Scene',
+  scene: 'Place',
 };
 
 type Credit = {

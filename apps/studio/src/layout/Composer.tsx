@@ -589,7 +589,7 @@ export const Composer = forwardRef<
       const base = tokens ?? onLine();
       const existingTok = base.find((t) => t.t === 'template') as Extract<SentenceToken, { t: 'template' }> | undefined;
       const existingSceneId = existingTok?.id ?? null;
-      const sceneName = templates.find((t) => t.id === startScene)?.name ?? 'this scene';
+      const sceneName = templates.find((t) => t.id === startScene)?.name ?? 'this place';
       // A restored draft never carries a refine target any more (the URL owns
       // it, and this effect only runs on a fresh, target-less mount), so the
       // seed path resolves against no branch at all.
@@ -652,7 +652,7 @@ export const Composer = forwardRef<
       seedApplied = true;
       const base = tokens ?? onLine();
       const already = base.some((t) => t.t === 'ref' && t.imageHash === startRef);
-      if (!already) tokens = [...base, { t: 'ref', imageHash: startRef, label: 'Scene view' }];
+      if (!already) tokens = [...base, { t: 'ref', imageHash: startRef, label: 'Place view' }];
     }
 
     if (tokens) {
@@ -737,7 +737,7 @@ export const Composer = forwardRef<
     (sceneId: string) => {
       const existingSceneId = template?.id ?? null;
       const branchId = target?.id ?? null;
-      const sceneName = templates.find((t) => t.id === sceneId)?.name ?? 'this scene';
+      const sceneName = templates.find((t) => t.id === sceneId)?.name ?? 'this place';
       const result = resolveSceneSwitch(
         existingSceneId,
         sceneId,
@@ -804,7 +804,7 @@ export const Composer = forwardRef<
   useEffect(() => {
     if (!loaded || !templateTokenId || template) return;
     briefRef.current?.removeTemplate();
-    push({ kind: 'warning', title: 'That scene is no longer available', detail: 'Removed from the brief.' });
+    push({ kind: 'warning', title: 'That place is no longer available', detail: 'Removed from the brief.' });
   }, [loaded, templateTokenId, template, push]);
 
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -953,7 +953,7 @@ export const Composer = forwardRef<
   const targetNote = !branchable
     ? null
     : template
-      ? 'A scene starts a new shot.'
+      ? 'A place starts a new shot.'
       : cropping || expanding
         ? null
         : !engineCanEdit
@@ -1057,7 +1057,7 @@ export const Composer = forwardRef<
               : cropWithWords
                 ? 'This shape is reached by cropping, and a crop uses no words. Clear the prompt, or keep the current shape.'
                 : goneCharacter
-                  ? 'Remove the presenter who is no longer in your roster'
+                  ? 'Remove the person who is no longer in your roster'
                   : !hasContent && !aspectOnly
                     ? 'Write a prompt first'
                     : null;
@@ -1267,17 +1267,17 @@ export const Composer = forwardRef<
    */
   const describedNote =
     cap != null
-      ? `Described in words: ${engineName} pictures ${cap} per shot, products and presenters first. Drag it earlier to picture it.`
+      ? `Described in words: ${engineName} pictures ${cap} per shot, products and people first. Drag it earlier to picture it.`
       : null;
   const templateFlag = !template
     ? null
     : blocking.length > 0
-      ? 'This scene builds around a product. Attach one.'
+      ? 'This place builds around a product. Attach one.'
       : // The person half of the same compiler warning had no chip to sit on,
         // so a scene needing a presenter said nothing at all until the picture
         // came back with a stranger in it.
         (stickyPreview?.warnings.some((w) => w.includes('built around a person')) ?? false)
-        ? 'This scene builds around a person. Without a presenter, only the set renders.'
+        ? 'This place builds around a person. Without one, only the setting renders.'
         : null;
   /**
    * Which chips get a mark, and what it says.
@@ -1359,7 +1359,7 @@ export const Composer = forwardRef<
       // said nothing about what to do, and the shot rendered without them on a
       // compiler warning nobody sees. Guarded on the roster being loaded, so a
       // cold start does not flash "deleted" over every chip it has.
-      if (!c && presenters.length > 0) return 'This presenter is no longer in your roster. Remove them from the brief.';
+      if (!c && presenters.length > 0) return 'This person is no longer in your roster. Remove them from the brief.';
       if (c && !stickyPreview.attachments.some((a) => a.role === 'character' && a.id === c.id)) {
         return missingIdentity('character', c.id) ? `${c.name} has no usable photo. Re-add one, or remove this.` : null;
       }
@@ -1768,7 +1768,7 @@ export const Composer = forwardRef<
               aria-expanded={attachOpen}
               aria-controls={attachOpen ? attachPanelId : undefined}
               aria-label="Add to shot"
-              title="Add a product, a presenter, a scene, a colour or an image"
+              title="Add a product, a person, a place, a colour or an image"
               onClick={() => (attachOpen ? closeAttach({ restore: false }) : openAttach('All'))}
             >
               {uploading ? <Spinner size="1" /> : <Plus size={16} />}

@@ -35,7 +35,7 @@ describe('catalog menus', () => {
       use: { label: 'Use in a shot', run },
       select: { run },
       keep: { on: false, run },
-      remove: { label: 'Delete scene', run },
+      remove: { label: 'Delete place', run },
     });
     expect(items.map((it) => it.label)).toEqual([
       'Open',
@@ -43,7 +43,7 @@ describe('catalog menus', () => {
       'Use in a shot',
       'Select',
       'Add to Keepers',
-      'Delete scene',
+      'Delete place',
     ]);
     const del = items.at(-1);
     expect(del?.danger).toBe(true);
@@ -70,7 +70,7 @@ describe('catalog menus', () => {
       keep: { on: false, run },
       onDuplicate: run,
       onEdit: run,
-      remove: { label: 'Delete presenter', run },
+      remove: { label: 'Delete person', run },
     });
     expect(items.map((it) => it.label)).toEqual([
       'Open',
@@ -78,9 +78,9 @@ describe('catalog menus', () => {
       'Use in a shot',
       'Select',
       'Add to Keepers',
-      'Duplicate presenter',
-      'Edit presenter',
-      'Delete presenter',
+      'Duplicate person',
+      'Edit person',
+      'Delete person',
     ]);
     expect(items.at(-1)?.danger).toBe(true);
     expect(items.find((it) => it.key === 'duplicate')?.separated).toBeUndefined();

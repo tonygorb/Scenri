@@ -11,7 +11,12 @@ import {
   presentersPath,
   productPath,
   productsPath,
+  attachTabOf,
   rewriteLegacyPath,
+  rewriteRenamedPath,
+  seedParam,
+  seedQuery,
+  studioOfNew,
   setPath,
   whatsNewPath,
   shotPath,
@@ -40,11 +45,11 @@ describe('path builders', () => {
   it('spells every section as a word', () => {
     expect(kitPath(brand)).toBe('/nalla/kit');
     expect(whatsNewPath(brand)).toBe('/nalla/whats-new');
-    expect(scenesPath(brand)).toBe('/nalla/scenes');
-    expect(scenePath(brand, 'soft-daylight')).toBe('/nalla/scenes/soft-daylight');
-    expect(presentersPath(brand)).toBe('/nalla/presenters');
-    expect(presenterPath(brand, 'sana')).toBe('/nalla/presenters/sana');
-    expect(presenterEditPath(brand, 'sana')).toBe('/nalla/presenters/sana/edit');
+    expect(scenesPath(brand)).toBe('/nalla/places');
+    expect(scenePath(brand, 'soft-daylight')).toBe('/nalla/places/soft-daylight');
+    expect(presentersPath(brand)).toBe('/nalla/people');
+    expect(presenterPath(brand, 'sana')).toBe('/nalla/people/sana');
+    expect(presenterEditPath(brand, 'sana')).toBe('/nalla/people/sana/edit');
     expect(productsPath(brand)).toBe('/nalla/products');
     expect(productPath(brand, 'p-1a2b3c4d')).toBe('/nalla/products/p-1a2b3c4d');
     expect(hubPath(brand)).toBe('/nalla/create');
@@ -128,5 +133,51 @@ describe('rewriteLegacyPath', () => {
 
   it('passes an unrecognised tail through instead of swallowing it', () => {
     expect(rewriteLegacyPath('/b/nalla/something-new')).toBe('/nalla/something-new');
+  });
+
+  it('lands presenters and scenes on People and Places in one hop', () => {
+    expect(rewriteLegacyPath('/b/nalla/scenes')).toBe('/nalla/places');
+    expect(rewriteLegacyPath('/b/nalla/presenters/sana')).toBe('/nalla/people/sana');
+  });
+});
+
+/**
+ * People were Presenters and Places were Scenes until 0.22. The words are
+ * the old ones on purpose: they are the addresses and query strings a person
+ * or a stored notification still holds.
+ */
+describe('the addresses from before People and Places', () => {
+  it('moves the section and keeps everything after it', () => {
+    expect(rewriteRenamedPath('/nalla/presenters')).toBe('/nalla/people');
+    expect(rewriteRenamedPath('/nalla/presenters/new/pd-1')).toBe('/nalla/people/new/pd-1');
+    expect(rewriteRenamedPath('/nalla/presenters/sana/edit')).toBe('/nalla/people/sana/edit');
+    expect(rewriteRenamedPath('/nalla/scenes')).toBe('/nalla/places');
+    expect(rewriteRenamedPath('/nalla/scenes/us-1/edit/c9')).toBe('/nalla/places/us-1/edit/c9');
+  });
+
+  it('carries the query and the hash', () => {
+    expect(rewriteRenamedPath('/nalla/scenes', '?attach=1', '#top')).toBe('/nalla/places?attach=1#top');
+  });
+
+  it('reads a seed by its new name first, then its old one, and writes only the new one', () => {
+    expect(seedParam(new URLSearchParams('person=a'), 'presenter')).toBe('a');
+    expect(seedParam(new URLSearchParams('presenter=a'), 'presenter')).toBe('a');
+    expect(seedParam(new URLSearchParams('place=b&scene=c'), 'scene')).toBe('b');
+    expect(seedParam(new URLSearchParams(''), 'scene')).toBeNull();
+    expect(seedQuery('presenter', 'up-1')).toBe('person=up-1');
+    expect(seedQuery('scene', 'a b')).toBe('place=a%20b');
+  });
+
+  it('opens Places on the add panel and a studio by either spelling', () => {
+    expect(attachTabOf('places')).toBe('Places');
+    expect(attachTabOf('scenes')).toBe('Places');
+    expect(attachTabOf('products')).toBe('Products');
+    expect(attachTabOf('all')).toBeUndefined();
+    expect(studioOfNew('person')).toBe('presenter');
+    expect(studioOfNew('presenter')).toBe('presenter');
+    expect(studioOfNew('place')).toBe('scene');
+    expect(studioOfNew('scene')).toBe('scene');
+    expect(studioOfNew('product')).toBeNull();
+    expect(studioOfNew('1')).toBeNull();
   });
 });
