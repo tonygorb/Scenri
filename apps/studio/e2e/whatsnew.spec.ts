@@ -76,7 +76,7 @@ const PIC_B: Picture = {
   file: '0.17.0-select-several.webp',
   alt: 'Three scenes picked, and the bar that acts on them.',
 };
-const PIC_C: Picture = { file: '0.16.0-local-access.webp', alt: 'The Local access card, with its QR code.' };
+const PIC_C: Picture = { file: '0.18.0-portrait-standard.webp', alt: "The prompt's settings row, open on Portrait." };
 /** A name the build carries no file for. */
 const PIC_MISSING: Picture = { file: '9.9.9-missing.webp', alt: 'A picture this build does not carry.' };
 /** The built file a picture resolves to: its name, then Vite's content hash. */

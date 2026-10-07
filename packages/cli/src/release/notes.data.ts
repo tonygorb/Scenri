@@ -105,6 +105,30 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.22.0',
+    date: '2026-10-07',
+    title: 'Presenters are now People, and Scenes are now Places',
+    announce: true,
+    sections: [
+      {
+        heading: 'People',
+        body: 'Presenters are called People now. Everyone you made is where you left them, with the same face, and a link to an old Presenters page still opens.',
+        image: {
+          file: '0.22.0-people-places.webp',
+          alt: 'Two chips side by side, People and Places, each with its picture and a caret to open it.',
+        },
+      },
+      {
+        heading: 'Places',
+        body: "Scenes are called Places now, with the same pictures and light. A place's empty picture is called Empty, and old links to Scenes still open.",
+      },
+      {
+        heading: 'Help',
+        body: "The Help menu now opens Scenri's website and the guides on it.",
+      },
+    ],
+  },
+  {
     version: '0.21.2',
     date: '2026-10-05',
     title: 'Halvard 12 has a full-size product photo',
@@ -426,10 +450,6 @@ export const RELEASES: ReleaseEntry[] = [
       {
         heading: 'Local access',
         body: "Open Scenri on a phone, tablet or another computer on the same Wi-Fi: scan the QR code in Settings > Local access. If your computer's firewall stops it, Local access says so and offers Allow Scenri.",
-        image: {
-          file: '0.16.0-local-access.webp',
-          alt: 'The Local access card: a QR code to scan, the address and six-digit code to type, and an iPhone just connected.',
-        },
       },
       {
         heading: 'Security',

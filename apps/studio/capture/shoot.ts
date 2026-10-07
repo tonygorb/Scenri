@@ -980,29 +980,6 @@ export async function seedPresenter(
   return { id: ((await res.json()) as { presenter: { id: string } }).presenter.id, name };
 }
 
-/** Local access as a Mac on a home Wi-Fi shows it, with a made-up address and code and an iPhone just in. */
-export async function stubLocalAccess(page: Page, at: number): Promise<void> {
-  const address = `http://${FAKE_IP}:4747`;
-  const phone = {
-    reach: 'network',
-    thisComputer: true,
-    platform: 'darwin',
-    address,
-    url: `${address}/?t=${FAKE_CODE[1]}`,
-    code: FAKE_CODE[1],
-    others: [],
-    problem: null,
-    lastVisit: { at, device: 'iPhone' },
-  };
-  await page.route(/\/api\/phone(\?.*)?$/, (r) => r.fulfill({ json: phone }));
-  await page.route(/\/api\/phone\/help$/, (r) => r.fulfill({ json: { firewall: 'ok' } }));
-  await page.route(/\/api\/desktop$/, (r) =>
-    r.fulfill({
-      json: { supported: true, platform: 'darwin', installed: true, path: null, declined: false, installKind: 'npm' },
-    }),
-  );
-}
-
 /**
  * Codex set up and ready, as a Mac with Codex CLI installed and signed in shows it. The capture's
  * Scenri never runs Codex, so both status answers are stubbed: the providers list is the server's
