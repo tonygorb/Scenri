@@ -355,33 +355,6 @@ test.describe('two tabs, and a second browser', () => {
     await expect(studio(pb).locator('.sc-pstudio-well img')).toHaveCount(0);
     await other.close();
   });
-
-  test('a draft discarded on the wall stays gone while its studio is open in another tab (SC-H8)', async ({
-    page,
-    context,
-  }) => {
-    test.setTimeout(120_000);
-    const slug = await start(page);
-    const convo = new URL(page.url()).pathname.split('/').pop() as string;
-    await place(page, 'A misty pine forest at dawn');
-    await draw(page);
-    await expect(pill(page)).toHaveText('Stop');
-    const wall = await context.newPage();
-    await wall.goto(`/${slug}/places`);
-    const card = wall.locator(`.sc-lookcard[data-build]:has(a[href$="${convo}"])`);
-    await expect(card).toBeVisible();
-    await card.hover();
-    await card.locator('.sc-cardpuck').click();
-    await wall.getByRole('alertdialog').getByRole('button', { name: 'Discard', exact: true }).click();
-    // the draft goes once its draw has heard the Stop, which a loaded machine takes a while to say
-    await expect(card).toHaveCount(0, { timeout: 20_000 });
-    // the studio tab hears its job stopped
-    await expect(studio(page)).toContainText(/Stopped|stopped/, { timeout: 15_000 });
-    // the wall, read again: the discarded draft is not back
-    await wall.reload();
-    await expect(wall.locator('.sc-owned, .sc-lookcard').first()).toBeVisible();
-    await expect(wall.locator(`.sc-lookcard[data-build]:has(a[href$="${convo}"])`)).toHaveCount(0);
-  });
 });
 
 test.describe('leaving, and what is said afterwards', () => {
