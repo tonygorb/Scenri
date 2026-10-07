@@ -1,6 +1,8 @@
 import {
   ArrowCircleUp,
+  BookOpen,
   GithubLogo,
+  Globe,
   GraduationCap,
   HandWaving,
   Info,
@@ -23,6 +25,9 @@ import { P, whatsNewPath } from '../routes.js';
 import { Tip } from './Tip.js';
 
 const GITHUB = 'https://github.com/tonygorb/scenri';
+/** The site, and the guides on it: the same docs as the repo's, kept current. */
+const SITE = 'https://scenri.co';
+const DOCS = 'https://scenri.co/docs';
 
 /**
  * Help, in one place (DESIGN.md, "First use"): Learn, every lesson there is
@@ -146,6 +151,18 @@ export function HelpMenu() {
           <DropdownMenu.Item className="sc-menu-item" onSelect={() => openSettings('about')}>
             <Info size={18} className="sc-menu-ic" />
             <span className="sc-menu-lb">About Scenri</span>
+          </DropdownMenu.Item>
+          <DropdownMenu.Item className="sc-menu-item" asChild>
+            <a href={DOCS} target="_blank" rel="noopener noreferrer">
+              <BookOpen size={18} className="sc-menu-ic" />
+              <span className="sc-menu-lb">Docs</span>
+            </a>
+          </DropdownMenu.Item>
+          <DropdownMenu.Item className="sc-menu-item" asChild>
+            <a href={SITE} target="_blank" rel="noopener noreferrer">
+              <Globe size={18} className="sc-menu-ic" />
+              <span className="sc-menu-lb">scenri.co</span>
+            </a>
           </DropdownMenu.Item>
           <DropdownMenu.Item className="sc-menu-item" asChild>
             <a href={GITHUB} target="_blank" rel="noopener noreferrer">

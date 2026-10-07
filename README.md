@@ -9,6 +9,8 @@
 **The open-source AI photo studio that remembers your products, people and places.**<br>
 Save a brand's products from real photos, the people in its shots and its places once. Then each shot is one line, and every shot keeps its recipe, so you can refine it or make the next one match. It runs on your own computer and sends your pictures to the image model you already use.
 
+**[scenri.co](https://scenri.co)** · [Docs](https://scenri.co/docs)
+
 [![CI](https://github.com/tonygorb/scenri/actions/workflows/ci.yml/badge.svg)](https://github.com/tonygorb/scenri/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/scenri)](https://www.npmjs.com/package/scenri)
 [![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0-blue)](https://github.com/tonygorb/scenri/blob/main/LICENSE)

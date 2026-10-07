@@ -35,6 +35,10 @@ export function About({ version }: { version: VersionInfo | null }) {
           <b>Open source</b>
           <small>
             Built by Tony Gorb ·{' '}
+            <a href="https://scenri.co" target="_blank" rel="noreferrer">
+              scenri.co
+            </a>{' '}
+            ·{' '}
             <a href="https://github.com/tonygorb/scenri" target="_blank" rel="noreferrer">
               GitHub
             </a>
