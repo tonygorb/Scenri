@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.22.0](https://github.com/tonygorb/Scenri/compare/v0.21.2...v0.22.0) (2026-10-07)
+
+
+### Features
+
+* People and Places replace Presenters and Scenes ([6423c40](https://github.com/tonygorb/Scenri/commit/6423c40f3b19ff5e02b2fc780edbba13a0f17f92))
+* People and Places replace Presenters and Scenes in the studio ([593071a](https://github.com/tonygorb/Scenri/commit/593071a909ea4b8210e5ae9de426452454d24711))
+* Scenri points to scenri.co and its docs ([7ad12c5](https://github.com/tonygorb/Scenri/commit/7ad12c5379906adef0223fb8f0dfe8ccda76d1e0))
+* Scenri points to scenri.co and its docs ([a8b2e61](https://github.com/tonygorb/Scenri/commit/a8b2e6130905ad3c9f5316e63d6d43e802dc34f1))
+
 ## [0.21.2](https://github.com/tonygorb/Scenri/compare/v0.21.1...v0.21.2) (2026-10-05)
 
 
