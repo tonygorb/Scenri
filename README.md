@@ -1,9 +1,11 @@
 <div align="center">
 
+<a href="https://scenri.co">
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/logo-on-dark.svg">
   <img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/logo-on-light.svg" alt="Scenri" width="200">
 </picture>
+</a>
 <br><br>
 
 **The open-source AI photo studio that remembers your products, people and places.**<br>
@@ -17,13 +19,13 @@ Save a brand's products from real photos, the people in its shots and its places
 
 **Get started.** You need [Node.js](https://nodejs.org) 22 or newer, and a paid ChatGPT plan (used through Codex CLI, which Scenri sets up for you) or an [OpenRouter](https://openrouter.ai) API key to make pictures. Scenri itself has no account and no fees.
 
-<sub>If `npm --version` prints 12, run `npm config set allow-scripts=better-sqlite3 --location=user` once first ([why](https://github.com/tonygorb/scenri/blob/main/docs/TROUBLESHOOTING.md)). Then:</sub>
+<sub>If `npm --version` prints 12, run `npm config set allow-scripts=better-sqlite3 --location=user` once first ([why](https://scenri.co/docs/troubleshooting/)). Then:</sub>
 
 ```bash
 npx scenri
 ```
 
-<sub>The first start downloads the Scenri library of example imagery, about 155 MB. New to any of this? The [install guide](https://github.com/tonygorb/scenri/blob/main/docs/INSTALL.md) walks through every step.</sub>
+<sub>The first start downloads the Scenri library of example imagery, about 155 MB. New to any of this? The [install guide](https://scenri.co/docs/install/) walks through every step.</sub>
 
 <img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/demo.gif" alt="Scenri's Create page: in the composer a dollar sign picks the product Cropped Puffer, an at sign picks the person Kwame, a slash picks the place Container Blue, and a line of written direction follows the three chips. Generate turns a new card into a dithered swirl where the picture is being made, the swirl develops into a man in an orange puffer jacket leaning on a cobalt shipping container, and the shot opens beside the prompt that made it" width="820">
 
@@ -45,7 +47,7 @@ Scenri trains nothing. It sends your saved photos with each shot as reference im
 
 It runs as a local server on your own computer. Your brands, your images, and your keys stay on your disk. To use it from a phone or tablet on the same Wi-Fi, open Settings, Local access, and scan the QR code.
 
-The words Scenri uses are defined once in [Concepts](https://github.com/tonygorb/scenri/blob/main/docs/CONCEPTS.md), and the questions people ask first, from LoRAs to cost, are answered in the [FAQ](https://github.com/tonygorb/scenri/blob/main/docs/FAQ.md).
+The words Scenri uses are defined once in [Concepts](https://scenri.co/docs/concepts/), and the questions people ask first, from LoRAs to cost, are answered in the [FAQ](https://scenri.co/docs/faq/).
 
 ## What a prompt produces
 
@@ -73,7 +75,7 @@ Node.js 22 or newer, then:
 npx scenri
 ```
 
-The [install guide](https://github.com/tonygorb/scenri/blob/main/docs/INSTALL.md) covers macOS, Windows, and Linux, including the desktop icon and the PowerShell case. The [quick start](https://github.com/tonygorb/scenri/blob/main/docs/QUICKSTART.md) is the shortest path to one Shot. Generation is a separate step: [connect Codex or a provider key](https://github.com/tonygorb/scenri/blob/main/docs/CONNECT.md). If `npm --version` prints 12, see [troubleshooting](https://github.com/tonygorb/scenri/blob/main/docs/TROUBLESHOOTING.md) before the first run.
+The [install guide](https://scenri.co/docs/install/) covers macOS, Windows, and Linux, including the desktop icon and the PowerShell case. The [quick start](https://scenri.co/docs/quick-start/) is the shortest path to one Shot. Generation is a separate step: [connect Codex or a provider key](https://scenri.co/docs/connect/). If `npm --version` prints 12, see [troubleshooting](https://scenri.co/docs/troubleshooting/) before the first run.
 
 <details>
 <summary>Run from source</summary>
@@ -95,7 +97,7 @@ pnpm dev          # starts the server on 127.0.0.1:4747
 - **Your AI, your cost.** Bring your own ChatGPT plan through Codex CLI, or an API key. You pay the provider directly, at its own price. Scenri sells no credits and adds no markup.
 - **Local first, and it means it.** No account, no telemetry, nothing uploaded to us. Scenri runs on this computer, and answers other devices on your own network only when they bring its six-digit code (Settings, Local access). It makes exactly two requests on its own behalf: a version-number check against npm every six hours so updates can announce themselves (and, when one is found, the download of that release from npm, staged locally until you choose to restart), and the download of the library imagery archive from GitHub, once for each library version a release pins. Nothing about you or your work is sent in either, and both turn off: in Settings or `SCENRI_NO_UPDATE_CHECK=1` for the first, `SCENRI_NO_CONTENT_FETCH=1` for the second ([how updates work](https://github.com/tonygorb/scenri/blob/main/docs/updates.md), [what goes where](https://github.com/tonygorb/scenri/blob/main/PRIVACY.md)).
 
-Providers, costs, and what each one can carry are in [Connect image generation](https://github.com/tonygorb/scenri/blob/main/docs/CONNECT.md).
+Providers, costs, and what each one can carry are in [Connect image generation](https://scenri.co/docs/connect/).
 
 ## Configuration
 
