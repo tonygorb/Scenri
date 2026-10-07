@@ -57,6 +57,8 @@ describe('argv dispatcher', () => {
     const t = helpText();
     for (const cmd of ['serve', 'update', '--check', '--version', '--help']) expect(t).toContain(cmd);
     expect(t).not.toContain('verify');
+    // where to read more: the guides on the site
+    expect(t).toContain('https://scenri.co/docs');
   });
 });
 

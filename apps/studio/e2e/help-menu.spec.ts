@@ -35,11 +35,19 @@ test('nothing guides on its own; the ? sits in the corner and gathers the help',
     ...(FIRST_USE ? ['Learn', 'Welcome to Scenri'] : []),
     "What's new",
     'About Scenri',
+    'Docs',
+    'scenri.co',
     'Scenri on GitHub',
   ]);
-  const github = page.getByRole('menuitem', { name: 'Scenri on GitHub' });
-  await expect(github).toHaveAttribute('href', 'https://github.com/tonygorb/scenri');
-  await expect(github).toHaveAttribute('target', '_blank');
+  for (const [name, href] of [
+    ['Docs', 'https://scenri.co/docs'],
+    ['scenri.co', 'https://scenri.co'],
+    ['Scenri on GitHub', 'https://github.com/tonygorb/scenri'],
+  ]) {
+    const link = page.getByRole('menuitem', { name, exact: true });
+    await expect(link).toHaveAttribute('href', href);
+    await expect(link).toHaveAttribute('target', '_blank');
+  }
 
   await page.getByRole('menuitem', { name: 'About Scenri' }).click();
   await expect(page).toHaveURL(/settings=about/);
