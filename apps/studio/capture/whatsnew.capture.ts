@@ -160,6 +160,77 @@ const cardPadding = (what: Locator, side: 'bottom' | 'left') =>
 /** A block's own padding on its left, CSS px: how far the page keeps words from its edge. */
 const paddingOf = (l: Locator) => l.evaluate((el) => Number.parseFloat(getComputedStyle(el).paddingLeft));
 
+test('0.22.0-people-places', async ({ page, request }) => {
+  // isolated, by Tony's direction (2026-10-07): the two kinds the update renames, as two of the
+  // prompt's own chips side by side, each with a real catalog picture, the name the app now gives
+  // the kind, and the caret the site's chips carry to say they open (Phosphor caretDown, 0.6em, the
+  // muted ink). Built in the prompt line from the app's own chip, the way the site shows them,
+  // rather than a state the prompt reaches by itself: a chip there carries a thing's name.
+  const { slug } = await brand(request);
+  const json = async (path: string) => (await request.get(path)).json();
+  // the tracked 4:5 portrait card (the square avatar ships in the downloaded library), framed the
+  // way the chip frames a card: crop=top
+  const person = (await json('/api/presenters')).presenters.find((p: { id: string }) => p.id === 'amara')
+    .previewUrl as string;
+  const place = (await json('/api/scenes')).scenes.find((s: { id: string }) => s.id === 'balloon-knot')
+    .previewUrl as string;
+  await page.setViewportSize(WINDOW);
+  await prep(page, 'dark');
+  await page.goto(`/${slug}/create`);
+  const card = page.locator('.sc-canvas-dock .sc-promptcard');
+  await expect(card).toBeVisible();
+  const line = card.locator('.sc-brief-line');
+  await expect(line).toHaveText('');
+  await liftPrompt(card);
+  await line.evaluate(
+    (el, chips) => {
+      el.replaceChildren();
+      const caret =
+        'M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z';
+      chips.forEach(([kind, src, label], i) => {
+        if (i) el.append(' ');
+        const chip = document.createElement('span');
+        chip.className = 'sc-token';
+        chip.dir = 'ltr';
+        chip.dataset.kind = kind;
+        chip.dataset.capture = '';
+        const img = document.createElement('img');
+        img.src = src;
+        img.alt = '';
+        if (kind === 'character') img.dataset.crop = 'top';
+        const text = document.createElement('span');
+        text.className = 'sc-token-label';
+        text.textContent = label;
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('viewBox', '0 0 256 256');
+        svg.setAttribute('aria-hidden', 'true');
+        svg.style.cssText = 'width: 0.6em; height: 0.6em; flex: none; fill: var(--sc-fg3);';
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', caret);
+        svg.append(path);
+        chip.append(img, text, svg);
+        el.append(chip);
+      });
+      // the chips are sized in em, so the line's type size scales both as one: uniform scaling,
+      // large enough to read in the dialog
+      const line = el as HTMLElement;
+      line.style.fontSize = `${Number.parseFloat(getComputedStyle(line).fontSize) * 2}px`;
+      line.blur();
+    },
+    [
+      ['character', person, 'People'],
+      ['template', place, 'Places'],
+    ],
+  );
+  const chips = line.locator('.sc-token[data-capture]');
+  await expect(chips).toHaveText(['People', 'Places']);
+  for (const img of await chips.locator('img').all()) {
+    await expect.poll(() => img.evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth > 0)).toBe(true);
+  }
+  await page.mouse.move(1, WINDOW.height - 1);
+  await shootIsolated(page, '0.22.0-people-places', await chips.all(), { posed: true });
+});
+
 test('0.20.0-made-in-place', async ({ page, request }) => {
   // isolated: Create's newest batch, two shots from one prompt: the first has landed, and the
   // second is still being made, a swirl in the place its picture will land, with its clock and

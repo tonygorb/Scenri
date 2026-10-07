@@ -113,6 +113,10 @@ export const RELEASES: ReleaseEntry[] = [
       {
         heading: 'People',
         body: 'Presenters are called People now. Everyone you made is where you left them, with the same face, and a link to an old Presenters page still opens.',
+        image: {
+          file: '0.22.0-people-places.webp',
+          alt: 'Two chips side by side, People and Places, each with its picture and a caret to open it.',
+        },
       },
       {
         heading: 'Places',
