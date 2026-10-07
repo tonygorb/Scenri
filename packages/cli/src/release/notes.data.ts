@@ -122,6 +122,10 @@ export const RELEASES: ReleaseEntry[] = [
         heading: 'Places',
         body: "Scenes are called Places now, with the same pictures and light. A place's empty picture is called Empty, and old links to Scenes still open.",
       },
+      {
+        heading: 'Help',
+        body: "The Help menu now opens Scenri's website and the guides on it.",
+      },
     ],
   },
   {
