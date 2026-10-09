@@ -105,6 +105,17 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.22.1',
+    date: '2026-10-10',
+    title: 'The image library and the upload reader are patched',
+    sections: [
+      {
+        heading: 'Security',
+        body: 'The image library Scenri resizes pictures with and the reader that takes in uploaded files are on their patched releases, for two published advisories. Nothing about how Scenri works changes.',
+      },
+    ],
+  },
+  {
     version: '0.22.0',
     date: '2026-10-07',
     title: 'Presenters are now People, and Scenes are now Places',
