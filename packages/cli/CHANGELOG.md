@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.22.1](https://github.com/tonygorb/Scenri/compare/v0.22.0...v0.22.1) (2026-10-09)
+
+
+### Bug Fixes
+
+* patch sharp, the multipart reader and source-map-js against three advisories ([6bebbdd](https://github.com/tonygorb/Scenri/commit/6bebbdd477dd76f56b7346f840ba4bc3d19a3dd9))
+* patch sharp, the multipart reader and source-map-js against three advisories ([0786e5c](https://github.com/tonygorb/Scenri/commit/0786e5cfceb534f642133ecb9085811b72b62582))
+
 ## [0.22.0](https://github.com/tonygorb/Scenri/compare/v0.21.2...v0.22.0) (2026-10-07)
 
 
