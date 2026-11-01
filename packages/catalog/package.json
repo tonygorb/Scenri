@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@scenri/brand": "workspace:*",
-    "node-html-parser": "^9.0.1"
+    "node-html-parser": "^9.0.6"
   },
   "private": true
 }
