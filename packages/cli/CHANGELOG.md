@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.22.2](https://github.com/tonygorb/Scenri/compare/v0.22.1...v0.22.2) (2026-11-02)
+
+
+### Bug Fixes
+
+* **deps:** lift glob and minimatch past their advisories ([92ecff4](https://github.com/tonygorb/Scenri/commit/92ecff44159dc21488ca26355982deadd213593b))
+* **deps:** lift glob and minimatch past their advisories ([781cd20](https://github.com/tonygorb/Scenri/commit/781cd2081f0e5c25b97706589d865c6e7a0f12dc))
+* **deps:** patch vulnerable dependencies ([f05b04b](https://github.com/tonygorb/Scenri/commit/f05b04b807c532a68abc487de56bf075c4c9f26c))
+* **deps:** patch vulnerable dependencies ([40c9a86](https://github.com/tonygorb/Scenri/commit/40c9a869030d7eb49aff5536b1b5747025006be1))
+
 ## [0.22.1](https://github.com/tonygorb/Scenri/compare/v0.22.0...v0.22.1) (2026-10-09)
 
 
