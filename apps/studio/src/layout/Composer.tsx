@@ -365,7 +365,6 @@ export const Composer = forwardRef<
   const [uploading, setUploading] = useState(false);
   const [moreOpen, setMoreOpenState] = useState(false);
   const setMoreOpen = (next: boolean) => setMoreOpenState(next);
-  const settingsPills = useMediaQuery('(hover: hover) and (min-width: 1024px)');
   const settingsSheet = useMediaQuery('(max-width: 767px)');
   const briefRef = useRef<BriefInputHandle>(null);
   const attachRef = useRef<HTMLButtonElement>(null);

@@ -292,7 +292,7 @@ describe('the two draws', () => {
     const edits: unknown[] = [];
     const engine = {
       capabilities: () => ({ id: 'fake', imageConcurrency: 1 }),
-      generate: async (req: any, signal?: AbortSignal, onImage?: (slot: number, hash: string) => void) => {
+      generate: async (_req: any, signal?: AbortSignal, onImage?: (slot: number, hash: string) => void) => {
         // the first plate lands, then the person presses Stop before the rest
         onImage?.(0, core.images.save(Buffer.from('plate-0')));
         ctrl.abort();

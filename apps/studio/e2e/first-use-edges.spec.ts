@@ -14,7 +14,6 @@ import {
   readTheOpening,
   setUpBrand,
   learnButton,
-  learnDialog,
   lessonRow,
   welcome,
 } from './firstUse.js';

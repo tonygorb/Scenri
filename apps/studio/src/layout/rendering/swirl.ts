@@ -18,7 +18,7 @@ const SCREEN = 8;
 const CAP = 0.55;
 const TAU = Math.PI * 2;
 
-const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
+const clamp01 = (x: number) => (x < 0 ? 0 : Math.min(x, 1));
 const fract = (x: number) => x - Math.floor(x);
 /** From rest to rest (smoothstep, 3x² - 2x³): no speed at either end, most halfway. */
 const ease = (x: number) => {

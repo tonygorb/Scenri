@@ -124,8 +124,7 @@ export const PAGE_OF: Record<Pane, Page> = {
  */
 export const SETTINGS_INDEX = 'index';
 
-const isPane = (value: string | null): value is Pane =>
-  value !== null && Object.prototype.hasOwnProperty.call(PAGE_OF, value);
+const isPane = (value: string | null): value is Pane => value !== null && Object.hasOwn(PAGE_OF, value);
 
 export const pageOf = (value: string | null): Page => (isPane(value) ? PAGE_OF[value] : 'brand');
 

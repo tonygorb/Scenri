@@ -37,7 +37,7 @@ import { join } from 'node:path';
 import sharp from 'sharp';
 import { createCodexEngine } from '@scenri/engine-codex';
 import type { ReferenceRole } from '@scenri/core';
-import { planExpand, expandInstruction, reframeInstruction, continueInstruction } from '../src/expandRules.js';
+import { planExpand, expandInstruction, reframeInstruction } from '../src/expandRules.js';
 import { placeExpand, subjectFraction } from '../src/outpaint/place.js';
 import { conditioningCanvas, type MarginFill } from '../src/outpaint/conditioning.js';
 import { centralFidelity, centralRegion } from '../src/outpaint/fidelity.js';

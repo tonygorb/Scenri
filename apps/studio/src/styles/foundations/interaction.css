@@ -15,31 +15,31 @@
    can never ring on a click. Places to type are the exception: a field shows
    where the caret is whichever hand put it there. */
 :where(:root:not([data-input="pointer"]))
-:where(
-  button,
-  [role="button"],
-  [role="tab"],
-  [role="option"],
-  [role="radio"],
-  [role="checkbox"],
-  [role="menuitem"],
-  [role="combobox"]:not(input, [contenteditable]),
-  a[href],
-  summary,
-  select,
-  input:is(
-    [type="button"],
-    [type="checkbox"],
-    [type="radio"],
-    [type="range"],
-    [type="color"],
-    [type="file"],
-    [type="submit"],
-    [type="reset"],
-    [type="image"]
-  ),
-  [tabindex]:not([role="textbox"], [contenteditable], input, textarea)
-):focus-visible,
+  :where(
+    button,
+    [role="button"],
+    [role="tab"],
+    [role="option"],
+    [role="radio"],
+    [role="checkbox"],
+    [role="menuitem"],
+    [role="combobox"]:not(input, [contenteditable]),
+    a[href],
+    summary,
+    select,
+    input:is(
+      [type="button"],
+      [type="checkbox"],
+      [type="radio"],
+      [type="range"],
+      [type="color"],
+      [type="file"],
+      [type="submit"],
+      [type="reset"],
+      [type="image"]
+    ),
+    [tabindex]:not([role="textbox"], [contenteditable], input, textarea)
+  ):focus-visible,
 :where(
   [role="textbox"],
   [contenteditable]:not([contenteditable="false"]),
@@ -62,20 +62,20 @@
 /* After a click, nothing wears the browser's own ring either, Radix Themes'
    buttons and selects included. */
 :where([data-input="pointer"])
-:where(
-  button,
-  [role="button"],
-  [role="tab"],
-  [role="option"],
-  [role="radio"],
-  [role="checkbox"],
-  [role="menuitem"],
-  [role="combobox"]:not(input, [contenteditable]),
-  a[href],
-  summary,
-  select,
-  [tabindex]:not([role="textbox"], [contenteditable], input, textarea)
-):focus-visible,
+  :where(
+    button,
+    [role="button"],
+    [role="tab"],
+    [role="option"],
+    [role="radio"],
+    [role="checkbox"],
+    [role="menuitem"],
+    [role="combobox"]:not(input, [contenteditable]),
+    a[href],
+    summary,
+    select,
+    [tabindex]:not([role="textbox"], [contenteditable], input, textarea)
+  ):focus-visible,
 :where([data-input="pointer"]) :is(.rt-BaseButton, .rt-SelectTrigger):focus-visible {
   outline: none;
 }

@@ -42,7 +42,6 @@ import type {
   SceneExampleRole,
   ScenePatch,
   SceneReading,
-  SceneSetup,
   SceneStudioJob,
   SceneStudioJobKind,
   StudioWork,

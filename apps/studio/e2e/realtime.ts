@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext, type Page, test } from '@playwright/test';
+import { expect, type APIRequestContext, type Page } from '@playwright/test';
 
 /**
  * Shared by the realtime specs: a mutation reaches every surface in the same

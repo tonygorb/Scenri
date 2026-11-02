@@ -300,7 +300,7 @@ export function useSceneFlow(args: {
   /** Which picture of the set is on the stage: the one pressed, else the newest. */
   const [picked, setPicked] = useState<string | null>(null);
   // A new version is judged by its own hero first, not by whatever was pressed on the last one.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the version is what resets it
+  // deliberate dependency list: the version is what resets it
   useEffect(() => setPicked(null), [studio.current]);
 
   // The place as the setup gives it, handed to the work once the setup is whole,

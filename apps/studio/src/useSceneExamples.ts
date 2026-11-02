@@ -38,7 +38,7 @@ export function useSceneExamples(brandId: string, sceneId: string | null, place:
   const refreshRef = useRef(refreshBrands);
   refreshRef.current = refreshBrands;
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the place picture and `asked` are the triggers, read on purpose
+  // deliberate dependency list: the place picture and `asked` are the triggers, read on purpose
   useEffect(() => {
     if (!sceneId) return;
     let alive = true;

@@ -101,7 +101,7 @@ export function useShotPages(brandId: string, query: string, enabled = true): Sh
     const t = setTimeout(() => void fetchPage(null), delay);
     return () => clearTimeout(t);
     // held.key is read for the delay only; a new key is what should refetch
-    // biome-ignore lint/correctness/useExhaustiveDependencies: see above
+    // deliberate dependency list: see above
   }, [fetchPage, enabled]);
 
   useEffect(() => () => inflight.current?.abort(), []);

@@ -42,7 +42,6 @@ import {
 } from './assetRecords.js';
 import { draw, presenterCrops, trimEdgeBars, type AssetBuildDeps } from './customAssets.js';
 import {
-  ATTACHED_PERSON,
   CORE_VIEWS,
   DEPENDS,
   HAND_APPROVED,
@@ -499,7 +498,7 @@ function beginRun(deps: AssetBuildDeps, id: string, view: PresenterView | null, 
 
 function endRun(deps: AssetBuildDeps, id: string, view: PresenterView | null, aborted: boolean): void {
   const run = runs.get(id);
-  if (!run || run.status !== 'running') return;
+  if (run?.status !== 'running') return;
   const rec = getPresenterDraft(deps.core, id);
   const own = view ? rec?.views[view].error : rec?.readError;
   const error = own && own !== 'cancelled' ? own : run.error;
@@ -1160,7 +1159,7 @@ export async function generateView(
   for (const dep of DEPENDS[view]) {
     if (rec.views[dep].status !== 'approved') throw fail(`approve the ${VIEW_LABEL[dep]} first`, 400);
   }
-  if (!engine || !engine.capabilities().maxReferenceImages) throw fail('no engine here can draw a person', 400);
+  if (!engine?.capabilities().maxReferenceImages) throw fail('no engine here can draw a person', 400);
   const adjustment = str(opts.adjustment, TYPED_TEXT_MAX) || undefined;
   const decide = opts.decide === 'auto' ? 'auto' : undefined;
   const before = rec.views[view].status;

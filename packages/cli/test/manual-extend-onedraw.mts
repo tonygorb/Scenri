@@ -22,7 +22,6 @@ import { placeExpand, subjectFraction } from '../src/outpaint/place.js';
 import { compositeExpand } from '../src/expand.js';
 import { seamScore } from '../src/seamScore.js';
 import { seamPenalty, seamResidual } from '../src/outpaint/score.js';
-import { centralFidelity } from '../src/outpaint/fidelity.js';
 
 const HOME = process.env.SCENRI_HOME || join(homedir(), '.scenri');
 const OUT = process.env.BATTERY_OUT || join(homedir(), 'scenri-batteries', 'extend-2026-08-26');
