@@ -184,7 +184,7 @@ describe('refreshLauncher', () => {
 
   it('rewrites a Windows shortcut when its node is gone', async () => {
     const d = deps({ platform: 'win32', execPath: join(root, 'bin', 'node') });
-    d.runImpl = async (_cmd, args, opts) => {
+    d.runImpl = async (_cmd, _args, opts) => {
       d.calls.push({ env: (opts?.env ?? {}) as Record<string, string> });
       if (opts?.env?.SCENRI_TARGET) writeFileSync(opts.env.SCENRI_LNK as string, 'lnk');
       return '';

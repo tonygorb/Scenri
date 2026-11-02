@@ -107,7 +107,7 @@ export function scanRetryable(outcome: ScanOutcome): boolean {
 
 /** Whether there is a catalog worth offering to import. */
 export function hasCatalog(scan: CommerceScan | null): boolean {
-  if (!scan || scan.verdict !== 'found') return false;
+  if (scan?.verdict !== 'found') return false;
   // Either way of knowing what is in the shop counts. `candidates` are read
   // from product pages, one request each, and a store with a bulk listing has
   // none of them - it hands its whole catalogue over at once as `cards`

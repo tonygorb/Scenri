@@ -348,6 +348,7 @@ function shapeEdit(
   // what was said at the open question stays with it only while nothing has been recorded since
   const edge = [...asks, ...(d.results ?? []), ...(d.decisions ?? [])]
     .map((x) => x.at)
+    // biome-ignore lint/complexity/useMathMinMax: the timestamps are ISO strings, which Math.max cannot compare
     .reduce((m, at) => (at > m ? at : m), '');
   const chatter = asides.filter((a) => !placed.has(a) && (a.q !== openId || a.at <= edge));
   for (const a of chatter) placed.add(a);

@@ -83,7 +83,7 @@ export function outcomeFor(code: CodexFailureCode): ConnectOutcome {
  */
 export function availabilityFrom(shallow: EngineAvailability, conn: CodexConnection | null): EngineAvailability {
   if (!shallow.ok) return shallow;
-  if (!conn || conn.outcome !== 'refused' || !conn.failure) return shallow;
+  if (conn?.outcome !== 'refused' || !conn.failure) return shallow;
   const { code, reason } = conn.failure;
   switch (code) {
     case 'CODEX_AUTH_CONFLICT':

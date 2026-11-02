@@ -42,7 +42,7 @@
   // fragment does not survive open(1) or Start-Process. The fragment is the
   // fallback for a page opened by hand.
   var meta = document.querySelector('meta[name="scenri-studio"]');
-  var target = (meta && meta.getAttribute('content')) || location.hash.slice(1);
+  var target = (meta?.getAttribute('content')) || location.hash.slice(1);
   var ok = /^http:\/\/(127\.0\.0\.1|localhost):\d{2,5}\/$/.test(target);
   var title = document.getElementById('title');
   var text = document.getElementById('text');
@@ -68,9 +68,9 @@
     // from a local page.
     var img = new Image();
     img.onload = go;
-    img.src = target + 'favicon.ico?' + Date.now();
+    img.src = `${target}favicon.ico?${Date.now()}`;
     if (window.fetch) {
-      fetch(target + 'api/version', { mode: 'no-cors', cache: 'no-store' }).then(go, () => {});
+      fetch(`${target}api/version`, { mode: 'no-cors', cache: 'no-store' }).then(go, () => {});
     }
     setTimeout(probe, failed ? 2000 : 500);
   }

@@ -104,6 +104,7 @@ export function filedLine(d: DraftLike): string {
 export function recordEdge(d: DraftLike | null): string {
   if (!d) return '';
   const ats = [...(d.asks ?? []), ...(d.results ?? []), ...(d.decisions ?? [])].map((x) => x.at);
+  // biome-ignore lint/complexity/useMathMinMax: the timestamps are ISO strings, which Math.max cannot compare
   return ats.length ? ats.reduce((m, at) => (at > m ? at : m)) : '';
 }
 

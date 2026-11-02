@@ -231,22 +231,6 @@ function watchSeen(page: Page): string[] {
   return posted;
 }
 
-/**
- * Open the dialog by address the way the app itself does (useDialogParam's
- * open): a new entry in this page's history, not a new page load, so Back is a
- * way out of it rather than a reload.
- */
-async function openByAddress(page: Page, value: string): Promise<void> {
-  await page.evaluate((v) => {
-    const u = new URL(window.location.href);
-    u.searchParams.set('whatsnew', v);
-    const was = (window.history.state ?? {}) as { idx?: number };
-    const state = { usr: null, key: `e2e${Date.now().toString(36)}`, idx: (was.idx ?? 0) + 1 };
-    window.history.pushState(state, '', u);
-    window.dispatchEvent(new PopStateEvent('popstate', { state }));
-  }, value);
-}
-
 const dialog = (p: Page) => p.locator('.sc-wn');
 /** The one update the dialog introduces: picture or artwork, when, headline, one link. */
 const excerpt = (p: Page) => dialog(p).locator('article.sc-wn-ex');

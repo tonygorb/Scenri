@@ -50,6 +50,7 @@ describe('the archive tag', () => {
 
   it('is the one the hydration script names', () => {
     const script = read('packages/cli/scripts/pull-content.mts');
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: the script's own source text is what is matched
     expect(script).toContain('gh release download ${CONTENT_TAG}');
     expect(script).not.toMatch(/content-(latest|v\d)/);
   });

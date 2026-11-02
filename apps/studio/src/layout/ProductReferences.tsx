@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowLineUp, CaretLeft, CaretRight, ImageSquare, Plus } from '@phosphor-icons/react';
 import { Spinner } from '@radix-ui/themes';
 import { useRefRail } from './useRefRail.js';

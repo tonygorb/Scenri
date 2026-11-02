@@ -55,7 +55,7 @@ const picker = (p: Page) => turn(p, 'q:shot');
 const cards = (p: Page) => picker(p).locator('.sc-convo-pick-grid > button');
 const field = (p: Page) => picker(p).getByRole('searchbox', { name: 'Find a shot' });
 const box = (p: Page) => picker(p).locator('.sc-convo-pick-scroll');
-const top = async (p: Page, l: ReturnType<typeof field>) => Math.round((await l.boundingBox())?.y ?? -1);
+const top = async (l: ReturnType<typeof field>) => Math.round((await l.boundingBox())?.y ?? -1);
 /** Where the field stands once the conversation has stopped arriving: the same two reads in a row. */
 async function standing(p: Page): Promise<number> {
   let last = -2;
@@ -64,7 +64,7 @@ async function standing(p: Page): Promise<number> {
     .poll(
       async () => {
         last = now;
-        now = await top(p, field(p));
+        now = await top(field(p));
         return now === last;
       },
       { intervals: [250] },
@@ -202,20 +202,20 @@ test('the shots scroll in a box of their own, the search narrows from its first 
       { timeout: 15_000 },
     )
     .toBeGreaterThan(first);
-  expect(await top(page, field(page))).toBe(at);
+  expect(await top(field(page))).toBe(at);
 
   // one letter narrows, at the start of a word: "h" is only the harbour's
   await field(page).fill('h');
   await expect(cards(page)).toHaveCount(1);
   await expect(picker(page).locator('.sc-convo-pick-empty')).toHaveCount(0);
-  expect(await top(page, field(page))).toBe(at);
+  expect(await top(field(page))).toBe(at);
   expect(Math.round((await box(page).boundingBox())?.height ?? 0)).toBe(tall);
 
   // nothing matches: said in the box, which keeps its height
   await field(page).fill('hzz');
   await expect(picker(page).locator('.sc-convo-pick-empty')).toHaveText('No shot matches "hzz".');
   await expect(cards(page)).toHaveCount(0);
-  expect(await top(page, field(page))).toBe(at);
+  expect(await top(field(page))).toBe(at);
   expect(Math.round((await box(page).boundingBox())?.height ?? 0)).toBe(tall);
 
   // cleared, the whole library again, with no card left behind from before
