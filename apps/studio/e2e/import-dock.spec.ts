@@ -45,11 +45,14 @@ test.beforeAll(async () => {
       return res.end('<urlset></urlset>');
     }
     if (path.endsWith('.png')) {
-      // Slow pictures, so the bar is caught mid-run.
+      // Slow pictures, so the bar is caught mid-run. 180 pictures at four at a
+      // time: 220 ms made a ten second run, which a slow CI runner outlived
+      // before it reached Stop, and the finished dialog's own Close button
+      // then made the Close lookup ambiguous. 700 ms keeps it near thirty.
       return setTimeout(() => {
         res.writeHead(200, { 'content-type': 'image/png' });
         res.end(PNG);
-      }, 220);
+      }, 700);
     }
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
     res.end(
