@@ -225,6 +225,11 @@ jobs:
       - name: Test
         run: pnpm test
 
+      # High and critical advisories fail the run; moderate and low are left
+      # to Dependabot's security PRs so a new advisory does not block every PR.
+      - name: Dependency audit
+        run: pnpm audit --audit-level=high
+
   secrets:
     name: secret scan
     runs-on: ubuntu-24.04
